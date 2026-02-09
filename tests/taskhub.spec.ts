@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Task Hub - Auditoria Completa", () => {
+test.describe("NexIA Tasks - Auditoria Completa", () => {
 
   // ——— 1. TELA DE LOGIN ———
   test.describe("Login Screen", () => {
     test("deve carregar a tela de login", async ({ page }) => {
       await page.goto("/");
-      await page.waitForSelector("text=Task Hub", { timeout: 10000 });
-      await expect(page.locator("text=Task Hub")).toBeVisible();
+      await page.waitForSelector("text=NexIA Tasks", { timeout: 10000 });
+      await expect(page.locator("text=NexIA Tasks")).toBeVisible();
       await expect(page.locator("text=Faça login para continuar")).toBeVisible();
     });
 
@@ -31,7 +31,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
 
     test("deve ter toggle de tema na tela de login", async ({ page }) => {
       await page.goto("/");
-      await page.waitForSelector("text=Task Hub", { timeout: 10000 });
+      await page.waitForSelector("text=NexIA Tasks", { timeout: 10000 });
       // O botão de tema (☀️ ou 🌙) deve estar visível
       const themeBtn = page.locator("button").filter({ hasText: /☀️|🌙/ });
       await expect(themeBtn).toBeVisible();
@@ -52,7 +52,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
 
     test("deve fazer login como admin e ver o dashboard", async ({ page }) => {
       await expect(page.locator("text=Ana Paula")).toBeVisible();
-      await expect(page.locator("text=Task Hub")).toBeVisible();
+      await expect(page.locator("text=NexIA Tasks")).toBeVisible();
     });
 
     test("deve ver sidebar com projetos", async ({ page }) => {
@@ -238,7 +238,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
   test.describe("Theme", () => {
     test("deve alternar entre tema dark e light", async ({ page }) => {
       await page.goto("/");
-      await page.waitForSelector("text=Task Hub", { timeout: 10000 });
+      await page.waitForSelector("text=NexIA Tasks", { timeout: 10000 });
       // Clica no toggle de tema
       const themeBtn = page.locator("button").filter({ hasText: /☀️|🌙/ });
       await themeBtn.click();
@@ -256,7 +256,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
     page.on("pageerror", (err) => errors.push(err.message));
 
     await page.goto("/");
-    await page.waitForSelector("text=Task Hub", { timeout: 10000 });
+    await page.waitForSelector("text=NexIA Tasks", { timeout: 10000 });
 
     // Login
     await page.fill("input[placeholder='seu.usuario']", "anapaula");

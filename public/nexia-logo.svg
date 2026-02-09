@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 90" fill="none">
+  <!-- Icon: stylized checkmark/N -->
+  <g fill="#3B1370">
+    <!-- Left arrow/chevron going down -->
+    <path d="M4 28L22 10L40 28L22 46Z" transform="scale(1.1) translate(-2, 5)"/>
+    <!-- Right checkmark going up -->
+    <path d="M22 46L40 28L72 60L54 78Z" transform="scale(1.1) translate(-2, 5)"/>
+    <!-- Bottom curl of the N -->
+    <path d="M4 50L22 68L14 76L-4 58Z" transform="scale(1.1) translate(-2, 5)"/>
+  </g>
+  <!-- Text: NexIA Tasks -->
+  <text x="95" y="68" font-family="'Poppins', 'Segoe UI', Arial, sans-serif" font-size="56" font-weight="700" fill="#3B1370" letter-spacing="-1">
+    <tspan>Nex</tspan><tspan font-weight="800">IA</tspan><tspan> Tasks</tspan>
+  </text>
+</svg>

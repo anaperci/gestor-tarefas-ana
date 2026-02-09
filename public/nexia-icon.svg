@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <!-- NexIA Tasks icon: stylized N + checkmark -->
+  <g fill="#3B1370">
+    <!-- Left chevron down-arrow -->
+    <polygon points="8,30 24,14 40,30 24,46"/>
+    <!-- Checkmark going up-right -->
+    <polygon points="24,46 40,30 72,62 56,78"/>
+    <!-- Bottom-left tail -->
+    <polygon points="8,52 24,68 16,76 0,60"/>
+  </g>
+</svg>

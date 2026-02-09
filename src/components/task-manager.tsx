@@ -285,13 +285,8 @@ function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) 
           @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
         `}</style>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16, margin: "0 auto 16px",
-            background: "linear-gradient(135deg, #7B61FF, #579BFC)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 28, color: "#fff", boxShadow: "0 8px 24px rgba(123,97,255,0.3)"
-          }}>✦</div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: theme.text, letterSpacing: -0.5, margin: 0, fontFamily: "'Poppins', sans-serif" }}>Task Hub</h1>
+          <img src="/nexia-icon.svg" alt="NexIA Tasks" style={{ width: 56, height: 56, margin: "0 auto 16px", display: "block", filter: theme.scheme === "dark" ? "invert(1) brightness(2)" : "none" }} />
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: theme.text, letterSpacing: -0.5, margin: 0, fontFamily: "'Poppins', sans-serif" }}>NexIA <span style={{ fontWeight: 400 }}>Tasks</span></h1>
           <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>Faça login para continuar</p>
         </div>
 
@@ -1019,9 +1014,9 @@ export default function TaskManager() {
         <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${theme.border}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg, #7B61FF, #579BFC)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#fff" }}>✦</div>
+              <img src="/nexia-icon.svg" alt="NexIA Tasks" style={{ width: 34, height: 34, filter: mode === "dark" ? "invert(1) brightness(2)" : "none" }} />
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5, fontFamily: "'Poppins', sans-serif" }}>Task Hub</div>
+                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5, fontFamily: "'Poppins', sans-serif" }}>NexIA <span style={{ fontWeight: 400 }}>Tasks</span></div>
                 <div style={{ fontSize: 10, color: theme.textMuted, fontWeight: 500 }}>Gestor de Tarefas</div>
               </div>
             </div>
