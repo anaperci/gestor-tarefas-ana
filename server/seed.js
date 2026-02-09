@@ -16,6 +16,7 @@ function seed() {
   insertUser.run("user-1", "anapaula", "Ana Paula", hashPassword("padrao@890"), "admin", "👑");
   insertUser.run("user-2", "maria", "Maria Silva", hashPassword("maria123"), "editor", "🎨");
   insertUser.run("user-3", "joao", "João Santos", hashPassword("joao123"), "viewer", "👁️");
+  insertUser.run("user-4", "ariel", "Ariel", hashPassword("ariel@890"), "editor", "✏️");
 
   // Projects
   const insertProject = db.prepare(

@@ -71,6 +71,7 @@ interface Group {
 
 const DEMO_USERS: User[] = [
   { id: "user-1", username: "anapaula", name: "Ana Paula", passwordHash: hashPassword("padrao@890"), role: "admin", avatar: "👑" },
+  { id: "user-4", username: "ariel", name: "Ariel", passwordHash: hashPassword("ariel@890"), role: "editor", avatar: "✏️" },
 ];
 
 const ROLES: Record<string, { label: string; color: string; icon: string; desc: string }> = {
