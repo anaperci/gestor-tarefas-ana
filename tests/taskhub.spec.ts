@@ -79,8 +79,8 @@ test.describe("Task Hub - Auditoria Completa", () => {
     });
 
     test("deve ver tarefas na tabela", async ({ page }) => {
-      // Verifica que os cabeçalhos da tabela estão visíveis
-      await expect(page.getByText("Tarefa", { exact: true })).toBeVisible();
+      // Verifica que os cabeçalhos da tabela estão visíveis (cada grupo tem seu header)
+      await expect(page.getByText("Tarefa", { exact: true }).first()).toBeVisible();
       // Verifica que há pelo menos uma task-row visível
       await expect(page.locator(".task-row").first()).toBeVisible();
     });

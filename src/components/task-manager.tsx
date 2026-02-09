@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
 import { api } from "@/lib/api";
 
 // ——— Demo Data ———
@@ -61,6 +61,14 @@ interface Task {
   subtasks: Subtask[];
 }
 
+interface Group {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  tasks: Task[];
+}
+
 const DEMO_USERS: User[] = [
   { id: "user-1", username: "ana", name: "Ana (Admin)", passwordHash: hashPassword("admin123"), role: "admin", avatar: "👑" },
   { id: "user-2", username: "maria", name: "Maria Silva", passwordHash: hashPassword("maria123"), role: "editor", avatar: "🎨" },
@@ -95,6 +103,9 @@ const PRIORITY_OPTIONS = [
 ];
 
 const genId = () => Math.random().toString(36).slice(2, 10);
+
+const GRID_COLUMNS = "36px 1fr 130px 130px 110px 100px 60px 60px";
+const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 const INITIAL_TASKS: Task[] = [
   {
@@ -764,7 +775,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
 }
 
 // ——— Task Row ———
-function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, canEdit }: any) {
+function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand }: any) {
   const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
   const stDone = (task.subtasks || []).filter((s: Subtask) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
@@ -774,7 +785,7 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
     <div onClick={() => onOpen(task)} className="task-row"
       style={{
         display: "grid",
-        gridTemplateColumns: isSubtask ? "36px 1fr 130px 110px 60px" : "36px 1fr 130px 130px 110px 100px 60px 60px",
+        gridTemplateColumns: isSubtask ? GRID_COLUMNS_SUBTASK : GRID_COLUMNS,
         alignItems: "center", padding: isSubtask ? "6px 12px 6px 40px" : "10px 12px", gap: 8,
         borderBottom: `1px solid ${theme.border}`, cursor: "pointer", fontSize: 13,
         background: isSubtask ? theme.surfaceHover : "transparent", transition: "background 0.15s"
@@ -785,6 +796,12 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
       </button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+        {!isSubtask && stTotal > 0 && (
+          <button onClick={(e) => { e.stopPropagation(); onToggleExpand?.(task.id); }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: theme.textSecondary, fontSize: 10, padding: "2px 4px", borderRadius: 4, transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", flexShrink: 0 }}>
+            ▶
+          </button>
+        )}
         <span style={{ color: task.checked ? theme.textMuted : theme.text, fontWeight: 500, textDecoration: task.checked ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {isSubtask && <span style={{ color: theme.textMuted, marginRight: 6 }}>↳</span>}
           {task.title}
@@ -829,6 +846,78 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
   );
 }
 
+// ——— Group Header ———
+function GroupHeader({ group, collapsed, onToggle, taskCount, theme }: { group: Group; collapsed: boolean; onToggle: () => void; taskCount: number; theme: Theme }) {
+  return (
+    <div onClick={onToggle} style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+      borderLeft: `4px solid ${group.color}`, background: theme.surfaceHover,
+      cursor: "pointer", userSelect: "none", borderBottom: `1px solid ${theme.border}`
+    }}>
+      <span style={{ fontSize: 10, color: group.color, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", fontWeight: 700 }}>▶</span>
+      <span style={{ fontSize: 16 }}>{group.icon}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: group.color }}>{group.name}</span>
+      <span style={{ fontSize: 11, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
+    </div>
+  );
+}
+
+// ——— Inline Add Row ———
+function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string; theme: Theme; onAdd: (title: string, projectId: string) => void }) {
+  const [active, setActive] = useState(false);
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (active && inputRef.current) inputRef.current.focus();
+  }, [active]);
+
+  const submit = () => {
+    if (value.trim()) {
+      onAdd(value.trim(), groupProjectId);
+      setValue("");
+      setActive(false);
+    }
+  };
+
+  if (!active) {
+    return (
+      <div onClick={() => setActive(true)} style={{
+        display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 12px", gap: 8,
+        cursor: "pointer", borderBottom: `1px solid ${theme.border}`, opacity: 0.5,
+        transition: "opacity 0.15s", fontSize: 13, color: theme.textMuted
+      }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.5")}>
+        <div></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 14 }}>+</span> Adicionar tarefa
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 12px", gap: 8,
+      borderBottom: `1px solid ${theme.border}`, background: theme.surfaceHover
+    }}>
+      <div></div>
+      <div>
+        <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") { setValue(""); setActive(false); } }}
+          onBlur={() => { if (!value.trim()) setActive(false); }}
+          placeholder="Nome da tarefa..."
+          style={{
+            width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
+            borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13,
+            outline: "none", fontFamily: "'Figtree', sans-serif"
+          }} />
+      </div>
+    </div>
+  );
+}
+
 // ——— Main App ———
 export default function TaskManager() {
   const [mode, setMode] = useState(() => {
@@ -859,6 +948,8 @@ export default function TaskManager() {
   const [newProjectName, setNewProjectName] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showAdmin, setShowAdmin] = useState(false);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const isAdmin = currentUser?.role === "admin";
   const isEditor = currentUser?.role === "editor";
@@ -878,6 +969,40 @@ export default function TaskManager() {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const groups: Group[] = useMemo(() => {
+    if (activeProject !== "all") {
+      const proj = projects.find((p) => p.id === activeProject);
+      if (!proj) return [];
+      return [{ id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: filteredTasks }];
+    }
+    const groupMap = new Map<string, Group>();
+    filteredTasks.forEach((t) => {
+      const proj = projects.find((p) => p.id === t.projectId);
+      if (!proj) return;
+      if (!groupMap.has(proj.id)) {
+        groupMap.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [] });
+      }
+      groupMap.get(proj.id)!.tasks.push(t);
+    });
+    return Array.from(groupMap.values());
+  }, [filteredTasks, activeProject, projects]);
+
+  const toggleExpandTask = (taskId: string) => {
+    setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+      return next;
+    });
+  };
+
+  const toggleCollapseGroup = (groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
+      return next;
+    });
+  };
 
   const loadData = useCallback(async () => {
     if (!useApi) return;
@@ -917,6 +1042,15 @@ export default function TaskManager() {
     const nt: Task = { id: genId(), title: "Nova tarefa", status: "todo", priority: "medium", deadline: "", projectId, link: "", checked: false, description: "", checklist: [], subtasks: [], assignedTo: currentUser.id, createdBy: currentUser.id };
     setTasks((prev) => [nt, ...prev]);
     setDetailTask(nt);
+  };
+
+  const addTaskInline = async (title: string, projectId: string) => {
+    if (!canEdit || !currentUser) return;
+    if (useApi) {
+      try { const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, assignedTo: currentUser.id }); setTasks((prev) => [...prev, nt]); return; } catch {}
+    }
+    const nt: Task = { id: genId(), title, status: "todo", priority: "medium", deadline: "", projectId, link: "", checked: false, description: "", checklist: [], subtasks: [], assignedTo: currentUser.id, createdBy: currentUser.id };
+    setTasks((prev) => [...prev, nt]);
   };
 
   const addProject = () => {
@@ -1073,10 +1207,6 @@ export default function TaskManager() {
           )}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 130px 130px 110px 100px 60px 60px", padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 10, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover }}>
-          <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
-        </div>
-
         <div style={{ flex: 1, overflowY: "auto" }}>
           {filteredTasks.length === 0 && (
             <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
@@ -1085,14 +1215,27 @@ export default function TaskManager() {
               <div style={{ fontSize: 12, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
             </div>
           )}
-          {filteredTasks.map((task) => (
-            <div key={task.id}>
-              <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} />
-              {(task.subtasks || []).map((st) => (
-                <TaskRow key={st.id} task={st} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
-                  onUpdate={(updated: any) => { const n = task.subtasks.map((s) => (s.id === updated.id ? updated : s)); updateTask({ ...task, subtasks: n }); }}
-                  onOpen={() => setDetailTask(task)} theme={theme} />
-              ))}
+          {groups.map((group) => (
+            <div key={group.id}>
+              <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} />
+              {!collapsedGroups.has(group.id) && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 10, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                    <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
+                  </div>
+                  {group.tasks.map((task) => (
+                    <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
+                      <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
+                      {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => (
+                        <TaskRow key={st.id} task={st} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
+                          onUpdate={(updated: any) => { const n = task.subtasks.map((s) => (s.id === updated.id ? updated : s)); updateTask({ ...task, subtasks: n }); }}
+                          onOpen={() => setDetailTask(task)} theme={theme} />
+                      ))}
+                    </div>
+                  ))}
+                  {canEdit && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
+                </>
+              )}
             </div>
           ))}
         </div>
