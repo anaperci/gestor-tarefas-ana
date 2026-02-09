@@ -13,7 +13,7 @@ function seed() {
   const insertUser = db.prepare(
     "INSERT INTO users (id, username, name, password_hash, role, avatar) VALUES (?, ?, ?, ?, ?, ?)"
   );
-  insertUser.run("user-1", "ana", "Ana (Admin)", hashPassword("admin123"), "admin", "👑");
+  insertUser.run("user-1", "anapaula", "Ana Paula", hashPassword("padrao@890"), "admin", "👑");
   insertUser.run("user-2", "maria", "Maria Silva", hashPassword("maria123"), "editor", "🎨");
   insertUser.run("user-3", "joao", "João Santos", hashPassword("joao123"), "viewer", "👁️");
 
@@ -44,11 +44,11 @@ function seed() {
 
   const t2 = "task-" + genId();
   insertTask.run(t2, "Montar knowledge base NexIA", "", "todo", "high",
-    "2026-02-20", "proj-2", "user-2", "user-1", "https://nexia.com.br", 0);
+    "2026-02-20", "proj-2", "user-1", "user-1", "https://nexia.com.br", 0);
 
   const t3 = "task-" + genId();
   insertTask.run(t3, "Criar prompt de copywriting avançado", "", "backlog", "medium",
-    "2026-02-28", "proj-1", "user-2", "user-1", "", 0);
+    "2026-02-28", "proj-1", "user-1", "user-1", "", 0);
 
   const t4 = "task-" + genId();
   insertTask.run(t4, "Preparar deck governo", "Deck institucional NexIA Lab.",

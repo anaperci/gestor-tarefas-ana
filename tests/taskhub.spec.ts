@@ -11,13 +11,12 @@ test.describe("Task Hub - Auditoria Completa", () => {
       await expect(page.locator("text=Faça login para continuar")).toBeVisible();
     });
 
-    test("deve mostrar credenciais de teste", async ({ page }) => {
+    test("deve mostrar credenciais de acesso", async ({ page }) => {
       await page.goto("/");
-      await page.waitForSelector("text=Credenciais de teste", { timeout: 10000 });
-      await expect(page.locator("text=Credenciais de teste")).toBeVisible();
-      await expect(page.locator("text=ana")).toBeVisible();
-      await expect(page.locator("text=maria")).toBeVisible();
-      await expect(page.locator("text=joao")).toBeVisible();
+      await page.waitForSelector("text=Credenciais de acesso", { timeout: 10000 });
+      await expect(page.locator("text=Credenciais de acesso")).toBeVisible();
+      await expect(page.locator("text=anapaula")).toBeVisible();
+      await expect(page.locator("text=padrao@890")).toBeVisible();
     });
 
     test("deve mostrar erro para credenciais inválidas", async ({ page }) => {
@@ -32,7 +31,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
     test("deve mostrar erro para senha incorreta", async ({ page }) => {
       await page.goto("/");
       await page.waitForSelector("input[placeholder='seu.usuario']", { timeout: 10000 });
-      await page.fill("input[placeholder='seu.usuario']", "ana");
+      await page.fill("input[placeholder='seu.usuario']", "anapaula");
       await page.fill("input[type='password']", "senhaerrada");
       await page.click("text=Entrar");
       await expect(page.locator("text=Senha incorreta")).toBeVisible();
@@ -46,12 +45,12 @@ test.describe("Task Hub - Auditoria Completa", () => {
       await expect(themeBtn).toBeVisible();
     });
 
-    test("credenciais de teste devem preencher campos ao clicar", async ({ page }) => {
+    test("credenciais de acesso devem preencher campos ao clicar", async ({ page }) => {
       await page.goto("/");
-      await page.waitForSelector("text=admin123", { timeout: 10000 });
-      await page.click("text=admin123");
+      await page.waitForSelector("text=padrao@890", { timeout: 10000 });
+      await page.click("text=padrao@890");
       const usernameInput = page.locator("input[placeholder='seu.usuario']");
-      await expect(usernameInput).toHaveValue("ana");
+      await expect(usernameInput).toHaveValue("anapaula");
     });
   });
 
@@ -60,14 +59,14 @@ test.describe("Task Hub - Auditoria Completa", () => {
     test.beforeEach(async ({ page }) => {
       await page.goto("/");
       await page.waitForSelector("input[placeholder='seu.usuario']", { timeout: 10000 });
-      await page.fill("input[placeholder='seu.usuario']", "ana");
-      await page.fill("input[type='password']", "admin123");
+      await page.fill("input[placeholder='seu.usuario']", "anapaula");
+      await page.fill("input[type='password']", "padrao@890");
       await page.click("text=Entrar");
       await page.waitForSelector("text=Gestor de Tarefas", { timeout: 10000 });
     });
 
     test("deve fazer login como admin e ver o dashboard", async ({ page }) => {
-      await expect(page.locator("text=Ana (Admin)")).toBeVisible();
+      await expect(page.locator("text=Ana Paula")).toBeVisible();
       await expect(page.locator("text=Task Hub")).toBeVisible();
     });
 
@@ -142,8 +141,8 @@ test.describe("Task Hub - Auditoria Completa", () => {
     test.beforeEach(async ({ page }) => {
       await page.goto("/");
       await page.waitForSelector("input[placeholder='seu.usuario']", { timeout: 10000 });
-      await page.fill("input[placeholder='seu.usuario']", "ana");
-      await page.fill("input[type='password']", "admin123");
+      await page.fill("input[placeholder='seu.usuario']", "anapaula");
+      await page.fill("input[type='password']", "padrao@890");
       await page.click("text=Entrar");
       await page.waitForSelector("text=Painel Admin", { timeout: 10000 });
     });
@@ -156,7 +155,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
     test("deve listar usuários no painel admin", async ({ page }) => {
       await page.click("text=Painel Admin");
       await page.waitForSelector("text=Criar novo usuário", { timeout: 5000 });
-      await expect(page.locator("text=Ana (Admin)").first()).toBeVisible();
+      await expect(page.locator("text=Ana Paula").first()).toBeVisible();
       await expect(page.locator("text=Maria Silva").first()).toBeVisible();
       await expect(page.locator("text=João Santos").first()).toBeVisible();
     });
@@ -236,7 +235,7 @@ test.describe("Task Hub - Auditoria Completa", () => {
     });
 
     test("editor deve ver botão Nova Tarefa", async ({ page }) => {
-      await expect(page.locator("text=Nova Tarefa")).toBeVisible();
+      await expect(page.getByRole("button", { name: "+ Nova Tarefa" })).toBeVisible();
     });
 
     test("editor NÃO deve ver Painel Admin", async ({ page }) => {
@@ -273,8 +272,8 @@ test.describe("Task Hub - Auditoria Completa", () => {
     await page.waitForSelector("text=Task Hub", { timeout: 10000 });
 
     // Login
-    await page.fill("input[placeholder='seu.usuario']", "ana");
-    await page.fill("input[type='password']", "admin123");
+    await page.fill("input[placeholder='seu.usuario']", "anapaula");
+    await page.fill("input[type='password']", "padrao@890");
     await page.click("text=Entrar");
     await page.waitForSelector("text=Gestor de Tarefas", { timeout: 10000 });
 

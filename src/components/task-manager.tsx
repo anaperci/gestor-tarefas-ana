@@ -70,9 +70,7 @@ interface Group {
 }
 
 const DEMO_USERS: User[] = [
-  { id: "user-1", username: "ana", name: "Ana (Admin)", passwordHash: hashPassword("admin123"), role: "admin", avatar: "👑" },
-  { id: "user-2", username: "maria", name: "Maria Silva", passwordHash: hashPassword("maria123"), role: "editor", avatar: "🎨" },
-  { id: "user-3", username: "joao", name: "João Santos", passwordHash: hashPassword("joao123"), role: "viewer", avatar: "👁️" },
+  { id: "user-1", username: "anapaula", name: "Ana Paula", passwordHash: hashPassword("padrao@890"), role: "admin", avatar: "👑" },
 ];
 
 const ROLES: Record<string, { label: string; color: string; icon: string; desc: string }> = {
@@ -82,8 +80,8 @@ const ROLES: Record<string, { label: string; color: string; icon: string; desc: 
 };
 
 const INITIAL_PROJECTS: Project[] = [
-  { id: "proj-1", name: "PERCI", color: "#7B61FF", icon: "🚀", ownerId: "user-1", sharedWith: ["user-2", "user-3"] },
-  { id: "proj-2", name: "NexIA Lab", color: "#00C875", icon: "🤖", ownerId: "user-1", sharedWith: ["user-2"] },
+  { id: "proj-1", name: "PERCI", color: "#7B61FF", icon: "🚀", ownerId: "user-1", sharedWith: [] },
+  { id: "proj-2", name: "NexIA Lab", color: "#00C875", icon: "🤖", ownerId: "user-1", sharedWith: [] },
   { id: "proj-3", name: "Imersão 10K", color: "#FF6B6B", icon: "🔥", ownerId: "user-1", sharedWith: [] },
 ];
 
@@ -126,12 +124,12 @@ const INITIAL_TASKS: Task[] = [
   {
     id: genId(), title: "Montar knowledge base NexIA", status: "todo", priority: "high",
     deadline: "2026-02-20", projectId: "proj-2", link: "https://nexia.com.br", checked: false,
-    description: "", assignedTo: "user-2", createdBy: "user-1", checklist: [], subtasks: [],
+    description: "", assignedTo: "user-1", createdBy: "user-1", checklist: [], subtasks: [],
   },
   {
     id: genId(), title: "Criar prompt de copywriting avançado", status: "backlog", priority: "medium",
     deadline: "2026-02-28", projectId: "proj-1", link: "", checked: false,
-    description: "", assignedTo: "user-2", createdBy: "user-1", checklist: [], subtasks: [],
+    description: "", assignedTo: "user-1", createdBy: "user-1", checklist: [], subtasks: [],
   },
   {
     id: genId(), title: "Preparar deck governo", status: "todo", priority: "high",
@@ -227,7 +225,7 @@ function StatusBadge({ value, onChange, compact, theme, disabled }: any) {
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           background: theme.badgeBg(o.color), color: o.color, borderRadius: 20,
-          padding: compact ? "3px 10px" : "4px 14px", fontSize: compact ? 11 : 12,
+          padding: compact ? "3px 10px" : "4px 14px", fontSize: compact ? 12 : 13,
           fontWeight: 600, border: `1px solid ${theme.badgeBorder(o.color)}`, whiteSpace: "nowrap"
         }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: o.color }} />
@@ -245,7 +243,7 @@ function PriorityBadge({ value, onChange, theme, disabled }: any) {
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           background: theme.badgeBg(o.bg), color: o.bg, borderRadius: 20,
-          padding: "4px 14px", fontSize: 12, fontWeight: 600,
+          padding: "4px 14px", fontSize: 13, fontWeight: 600,
           border: `1px solid ${theme.badgeBorder(o.bg)}`, whiteSpace: "nowrap"
         }}>{o.label}</span>
       )}
@@ -414,24 +412,18 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
         </button>
 
         <div style={{ marginTop: 28, padding: "16px", borderRadius: 12, background: theme.inputBg, border: `1px solid ${theme.border}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Credenciais de teste</div>
-          {[
-            { u: "ana", p: "admin123", r: "Admin 👑" },
-            { u: "maria", p: "maria123", r: "Editor ✏️" },
-            { u: "joao", p: "joao123", r: "Viewer 👁️" },
-          ].map((c) => (
-            <button key={c.u} onClick={() => { setUsername(c.u); setPassword(c.p); setError(""); }}
-              style={{
-                display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 8px",
-                background: "transparent", border: "none", color: theme.textSecondary,
-                fontSize: 12, cursor: "pointer", borderRadius: 6, fontFamily: "'Figtree', sans-serif"
-              }}
-              onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
-              onMouseLeave={(e) => (e.target as HTMLElement).style.background = "transparent"}>
-              <span><b style={{ color: theme.text }}>{c.u}</b> / {c.p}</span>
-              <span>{c.r}</span>
-            </button>
-          ))}
+          <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Credenciais de acesso</div>
+          <button onClick={() => { setUsername("anapaula"); setPassword("padrao@890"); setError(""); }}
+            style={{
+              display: "flex", justifyContent: "space-between", width: "100%", padding: "8px 10px",
+              background: "transparent", border: "none", color: theme.textSecondary,
+              fontSize: 13, cursor: "pointer", borderRadius: 6, fontFamily: "'Figtree', sans-serif"
+            }}
+            onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
+            onMouseLeave={(e) => (e.target as HTMLElement).style.background = "transparent"}>
+            <span><b style={{ color: theme.text }}>anapaula</b> / padrao@890</span>
+            <span>Admin 👑</span>
+          </button>
         </div>
       </div>
     </div>
@@ -787,7 +779,7 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
         display: "grid",
         gridTemplateColumns: isSubtask ? GRID_COLUMNS_SUBTASK : GRID_COLUMNS,
         alignItems: "center", padding: isSubtask ? "6px 12px 6px 40px" : "10px 12px", gap: 8,
-        borderBottom: `1px solid ${theme.border}`, cursor: "pointer", fontSize: 13,
+        borderBottom: `1px solid ${theme.border}`, cursor: "pointer", fontSize: 14,
         background: isSubtask ? theme.surfaceHover : "transparent", transition: "background 0.15s"
       }}>
       <button onClick={(e) => { e.stopPropagation(); if (canEdit) onUpdate({ ...task, checked: !task.checked }); }}
@@ -806,7 +798,7 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
           {isSubtask && <span style={{ color: theme.textMuted, marginRight: 6 }}>↳</span>}
           {task.title}
         </span>
-        {stTotal > 0 && !isSubtask && <span style={{ fontSize: 10, color: theme.textSecondary, background: theme.inputBg, padding: "2px 7px", borderRadius: 10, whiteSpace: "nowrap", flexShrink: 0 }}>{stDone}/{stTotal}</span>}
+        {stTotal > 0 && !isSubtask && <span style={{ fontSize: 11, color: theme.textSecondary, background: theme.inputBg, padding: "2px 7px", borderRadius: 10, whiteSpace: "nowrap", flexShrink: 0 }}>{stDone}/{stTotal}</span>}
         {task.link && <a href={task.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#579BFC", fontSize: 12, flexShrink: 0 }}>🔗</a>}
       </div>
 
@@ -817,13 +809,13 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
       {!isSubtask && (
         <div onClick={(e) => e.stopPropagation()}>
           <Dropdown options={projects.map((p: Project) => ({ value: p.id, label: p.name, ...p }))} value={task.projectId} onChange={(v: string) => onUpdate({ ...task, projectId: v })} theme={theme} disabled={!canEdit}
-            renderOption={(o: any) => <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: o.color || theme.textSecondary }}>{o.icon} {o.label || o.name}</span>} />
+            renderOption={(o: any) => <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: o.color || theme.textSecondary }}>{o.icon} {o.label || o.name}</span>} />
         </div>
       )}
 
       <div onClick={(e) => e.stopPropagation()}>
         <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
-          style={{ background: "transparent", border: "none", color: overdue ? "#E2445C" : theme.textSecondary, fontSize: 12, outline: "none", width: "100%", colorScheme: theme.scheme, cursor: canEdit ? "pointer" : "default", fontFamily: "'Figtree', sans-serif" }} />
+          style={{ background: "transparent", border: "none", color: overdue ? "#E2445C" : theme.textSecondary, fontSize: 13, outline: "none", width: "100%", colorScheme: theme.scheme, cursor: canEdit ? "pointer" : "default", fontFamily: "'Figtree', sans-serif" }} />
       </div>
 
       {!isSubtask && (
@@ -856,8 +848,8 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme }: { group: 
     }}>
       <span style={{ fontSize: 10, color: group.color, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", fontWeight: 700 }}>▶</span>
       <span style={{ fontSize: 16 }}>{group.icon}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: group.color }}>{group.name}</span>
-      <span style={{ fontSize: 11, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
+      <span style={{ fontSize: 15, fontWeight: 700, color: group.color }}>{group.name}</span>
+      <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
     </div>
   );
 }
@@ -885,7 +877,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
       <div onClick={() => setActive(true)} style={{
         display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 12px", gap: 8,
         cursor: "pointer", borderBottom: `1px solid ${theme.border}`, opacity: 0.5,
-        transition: "opacity 0.15s", fontSize: 13, color: theme.textMuted
+        transition: "opacity 0.15s", fontSize: 14, color: theme.textMuted
       }}
         onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
         onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.5")}>
@@ -1120,8 +1112,8 @@ export default function TaskManager() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: theme.inputBg }}>
             <span style={{ fontSize: 20 }}>{currentUser.avatar}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
-              <div style={{ fontSize: 10, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
+              <div style={{ fontSize: 11, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
             </div>
             <button onClick={handleLogout} title="Sair"
               style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14 }}>🚪</button>
@@ -1129,20 +1121,20 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
-          <div style={{ fontSize: 10, color: theme.textMuted, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
+          <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
 
           <button className="sidebar-item" onClick={() => setActiveProject("all")}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 13, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("#7B61FF") : "transparent", color: activeProject === "all" ? "#7B61FF" : theme.textSecondary }}>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("#7B61FF") : "transparent", color: activeProject === "all" ? "#7B61FF" : theme.textSecondary }}>
             <span style={{ fontSize: 16 }}>📊</span><span style={{ flex: 1 }}>Todos</span>
-            <span style={{ fontSize: 11, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
+            <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
           </button>
 
           {visibleProjects.map((proj) => (
             <button key={proj.id} className="sidebar-item" onClick={() => setActiveProject(proj.id)}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 13, fontWeight: 500, background: activeProject === proj.id ? theme.badgeBg(proj.color) : "transparent", color: activeProject === proj.id ? proj.color : theme.textSecondary }}>
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? theme.badgeBg(proj.color) : "transparent", color: activeProject === proj.id ? proj.color : theme.textSecondary }}>
               <span style={{ fontSize: 16 }}>{proj.icon}</span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
-              <span style={{ fontSize: 11, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts[proj.id] || 0}</span>
+              <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts[proj.id] || 0}</span>
             </button>
           ))}
 
@@ -1166,7 +1158,7 @@ export default function TaskManager() {
         <div style={{ padding: "12px 12px", borderTop: `1px solid ${theme.border}` }}>
           {isAdmin && (
             <button onClick={() => setShowAdmin(true)} className="sidebar-item"
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, fontSize: 13, fontWeight: 600, color: "#E2445C", background: "transparent" }}>
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#E2445C", background: "transparent" }}>
               ⚙️ Painel Admin
             </button>
           )}
@@ -1184,24 +1176,24 @@ export default function TaskManager() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>
               {activeProj ? `${activeProj.icon} ${activeProj.name}` : "📊 Todas as Tarefas"}
             </h1>
-            <p style={{ fontSize: 12, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
+            <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
           </div>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, fontSize: 14 }}>🔍</span>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarefas..."
-              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 13, outline: "none", width: 200, fontFamily: "'Figtree', sans-serif" }} />
+              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", width: 200, fontFamily: "'Figtree', sans-serif" }} />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", cursor: "pointer", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }}>
+            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px", color: theme.text, fontSize: 14, outline: "none", cursor: "pointer", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }}>
             <option value="all">Todos Status</option>
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           {canEdit && (
             <button onClick={addTask}
-              style={{ background: "linear-gradient(135deg, #7B61FF, #579BFC)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px rgba(123,97,255,0.3)" }}>
+              style={{ background: "linear-gradient(135deg, #7B61FF, #579BFC)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px rgba(123,97,255,0.3)" }}>
               <span style={{ fontSize: 16 }}>+</span> Nova Tarefa
             </button>
           )}
@@ -1211,8 +1203,8 @@ export default function TaskManager() {
           {filteredTasks.length === 0 && (
             <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>Nenhuma tarefa encontrada</div>
-              <div style={{ fontSize: 12, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Nenhuma tarefa encontrada</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
             </div>
           )}
           {groups.map((group) => (
@@ -1220,7 +1212,7 @@ export default function TaskManager() {
               <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} />
               {!collapsedGroups.has(group.id) && (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 10, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
                     <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
                   </div>
                   {group.tasks.map((task) => (
