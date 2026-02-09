@@ -196,7 +196,7 @@ function Dropdown({ options, value, onChange, renderOption, theme, disabled }: a
                 display: "block", width: "100%", padding: "8px 12px", border: "none",
                 background: opt.value === value ? theme.dropdownHover : "transparent",
                 color: theme.text, borderRadius: 7, cursor: "pointer", textAlign: "left", fontSize: 13,
-                fontFamily: "'DM Sans', sans-serif"
+                fontFamily: "'Figtree', sans-serif"
               }}
               onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
               onMouseLeave={(e) => (e.target as HTMLElement).style.background = opt.value === value ? theme.dropdownHover : "transparent"}>
@@ -274,7 +274,7 @@ function Checklist({ items, onChange, theme, disabled }: any) {
       {!disabled && (
         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
           <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Adicionar item..."
-            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'DM Sans', sans-serif" }} />
+            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
           <button onClick={add} style={{ background: "#7B61FF", border: "none", borderRadius: 6, color: "#fff", padding: "6px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>+</button>
         </div>
       )}
@@ -312,7 +312,7 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
   return (
     <div style={{
       minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: theme.loginBg, fontFamily: "'DM Sans', sans-serif", padding: 20,
+      background: theme.loginBg, fontFamily: "'Figtree', sans-serif", padding: 20,
       position: "relative"
     }}>
       <button onClick={onToggleTheme} style={{
@@ -334,7 +334,7 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
         position: "relative", zIndex: 1
       }}>
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Poppins:wght@600;700;800;900&display=swap');
           @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
           @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
           @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
@@ -346,7 +346,7 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 28, color: "#fff", boxShadow: "0 8px 24px rgba(123,97,255,0.3)"
           }}>✦</div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: theme.text, letterSpacing: -0.5, margin: 0 }}>Task Hub</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: theme.text, letterSpacing: -0.5, margin: 0, fontFamily: "'Poppins', sans-serif" }}>Task Hub</h1>
           <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>Faça login para continuar</p>
         </div>
 
@@ -360,7 +360,7 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
             style={{
               width: "100%", padding: "12px 16px", borderRadius: 12,
               background: theme.inputBg, border: `1.5px solid ${error ? "#E2445C" : theme.inputBorder}`,
-              color: theme.text, fontSize: 14, outline: "none", fontFamily: "'DM Sans', sans-serif",
+              color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif",
               transition: "border-color 0.2s"
             }}
           />
@@ -376,7 +376,7 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
             style={{
               width: "100%", padding: "12px 16px", borderRadius: 12,
               background: theme.inputBg, border: `1.5px solid ${error ? "#E2445C" : theme.inputBorder}`,
-              color: theme.text, fontSize: 14, outline: "none", fontFamily: "'DM Sans', sans-serif",
+              color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif",
               transition: "border-color 0.2s"
             }}
           />
@@ -413,7 +413,7 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
               style={{
                 display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 8px",
                 background: "transparent", border: "none", color: theme.textSecondary,
-                fontSize: 12, cursor: "pointer", borderRadius: 6, fontFamily: "'DM Sans', sans-serif"
+                fontSize: 12, cursor: "pointer", borderRadius: 6, fontFamily: "'Figtree', sans-serif"
               }}
               onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
               onMouseLeave={(e) => (e.target as HTMLElement).style.background = "transparent"}>
@@ -469,7 +469,7 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
 
   const inputStyle: CSSProperties = {
     background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8,
-    padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'DM Sans', sans-serif"
+    padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif"
   };
 
   return (
@@ -494,7 +494,7 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid #7B61FF" : "2px solid transparent",
               background: "transparent", color: tab === t.key ? "#7B61FF" : theme.textSecondary,
-              fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif",
               transition: "all 0.15s", marginBottom: -1
             }}>{t.label}</button>
           ))}
@@ -564,7 +564,7 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
                             borderRadius: 20, border: `1.5px solid ${isShared ? "#00C875" : theme.border}`,
                             background: isShared ? "rgba(0,200,117,0.1)" : "transparent",
                             color: isShared ? "#00C875" : theme.textMuted,
-                            cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                            cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Figtree', sans-serif",
                             transition: "all 0.15s"
                           }}>
                           <span style={{ fontSize: 14 }}>{isShared ? "✓" : "+"}</span>
@@ -623,7 +623,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
         style={{
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8,
           padding: "5px 8px", color: role.color, fontSize: 12, fontWeight: 600, outline: "none",
-          cursor: isMe ? "default" : "pointer", colorScheme: theme.scheme, fontFamily: "'DM Sans', sans-serif"
+          cursor: isMe ? "default" : "pointer", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif"
         }}>
         {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
       </select>
@@ -631,7 +631,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
       {showReset ? (
         <div style={{ display: "flex", gap: 4 }}>
           <input value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Nova senha"
-            style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 8px", color: theme.text, fontSize: 12, outline: "none", width: 120, fontFamily: "'DM Sans', sans-serif" }} />
+            style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 8px", color: theme.text, fontSize: 12, outline: "none", width: 120, fontFamily: "'Figtree', sans-serif" }} />
           <button onClick={() => { if (newPwd.trim()) { onResetPassword(newPwd); setShowReset(false); setNewPwd(""); } }}
             style={{ background: "#00C875", border: "none", color: "#fff", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✓</button>
           <button onClick={() => setShowReset(false)}
@@ -639,7 +639,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
         </div>
       ) : (
         <button onClick={() => setShowReset(true)}
-          style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+          style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'Figtree', sans-serif" }}>
           🔑 Reset
         </button>
       )}
@@ -673,7 +673,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
               </span>
             )}
             <input value={task.title} onChange={(e) => canEdit && onUpdate({ ...task, title: e.target.value })} readOnly={!canEdit}
-              style={{ display: "block", width: "100%", background: "transparent", border: "none", color: theme.text, fontSize: 22, fontWeight: 700, outline: "none", fontFamily: "'DM Sans', sans-serif", padding: 0, marginTop: 6, cursor: canEdit ? "text" : "default" }} />
+              style={{ display: "block", width: "100%", background: "transparent", border: "none", color: theme.text, fontSize: 22, fontWeight: 700, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0, marginTop: 6, cursor: canEdit ? "text" : "default" }} />
           </div>
           <button onClick={onClose} style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
         </div>
@@ -696,7 +696,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
           <div>
             <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Prazo</div>
             <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
-              style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 10px", color: theme.text, fontSize: 13, outline: "none", colorScheme: theme.scheme, fontFamily: "'DM Sans', sans-serif" }} />
+              style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 10px", color: theme.text, fontSize: 13, outline: "none", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }} />
           </div>
           <div>
             <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Responsável</div>
@@ -718,7 +718,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
           <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Link</div>
           {canEdit ? (
             <input value={task.link || ""} onChange={(e) => onUpdate({ ...task, link: e.target.value })} placeholder="https://..."
-              style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "8px 12px", color: "#579BFC", fontSize: 13, outline: "none", fontFamily: "'DM Sans', sans-serif" }} />
+              style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "8px 12px", color: "#579BFC", fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
           ) : task.link ? (
             <a href={task.link} target="_blank" rel="noopener noreferrer" style={{ color: "#579BFC", fontSize: 13 }}>{task.link}</a>
           ) : <span style={{ color: theme.textMuted, fontSize: 13 }}>—</span>}
@@ -729,7 +729,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
           <textarea value={task.description || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, description: e.target.value })}
             placeholder={canEdit ? "Adicione uma descrição detalhada..." : "Sem descrição"}
             rows={4}
-            style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "12px 14px", color: theme.text, fontSize: 14, outline: "none", resize: canEdit ? "vertical" : "none", lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }} />
+            style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "12px 14px", color: theme.text, fontSize: 14, outline: "none", resize: canEdit ? "vertical" : "none", lineHeight: 1.6, fontFamily: "'Figtree', sans-serif" }} />
         </div>
 
         <div style={{ marginBottom: 28 }}>
@@ -745,7 +745,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
                 {st.checked && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
               </button>
               <input value={st.title} readOnly={!canEdit} onChange={(e) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, title: e.target.value }; onUpdate({ ...task, subtasks: n }); }}
-                style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 13, outline: "none", textDecoration: st.checked ? "line-through" : "none", opacity: st.checked ? 0.5 : 1, fontFamily: "'DM Sans', sans-serif" }} />
+                style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 13, outline: "none", textDecoration: st.checked ? "line-through" : "none", opacity: st.checked ? 0.5 : 1, fontFamily: "'Figtree', sans-serif" }} />
               <StatusBadge value={st.status} compact onChange={(v: string) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, status: v }; onUpdate({ ...task, subtasks: n }); }} theme={theme} disabled={!canEdit} />
               {canEdit && <button onClick={() => onUpdate({ ...task, subtasks: task.subtasks.filter((_: any, j: number) => j !== i) })}
                 style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14, padding: "0 4px" }}>×</button>}
@@ -806,7 +806,7 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
 
       <div onClick={(e) => e.stopPropagation()}>
         <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
-          style={{ background: "transparent", border: "none", color: overdue ? "#E2445C" : theme.textSecondary, fontSize: 12, outline: "none", width: "100%", colorScheme: theme.scheme, cursor: canEdit ? "pointer" : "default", fontFamily: "'DM Sans', sans-serif" }} />
+          style={{ background: "transparent", border: "none", color: overdue ? "#E2445C" : theme.textSecondary, fontSize: 12, outline: "none", width: "100%", colorScheme: theme.scheme, cursor: canEdit ? "pointer" : "default", fontFamily: "'Figtree', sans-serif" }} />
       </div>
 
       {!isSubtask && (
@@ -950,15 +950,15 @@ export default function TaskManager() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: theme.bg, color: theme.text }}>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Figtree', sans-serif", background: theme.bg, color: theme.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Poppins:wght@600;700;800;900&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${theme.scrollThumb}; border-radius: 10px; }
         .task-row:hover { background: ${theme.surfaceHover} !important; }
-        .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; }
+        .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: 'Figtree', sans-serif; }
         .sidebar-item:hover { background: ${theme.surfaceHover} !important; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -973,7 +973,7 @@ export default function TaskManager() {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg, #7B61FF, #579BFC)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#fff" }}>✦</div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5 }}>Task Hub</div>
+                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5, fontFamily: "'Poppins', sans-serif" }}>Task Hub</div>
                 <div style={{ fontSize: 10, color: theme.textMuted, fontWeight: 500 }}>Gestor de Tarefas</div>
               </div>
             </div>
@@ -1016,7 +1016,7 @@ export default function TaskManager() {
             showNewProject ? (
               <div style={{ display: "flex", gap: 4, marginTop: 8, padding: "0 4px" }}>
                 <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addProject()} placeholder="Nome do projeto"
-                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 12, outline: "none", fontFamily: "'DM Sans', sans-serif" }} />
+                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 12, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
                 <button onClick={addProject} style={{ background: "#7B61FF", border: "none", color: "#fff", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
                 <button onClick={() => setShowNewProject(false)} style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
               </div>
@@ -1058,10 +1058,10 @@ export default function TaskManager() {
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, fontSize: 14 }}>🔍</span>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarefas..."
-              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 13, outline: "none", width: 200, fontFamily: "'DM Sans', sans-serif" }} />
+              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 13, outline: "none", width: 200, fontFamily: "'Figtree', sans-serif" }} />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", cursor: "pointer", colorScheme: theme.scheme, fontFamily: "'DM Sans', sans-serif" }}>
+            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", cursor: "pointer", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }}>
             <option value="all">Todos Status</option>
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
