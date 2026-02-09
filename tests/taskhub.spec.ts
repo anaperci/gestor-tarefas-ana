@@ -102,9 +102,11 @@ test.describe("Task Hub - Auditoria Completa", () => {
     });
 
     test("deve criar nova tarefa", async ({ page }) => {
+      // Espera os dados carregarem (task rows visíveis = projetos e tarefas já carregados)
+      await expect(page.locator(".task-row").first()).toBeVisible({ timeout: 10000 });
       await page.click("text=Nova Tarefa");
-      // O painel de detalhe deve abrir com "Nova tarefa"
-      await expect(page.locator("input[value='Nova tarefa']")).toBeVisible({ timeout: 5000 });
+      // O painel de detalhe deve abrir com "Nova tarefa" (timeout maior para API remota)
+      await expect(page.locator("input[value='Nova tarefa']")).toBeVisible({ timeout: 15000 });
     });
 
     test("deve mudar status de tarefa via dropdown", async ({ page }) => {

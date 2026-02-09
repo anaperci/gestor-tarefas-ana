@@ -90,7 +90,12 @@ export async function PUT(
     return NextResponse.json({ error: "Sem acesso" }, { status: 403 });
   }
 
-  const body = await request.json();
+  let body: Record<string, unknown> = {};
+  try {
+    body = await request.json();
+  } catch {
+    // empty body is ok — will keep existing values
+  }
 
   await supabase
     .from("tasks")
