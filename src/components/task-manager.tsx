@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, createContext, useContext, CSSProperties, ReactNode } from "react";
-
-// ——— Auth Context ———
-const AuthContext = createContext<any>(null);
+import { useState, useEffect, useRef, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+import { api } from "@/lib/api";
 
 // ——— Demo Data ———
 function hashPassword(pwd: string) {
@@ -285,13 +283,20 @@ function Checklist({ items, onChange, theme, disabled }: any) {
 }
 
 // ——— Login Screen ———
-function LoginScreen({ users, onLogin, theme, onToggleTheme }: any) {
+function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    if (useApi) {
+      try {
+        const user = await api.login(username.toLowerCase().trim(), password);
+        onLogin(user);
+        return;
+      } catch (e: any) { triggerError(e.message || "Erro no login"); return; }
+    }
     const user = users.find((u: User) => u.username === username.toLowerCase().trim());
     if (!user) { triggerError("Usu\u00e1rio n\u00e3o encontrado"); return; }
     if (user.passwordHash !== hashPassword(password)) { triggerError("Senha incorreta"); return; }
@@ -826,8 +831,23 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
 
 // ——— Main App ———
 export default function TaskManager() {
-  const [mode, setMode] = useState("dark");
+  const [mode, setMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("taskhub-theme") || "dark";
+    }
+    return "dark";
+  });
   const theme = themes[mode];
+
+  useEffect(() => {
+    localStorage.setItem("taskhub-theme", mode);
+  }, [mode]);
+
+  const [useApi, setUseApi] = useState(false);
+  useEffect(() => {
+    fetch("/api/health").then(r => r.ok ? setUseApi(true) : setUseApi(false)).catch(() => setUseApi(false));
+  }, []);
+
   const [users, setUsers] = useState(DEMO_USERS);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
@@ -859,20 +879,42 @@ export default function TaskManager() {
     return true;
   });
 
-  const updateTask = (updated: Task) => {
+  const loadData = useCallback(async () => {
+    if (!useApi) return;
+    try {
+      const [u, p, t] = await Promise.all([api.getUsers(), api.getProjects(), api.getTasks()]);
+      setUsers(u.map((x: any) => ({ ...x, passwordHash: "" })));
+      setProjects(p.map((x: any) => ({ ...x, ownerId: x.owner_id || x.ownerId, sharedWith: x.sharedWith || [] })));
+      setTasks(t);
+    } catch { /* fallback to local */ }
+  }, [useApi]);
+
+  // Auto-login from saved token
+  useEffect(() => {
+    if (!useApi || currentUser) return;
+    if (api.hasToken()) {
+      api.me().then((u: any) => { setCurrentUser(u); }).catch(() => api.logout());
+    }
+  }, [useApi, currentUser]);
+
+  useEffect(() => { if (useApi && currentUser) loadData(); }, [useApi, currentUser, loadData]);
+
+  const updateTask = async (updated: Task) => {
     if (!canEdit) return;
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     if (detailTask && detailTask.id === updated.id) setDetailTask(updated);
+    if (useApi) {
+      try { await api.updateTask(updated.id, { title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, deadline: updated.deadline, projectId: updated.projectId, assignedTo: updated.assignedTo, link: updated.link, checked: updated.checked, checklist: updated.checklist, subtasks: updated.subtasks }); } catch {}
+    }
   };
 
-  const addTask = () => {
+  const addTask = async () => {
     if (!canEdit || !currentUser) return;
-    const nt: Task = {
-      id: genId(), title: "Nova tarefa", status: "todo", priority: "medium", deadline: "",
-      projectId: activeProject === "all" ? visibleProjects[0]?.id || "" : activeProject,
-      link: "", checked: false, description: "", checklist: [], subtasks: [],
-      assignedTo: currentUser.id, createdBy: currentUser.id
-    };
+    const projectId = activeProject === "all" ? visibleProjects[0]?.id || "" : activeProject;
+    if (useApi) {
+      try { const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id }); setTasks((prev) => [nt, ...prev]); setDetailTask(nt); return; } catch {}
+    }
+    const nt: Task = { id: genId(), title: "Nova tarefa", status: "todo", priority: "medium", deadline: "", projectId, link: "", checked: false, description: "", checklist: [], subtasks: [], assignedTo: currentUser.id, createdBy: currentUser.id };
     setTasks((prev) => [nt, ...prev]);
     setDetailTask(nt);
   };
@@ -894,8 +936,17 @@ export default function TaskManager() {
   visibleProjects.forEach((p) => { counts[p.id] = tasks.filter((t) => t.projectId === p.id).length; });
   const activeProj = projects.find((p) => p.id === activeProject);
 
+  const handleLogin = async (user: User) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    if (useApi) { api.logout(); setUsers(DEMO_USERS); setProjects(INITIAL_PROJECTS); setTasks(INITIAL_TASKS); }
+  };
+
   if (!currentUser) {
-    return <LoginScreen users={users} onLogin={setCurrentUser} theme={theme} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} />;
+    return <LoginScreen users={users} onLogin={handleLogin} theme={theme} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} useApi={useApi} />;
   }
 
   return (
@@ -938,7 +989,7 @@ export default function TaskManager() {
               <div style={{ fontSize: 13, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
               <div style={{ fontSize: 10, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
             </div>
-            <button onClick={() => setCurrentUser(null)} title="Sair"
+            <button onClick={handleLogout} title="Sair"
               style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14 }}>\ud83d\udeaa</button>
           </div>
         </div>
