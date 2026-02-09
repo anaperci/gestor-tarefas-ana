@@ -411,20 +411,6 @@ function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
           Entrar
         </button>
 
-        <div style={{ marginTop: 28, padding: "16px", borderRadius: 12, background: theme.inputBg, border: `1px solid ${theme.border}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Credenciais de acesso</div>
-          <button onClick={() => { setUsername("anapaula"); setPassword("padrao@890"); setError(""); }}
-            style={{
-              display: "flex", justifyContent: "space-between", width: "100%", padding: "8px 10px",
-              background: "transparent", border: "none", color: theme.textSecondary,
-              fontSize: 13, cursor: "pointer", borderRadius: 6, fontFamily: "'Figtree', sans-serif"
-            }}
-            onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
-            onMouseLeave={(e) => (e.target as HTMLElement).style.background = "transparent"}>
-            <span><b style={{ color: theme.text }}>anapaula</b> / padrao@890</span>
-            <span>Admin 👑</span>
-          </button>
-        </div>
       </div>
     </div>
   );

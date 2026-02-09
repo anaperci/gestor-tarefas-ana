@@ -11,14 +11,6 @@ test.describe("Task Hub - Auditoria Completa", () => {
       await expect(page.locator("text=Faça login para continuar")).toBeVisible();
     });
 
-    test("deve mostrar credenciais de acesso", async ({ page }) => {
-      await page.goto("/");
-      await page.waitForSelector("text=Credenciais de acesso", { timeout: 10000 });
-      await expect(page.locator("text=Credenciais de acesso")).toBeVisible();
-      await expect(page.locator("text=anapaula")).toBeVisible();
-      await expect(page.locator("text=padrao@890")).toBeVisible();
-    });
-
     test("deve mostrar erro para credenciais inválidas", async ({ page }) => {
       await page.goto("/");
       await page.waitForSelector("input[placeholder='seu.usuario']", { timeout: 10000 });
@@ -45,13 +37,6 @@ test.describe("Task Hub - Auditoria Completa", () => {
       await expect(themeBtn).toBeVisible();
     });
 
-    test("credenciais de acesso devem preencher campos ao clicar", async ({ page }) => {
-      await page.goto("/");
-      await page.waitForSelector("text=padrao@890", { timeout: 10000 });
-      await page.click("text=padrao@890");
-      const usernameInput = page.locator("input[placeholder='seu.usuario']");
-      await expect(usernameInput).toHaveValue("anapaula");
-    });
   });
 
   // ——— 2. LOGIN COMO ADMIN ———
