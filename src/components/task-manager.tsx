@@ -154,14 +154,14 @@ const themes: Record<string, Theme> = {
     cardBg: "#1A1B2E", cardBorder: "rgba(255,255,255,0.06)",
   },
   light: {
-    bg: "#F5F6FA", sidebar: "#FFFFFF", surface: "#FFFFFF", surfaceHover: "rgba(0,0,0,0.02)",
+    bg: "#FFFFFF", sidebar: "#FFFFFF", surface: "#FFFFFF", surfaceHover: "rgba(0,0,0,0.02)",
     border: "rgba(0,0,0,0.06)", borderStrong: "rgba(0,0,0,0.09)",
     text: "#1A1D2E", textSecondary: "#5A6178", textMuted: "#9CA3B8",
     inputBg: "rgba(0,0,0,0.03)", inputBorder: "rgba(0,0,0,0.1)",
     dropdownBg: "#FFFFFF", dropdownHover: "rgba(0,0,0,0.04)",
     badgeBg: (c: string) => c + "15", badgeBorder: (c: string) => c + "30",
     scrollThumb: "rgba(0,0,0,0.12)", overlay: "rgba(0,0,0,0.25)", scheme: "light",
-    loginBg: "linear-gradient(135deg, #F5F6FA 0%, #E8EAF0 50%, #F0F1F5 100%)",
+    loginBg: "linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 50%, #FFFFFF 100%)",
     cardBg: "#FFFFFF", cardBorder: "rgba(0,0,0,0.08)",
   },
 };
