@@ -3,22 +3,10 @@
 import { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
 import { api } from "@/lib/api";
 
-// ——— Demo Data ———
-function hashPassword(pwd: string) {
-  let hash = 0;
-  for (let i = 0; i < pwd.length; i++) {
-    const char = pwd.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return "h_" + Math.abs(hash).toString(36);
-}
-
 interface User {
   id: string;
   username: string;
   name: string;
-  passwordHash: string;
   role: "admin" | "editor" | "viewer";
   avatar: string;
 }
@@ -69,22 +57,11 @@ interface Group {
   tasks: Task[];
 }
 
-const DEMO_USERS: User[] = [
-  { id: "user-1", username: "anapaula", name: "Ana Paula", passwordHash: hashPassword("padrao@890"), role: "admin", avatar: "👑" },
-  { id: "user-4", username: "ariel", name: "Ariel", passwordHash: hashPassword("ariel@890"), role: "editor", avatar: "✏️" },
-];
-
 const ROLES: Record<string, { label: string; color: string; icon: string; desc: string }> = {
   admin: { label: "Admin", color: "#E2445C", icon: "👑", desc: "Acesso total. Cria usuários, projetos, gerencia tudo." },
   editor: { label: "Editor", color: "#FDAB3D", icon: "✏️", desc: "Cria e edita tarefas nos projetos compartilhados." },
   viewer: { label: "Visualizador", color: "#579BFC", icon: "👁️", desc: "Apenas visualiza tarefas e projetos compartilhados." },
 };
-
-const INITIAL_PROJECTS: Project[] = [
-  { id: "proj-1", name: "PERCI", color: "#7B61FF", icon: "🚀", ownerId: "user-1", sharedWith: [] },
-  { id: "proj-2", name: "NexIA Lab", color: "#00C875", icon: "🤖", ownerId: "user-1", sharedWith: [] },
-  { id: "proj-3", name: "Imersão 10K", color: "#FF6B6B", icon: "🔥", ownerId: "user-1", sharedWith: [] },
-];
 
 const STATUS_OPTIONS = [
   { value: "backlog", label: "Backlog", color: "#A0A0A0" },
@@ -105,41 +82,6 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 
 const GRID_COLUMNS = "36px 1fr 130px 130px 110px 100px 60px 60px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
-
-const INITIAL_TASKS: Task[] = [
-  {
-    id: genId(), title: "Gravar vídeo de vendas Imersão 10K", status: "doing", priority: "critical",
-    deadline: "2026-02-15", projectId: "proj-3", link: "", checked: false,
-    description: "Gravar o vídeo principal de vendas para a página da Imersão 10K com IA.",
-    assignedTo: "user-1", createdBy: "user-1",
-    checklist: [
-      { id: genId(), text: "Escrever roteiro", done: true },
-      { id: genId(), text: "Preparar setup", done: false },
-      { id: genId(), text: "Gravar", done: false },
-    ],
-    subtasks: [
-      { id: genId(), title: "Criar thumbnail", status: "todo", checked: false },
-      { id: genId(), title: "Configurar checkout", status: "doing", checked: false },
-    ],
-  },
-  {
-    id: genId(), title: "Montar knowledge base NexIA", status: "todo", priority: "high",
-    deadline: "2026-02-20", projectId: "proj-2", link: "https://nexia.com.br", checked: false,
-    description: "", assignedTo: "user-1", createdBy: "user-1", checklist: [], subtasks: [],
-  },
-  {
-    id: genId(), title: "Criar prompt de copywriting avançado", status: "backlog", priority: "medium",
-    deadline: "2026-02-28", projectId: "proj-1", link: "", checked: false,
-    description: "", assignedTo: "user-1", createdBy: "user-1", checklist: [], subtasks: [],
-  },
-  {
-    id: genId(), title: "Preparar deck governo", status: "todo", priority: "high",
-    deadline: "2026-03-05", projectId: "proj-2", link: "", checked: false,
-    description: "Deck institucional NexIA Lab.", assignedTo: "user-1", createdBy: "user-1",
-    checklist: [{ id: genId(), text: "Levantar cases", done: false }],
-    subtasks: [{ id: genId(), title: "Revisar dados de ROI", status: "todo", checked: false }],
-  },
-];
 
 // ——— Theme ———
 interface Theme {
@@ -293,24 +235,17 @@ function Checklist({ items, onChange, theme, disabled }: any) {
 }
 
 // ——— Login Screen ———
-function LoginScreen({ users, onLogin, theme, onToggleTheme, useApi }: any) {
+function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) => void; theme: Theme; onToggleTheme: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
 
   const handleLogin = async () => {
-    if (useApi) {
-      try {
-        const user = await api.login(username.toLowerCase().trim(), password);
-        onLogin(user);
-        return;
-      } catch (e: any) { triggerError(e.message || "Erro no login"); return; }
-    }
-    const user = users.find((u: User) => u.username === username.toLowerCase().trim());
-    if (!user) { triggerError("Usuário não encontrado"); return; }
-    if (user.passwordHash !== hashPassword(password)) { triggerError("Senha incorreta"); return; }
-    onLogin(user);
+    try {
+      const user = await api.login(username.toLowerCase().trim(), password);
+      onLogin(user);
+    } catch (e: any) { triggerError(e.message || "Erro no login"); }
   };
 
   const triggerError = (msg: string) => {
@@ -422,39 +357,46 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
   const [tab, setTab] = useState("users");
   const [newUser, setNewUser] = useState({ username: "", name: "", password: "", role: "editor" });
 
-  const addUser = () => {
+  const addUser = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) return;
     if (users.find((u: User) => u.username === newUser.username.toLowerCase().trim())) return;
-    const avatars: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
-    onUpdateUsers([...users, {
-      id: "user-" + genId(), username: newUser.username.toLowerCase().trim(),
-      name: newUser.name || newUser.username, passwordHash: hashPassword(newUser.password),
-      role: newUser.role, avatar: avatars[newUser.role]
-    }]);
+    try {
+      const created = await api.createUser({ username: newUser.username, name: newUser.name || newUser.username, password: newUser.password, role: newUser.role });
+      onUpdateUsers([...users, { ...created }]);
+    } catch {}
     setNewUser({ username: "", name: "", password: "", role: "editor" });
   };
 
-  const resetPassword = (userId: string, newPwd: string) => {
-    onUpdateUsers(users.map((u: User) => u.id === userId ? { ...u, passwordHash: hashPassword(newPwd) } : u));
+  const resetPassword = async (userId: string, newPwd: string) => {
+    try { await api.resetPassword(userId, newPwd); } catch {}
   };
 
-  const deleteUser = (userId: string) => {
+  const deleteUser = async (userId: string) => {
     if (userId === currentUser.id) return;
     if (!window.confirm("Deletar este usuário?")) return;
-    onUpdateUsers(users.filter((u: User) => u.id !== userId));
+    try {
+      await api.deleteUser(userId);
+      onUpdateUsers(users.filter((u: User) => u.id !== userId));
+    } catch {}
   };
 
-  const changeRole = (userId: string, newRole: string) => {
+  const changeRole = async (userId: string, newRole: string) => {
     const avatars: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
-    onUpdateUsers(users.map((u: User) => u.id === userId ? { ...u, role: newRole as User["role"], avatar: avatars[newRole] } : u));
+    try {
+      await api.changeRole(userId, newRole);
+      onUpdateUsers(users.map((u: User) => u.id === userId ? { ...u, role: newRole as User["role"], avatar: avatars[newRole] } : u));
+    } catch {}
   };
 
-  const toggleShare = (projId: string, userId: string) => {
-    onUpdateProjects(projects.map((p: Project) => {
-      if (p.id !== projId) return p;
-      const shared = p.sharedWith || [];
-      return { ...p, sharedWith: shared.includes(userId) ? shared.filter((id: string) => id !== userId) : [...shared, userId] };
-    }));
+  const toggleShare = async (projId: string, userId: string) => {
+    const proj = projects.find((p: Project) => p.id === projId);
+    if (!proj) return;
+    const shared = proj.sharedWith || [];
+    const newShared = shared.includes(userId) ? shared.filter((id: string) => id !== userId) : [...shared, userId];
+    try {
+      await api.updateShares(projId, newShared);
+      onUpdateProjects(projects.map((p: Project) => p.id === projId ? { ...p, sharedWith: newShared } : p));
+    } catch {}
   };
 
   const inputStyle: CSSProperties = {
@@ -911,15 +853,10 @@ export default function TaskManager() {
     localStorage.setItem("taskhub-theme", mode);
   }, [mode]);
 
-  const [useApi, setUseApi] = useState(false);
-  useEffect(() => {
-    fetch("/api/health").then(r => r.ok ? setUseApi(true) : setUseApi(false)).catch(() => setUseApi(false));
-  }, []);
-
-  const [users, setUsers] = useState(DEMO_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [projects, setProjects] = useState(INITIAL_PROJECTS);
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [activeProject, setActiveProject] = useState("all");
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
@@ -984,64 +921,59 @@ export default function TaskManager() {
   };
 
   const loadData = useCallback(async () => {
-    if (!useApi) return;
     try {
       const [u, p, t] = await Promise.all([api.getUsers(), api.getProjects(), api.getTasks()]);
-      setUsers(u.map((x: any) => ({ ...x, passwordHash: "" })));
+      setUsers(u.map((x: any) => ({ ...x })));
       setProjects(p.map((x: any) => ({ ...x, ownerId: x.owner_id || x.ownerId, sharedWith: x.sharedWith || [] })));
       setTasks(t);
-    } catch { /* fallback to local */ }
-  }, [useApi]);
+    } catch { /* error loading data */ }
+  }, []);
 
   // Auto-login from saved token
   useEffect(() => {
-    if (!useApi || currentUser) return;
+    if (currentUser) return;
     if (api.hasToken()) {
       api.me().then((u: any) => { setCurrentUser(u); }).catch(() => api.logout());
     }
-  }, [useApi, currentUser]);
+  }, [currentUser]);
 
-  useEffect(() => { if (useApi && currentUser) loadData(); }, [useApi, currentUser, loadData]);
+  useEffect(() => { if (currentUser) loadData(); }, [currentUser, loadData]);
 
   const updateTask = async (updated: Task) => {
     if (!canEdit) return;
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     if (detailTask && detailTask.id === updated.id) setDetailTask(updated);
-    if (useApi) {
-      try { await api.updateTask(updated.id, { title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, deadline: updated.deadline, projectId: updated.projectId, assignedTo: updated.assignedTo, link: updated.link, checked: updated.checked, checklist: updated.checklist, subtasks: updated.subtasks }); } catch {}
-    }
+    try { await api.updateTask(updated.id, { title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, deadline: updated.deadline, projectId: updated.projectId, assignedTo: updated.assignedTo, link: updated.link, checked: updated.checked, checklist: updated.checklist, subtasks: updated.subtasks }); } catch {}
   };
 
   const addTask = async () => {
     if (!canEdit || !currentUser) return;
     const projectId = activeProject === "all" ? visibleProjects[0]?.id || "" : activeProject;
-    if (useApi) {
-      try { const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id }); setTasks((prev) => [nt, ...prev]); setDetailTask(nt); return; } catch {}
-    }
-    const nt: Task = { id: genId(), title: "Nova tarefa", status: "todo", priority: "medium", deadline: "", projectId, link: "", checked: false, description: "", checklist: [], subtasks: [], assignedTo: currentUser.id, createdBy: currentUser.id };
-    setTasks((prev) => [nt, ...prev]);
-    setDetailTask(nt);
+    try {
+      const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
+      setTasks((prev) => [nt, ...prev]);
+      setDetailTask(nt);
+    } catch {}
   };
 
   const addTaskInline = async (title: string, projectId: string) => {
     if (!canEdit || !currentUser) return;
-    if (useApi) {
-      try { const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, assignedTo: currentUser.id }); setTasks((prev) => [...prev, nt]); return; } catch {}
-    }
-    const nt: Task = { id: genId(), title, status: "todo", priority: "medium", deadline: "", projectId, link: "", checked: false, description: "", checklist: [], subtasks: [], assignedTo: currentUser.id, createdBy: currentUser.id };
-    setTasks((prev) => [...prev, nt]);
+    try {
+      const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
+      setTasks((prev) => [...prev, nt]);
+    } catch {}
   };
 
-  const addProject = () => {
+  const addProject = async () => {
     if (!newProjectName.trim() || !isAdmin || !currentUser) return;
     const colors = ["#7B61FF", "#00C875", "#FF6B6B", "#FDAB3D", "#579BFC", "#FF78CB", "#9B59B6", "#1ABC9C"];
     const icons = ["📌", "⚡", "💡", "🎯", "🔥", "🌟", "🚀", "🌐"];
-    setProjects((prev) => [...prev, {
-      id: "proj-" + genId(), name: newProjectName.trim(),
-      color: colors[Math.floor(Math.random() * colors.length)],
-      icon: icons[Math.floor(Math.random() * icons.length)],
-      ownerId: currentUser.id, sharedWith: []
-    }]);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const icon = icons[Math.floor(Math.random() * icons.length)];
+    try {
+      const np = await api.createProject({ name: newProjectName.trim(), color, icon });
+      setProjects((prev) => [...prev, { ...np, ownerId: np.ownerId || currentUser.id, sharedWith: np.sharedWith || [] }]);
+    } catch {}
     setNewProjectName(""); setShowNewProject(false);
   };
 
@@ -1055,11 +987,14 @@ export default function TaskManager() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    if (useApi) { api.logout(); setUsers(DEMO_USERS); setProjects(INITIAL_PROJECTS); setTasks(INITIAL_TASKS); }
+    api.logout();
+    setUsers([]);
+    setProjects([]);
+    setTasks([]);
   };
 
   if (!currentUser) {
-    return <LoginScreen users={users} onLogin={handleLogin} theme={theme} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} useApi={useApi} />;
+    return <LoginScreen onLogin={handleLogin} theme={theme} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} />;
   }
 
   return (

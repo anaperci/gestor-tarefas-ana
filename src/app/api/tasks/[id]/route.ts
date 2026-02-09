@@ -1,0 +1,170 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { authenticate, requireEditorOrAdmin } from "@/lib/auth";
+import { genId } from "@/lib/utils";
+
+interface TaskRow {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  deadline: string;
+  project_id: string;
+  assigned_to: string | null;
+  created_by: string;
+  link: string;
+  checked: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+async function enrichTask(task: TaskRow) {
+  const { data: checklist } = await supabase
+    .from("checklist_items")
+    .select("id, text, done")
+    .eq("task_id", task.id)
+    .order("sort_order");
+
+  const { data: subtasks } = await supabase
+    .from("subtasks")
+    .select("id, title, status, checked")
+    .eq("task_id", task.id)
+    .order("sort_order");
+
+  return {
+    ...task,
+    checked: !!task.checked,
+    checklist: (checklist || []).map((c) => ({ ...c, done: !!c.done })),
+    subtasks: (subtasks || []).map((s) => ({ ...s, checked: !!s.checked })),
+    projectId: task.project_id,
+    assignedTo: task.assigned_to,
+    createdBy: task.created_by,
+    createdAt: task.created_at,
+    updatedAt: task.updated_at,
+  };
+}
+
+async function canAccessProject(userId: string, role: string, projectId: string): Promise<boolean> {
+  if (role === "admin") return true;
+  const { data: proj } = await supabase
+    .from("projects")
+    .select("owner_id")
+    .eq("id", projectId)
+    .single();
+  if (!proj) return false;
+  if (proj.owner_id === userId) return true;
+  const { data: share } = await supabase
+    .from("project_shares")
+    .select("user_id")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .single();
+  return !!share;
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const authResult = await authenticate(request);
+  if (authResult.error) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const roleCheck = requireEditorOrAdmin(authResult.user!);
+  if (roleCheck) return roleCheck;
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (!task) {
+    return NextResponse.json({ error: "Tarefa não encontrada" }, { status: 404 });
+  }
+
+  const hasAccess = await canAccessProject(authResult.user!.id, authResult.user!.role, task.project_id);
+  if (!hasAccess) {
+    return NextResponse.json({ error: "Sem acesso" }, { status: 403 });
+  }
+
+  const body = await request.json();
+
+  await supabase
+    .from("tasks")
+    .update({
+      title: body.title ?? task.title,
+      description: body.description ?? task.description,
+      status: body.status ?? task.status,
+      priority: body.priority ?? task.priority,
+      deadline: body.deadline ?? task.deadline,
+      project_id: body.projectId ?? task.project_id,
+      assigned_to: body.assignedTo ?? task.assigned_to,
+      link: body.link ?? task.link,
+      checked: body.checked ?? false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  // Sync checklist
+  if (Array.isArray(body.checklist)) {
+    await supabase.from("checklist_items").delete().eq("task_id", id);
+    if (body.checklist.length > 0) {
+      await supabase.from("checklist_items").insert(
+        body.checklist.map((item: { id?: string; text: string; done?: boolean }, i: number) => ({
+          id: item.id || "cl-" + genId(),
+          task_id: id,
+          text: item.text,
+          done: item.done || false,
+          sort_order: i,
+        }))
+      );
+    }
+  }
+
+  // Sync subtasks
+  if (Array.isArray(body.subtasks)) {
+    await supabase.from("subtasks").delete().eq("task_id", id);
+    if (body.subtasks.length > 0) {
+      await supabase.from("subtasks").insert(
+        body.subtasks.map(
+          (st: { id?: string; title: string; status?: string; checked?: boolean }, i: number) => ({
+            id: st.id || "st-" + genId(),
+            task_id: id,
+            title: st.title,
+            status: st.status || "todo",
+            checked: st.checked || false,
+            sort_order: i,
+          })
+        )
+      );
+    }
+  }
+
+  const { data: updated } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  const enriched = await enrichTask(updated as TaskRow);
+  return NextResponse.json(enriched);
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const authResult = await authenticate(request);
+  if (authResult.error) {
+    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  }
+  const roleCheck = requireEditorOrAdmin(authResult.user!);
+  if (roleCheck) return roleCheck;
+
+  await supabase.from("tasks").delete().eq("id", id);
+  return NextResponse.json({ success: true });
+}
