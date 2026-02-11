@@ -584,15 +584,104 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
   );
 }
 
-// ——— Task Detail (Monday.com style) ———
+// ——— Rich Text Editor (Monday.com style) ———
+function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: string; onChange: (v: string) => void; theme: Theme; readOnly?: boolean; placeholder?: string }) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (editorRef.current && isInitialMount.current) {
+      editorRef.current.innerHTML = value || "";
+      isInitialMount.current = false;
+    }
+  }, [value]);
+
+  const exec = (cmd: string, val?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(cmd, false, val);
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
+  };
+
+  const insertLink = () => {
+    const url = window.prompt("URL do link:");
+    if (url) exec("createLink", url);
+  };
+
+  const insertMention = () => {
+    const sel = window.getSelection();
+    if (sel && editorRef.current) {
+      const mention = document.createElement("span");
+      mention.style.cssText = "color: #579BFC; font-weight: 600;";
+      mention.textContent = "@";
+      sel.getRangeAt(0).insertNode(mention);
+      sel.collapseToEnd();
+      editorRef.current.focus();
+      handleInput();
+    }
+  };
+
+  const toolBtn = (label: string, action: () => void, title: string) => (
+    <button onClick={action} title={title}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 14, fontWeight: label === "B" ? 700 : label === "I" ? 400 : 500, fontStyle: label === "I" ? "italic" : "normal", fontFamily: "'Figtree', Roboto, sans-serif", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = theme.textSecondary; }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ border: `1px solid ${theme.border}`, borderRadius: 8, overflow: "hidden" }}>
+      {!readOnly && (
+        <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "6px 10px", borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
+          {toolBtn("B", () => exec("bold"), "Negrito")}
+          {toolBtn("I", () => exec("italic"), "Itálico")}
+          {toolBtn("U", () => exec("underline"), "Sublinhado")}
+          <div style={{ width: 1, height: 18, background: theme.border, margin: "0 4px" }} />
+          {toolBtn("🔗", insertLink, "Inserir link")}
+          {toolBtn("@", insertMention, "Mencionar")}
+          <div style={{ width: 1, height: 18, background: theme.border, margin: "0 4px" }} />
+          {toolBtn("― ―", () => exec("insertHorizontalRule"), "Linha divisória")}
+        </div>
+      )}
+      <div
+        ref={editorRef}
+        contentEditable={!readOnly}
+        suppressContentEditableWarning
+        onInput={handleInput}
+        data-placeholder={placeholder}
+        style={{
+          padding: "14px 16px", minHeight: 120, outline: "none", color: theme.text,
+          fontSize: 14, lineHeight: 1.7, fontFamily: "'Figtree', Roboto, sans-serif",
+          overflowY: "auto", maxHeight: 400, cursor: readOnly ? "default" : "text",
+        }}
+      />
+      <style>{`
+        [data-placeholder]:empty:before { content: attr(data-placeholder); color: ${theme.textMuted}; pointer-events: none; }
+        [contenteditable] a { color: #579BFC; text-decoration: underline; }
+      `}</style>
+    </div>
+  );
+}
+
+// ——— Task Detail (Monday.com style — tela única) ———
 function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }: any) {
-  const [activeTab, setActiveTab] = useState<"updates" | "info">("updates");
-  const project = projects.find((p: Project) => p.id === task.projectId);
+  const [newCheckItem, setNewCheckItem] = useState("");
+  const checkInputRef = useRef<HTMLInputElement>(null);
   const assignee = users?.find((u: User) => u.id === task.assignedTo);
-  const tabs = [
-    { key: "updates", label: "Atualizações", icon: "🏠" },
-    { key: "info", label: "Informações", icon: "ℹ️" },
-  ];
+  const project = projects.find((p: Project) => p.id === task.projectId);
+  const checkDone = (task.checklist || []).filter((i: ChecklistItem) => i.done).length;
+  const checkTotal = (task.checklist || []).length;
+  const checkPct = checkTotal ? Math.round((checkDone / checkTotal) * 100) : 0;
+
+  const addCheckItem = () => {
+    if (!newCheckItem.trim() || !canEdit) return;
+    onUpdate({ ...task, checklist: [...(task.checklist || []), { id: genId(), text: newCheckItem.trim(), done: false }] });
+    setNewCheckItem("");
+    setTimeout(() => checkInputRef.current?.focus(), 50);
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
@@ -602,9 +691,9 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
         background: theme.surface, display: "flex", flexDirection: "column",
         boxShadow: "-8px 0 40px rgba(0,0,0,0.15)", animation: "slideIn 0.25s ease-out"
       }}>
-        {/* Header — Monday.com style */}
-        <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px", flexShrink: 0, borderBottom: `1px solid ${theme.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button onClick={onClose} style={{ background: "none", border: "none", color: theme.textSecondary, cursor: "pointer", fontSize: 20, padding: 4, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, flexShrink: 0 }}
               onMouseEnter={(e) => e.currentTarget.style.background = theme.surfaceHover}
               onMouseLeave={(e) => e.currentTarget.style.background = "none"}>✕</button>
@@ -612,171 +701,74 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
               style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               {assignee && (
-                <div title={assignee.name} style={{ width: 32, height: 32, borderRadius: "50%", background: theme.badgeBg("#579BFC"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, border: `2px solid ${theme.border}` }}>
+                <div title={assignee.name} style={{ width: 34, height: 34, borderRadius: "50%", background: theme.badgeBg("#579BFC"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, border: `2px solid ${theme.border}` }}>
                   {assignee.avatar}
                 </div>
               )}
+              {project && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: project.color, fontWeight: 600, background: theme.badgeBg(project.color), padding: "3px 10px", borderRadius: 12 }}>
+                  {project.icon} {project.name}
+                </span>
+              )}
             </div>
-          </div>
-
-          {/* Tabs — Monday.com style */}
-          <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${theme.border}` }}>
-            {tabs.map((tab) => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-                style={{
-                  background: "none", border: "none", borderBottom: activeTab === tab.key ? "2.5px solid #579BFC" : "2.5px solid transparent",
-                  color: activeTab === tab.key ? theme.text : theme.textSecondary,
-                  fontWeight: activeTab === tab.key ? 600 : 400,
-                  fontSize: 14, padding: "10px 16px", cursor: "pointer", fontFamily: "'Figtree', sans-serif",
-                  transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6,
-                  marginBottom: -1
-                }}
-                onMouseEnter={(e) => { if (activeTab !== tab.key) e.currentTarget.style.color = theme.text; }}
-                onMouseLeave={(e) => { if (activeTab !== tab.key) e.currentTarget.style.color = theme.textSecondary; }}>
-                <span style={{ fontSize: 14 }}>{tab.icon}</span> {tab.label}
-              </button>
-            ))}
           </div>
         </div>
 
-        {/* Content area — scrollable */}
+        {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 32px" }}>
           {!canEdit && (
             <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(87,155,252,0.1)", border: "1px solid rgba(87,155,252,0.2)", color: "#579BFC", fontSize: 13, fontWeight: 500, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-              <span>👁️</span> Modo visualização — você não tem permissão para editar
+              <span>👁️</span> Modo visualização
             </div>
           )}
 
-          {activeTab === "updates" && (
-            <div>
-              {/* Update input area — Monday.com style */}
-              <div style={{ border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 24, overflow: "hidden" }}>
-                <textarea
-                  placeholder="Escreva uma atualização e mencione outros com @"
-                  rows={3}
-                  style={{ width: "100%", background: "transparent", border: "none", padding: "14px 16px", color: theme.text, fontSize: 14, outline: "none", resize: "none", lineHeight: 1.5, fontFamily: "'Figtree', sans-serif" }}
-                />
-                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 12px", borderTop: `1px solid ${theme.border}` }}>
-                  {["📎", "😊"].map((icon, i) => (
-                    <button key={i} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "4px 6px", borderRadius: 4, color: theme.textSecondary }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = theme.surfaceHover}
-                      onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          {/* Rich text description */}
+          <RichEditor
+            value={task.description || ""}
+            onChange={(v) => canEdit && onUpdate({ ...task, description: v })}
+            theme={theme}
+            readOnly={!canEdit}
+            placeholder={canEdit ? "Escreva aqui... Use a barra de ferramentas para formatar" : "Sem descrição"}
+          />
 
-              {/* Empty state */}
-              <div style={{ textAlign: "center", padding: "48px 20px" }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>📬</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 8, fontFamily: "'Figtree', sans-serif" }}>Nenhuma atualização ainda</div>
-                <div style={{ fontSize: 14, color: theme.textSecondary, lineHeight: 1.5 }}>Compartilhe o progresso, mencione um colega ou<br/>carregue um arquivo para dar andamento às coisas</div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "info" && (
-            <div>
-              {/* Project badge */}
-              {project && (
-                <div style={{ marginBottom: 20 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: project.color, fontWeight: 600, background: theme.badgeBg(project.color), padding: "4px 12px", borderRadius: 12 }}>
-                    {project.icon} {project.name}
-                  </span>
-                </div>
+          {/* Checklist — simple Monday.com style */}
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: theme.text }}>Checklist</span>
+              {checkTotal > 0 && (
+                <>
+                  <span style={{ fontSize: 12, color: theme.textMuted }}>{checkDone}/{checkTotal}</span>
+                  <div style={{ flex: 1, height: 4, borderRadius: 4, background: theme.inputBg, maxWidth: 120 }}>
+                    <div style={{ width: checkPct + "%", height: "100%", borderRadius: 4, background: "#00C875", transition: "width 0.3s" }} />
+                  </div>
+                </>
               )}
-
-              {/* Fields — Monday.com info style */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {/* Status */}
-                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
-                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Status</div>
-                  <div style={{ flex: 1 }}><StatusBadge value={task.status} onChange={(v: string) => onUpdate({ ...task, status: v })} theme={theme} disabled={!canEdit} /></div>
-                </div>
-                {/* Prioridade */}
-                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
-                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Prioridade</div>
-                  <div style={{ flex: 1 }}><PriorityBadge value={task.priority} onChange={(v: string) => onUpdate({ ...task, priority: v })} theme={theme} disabled={!canEdit} /></div>
-                </div>
-                {/* Responsável */}
-                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
-                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Responsável</div>
-                  <div style={{ flex: 1 }}>
-                    {canEdit ? (
-                      <Dropdown
-                        options={[{ value: "", label: "Ninguém", avatar: "—" }, ...users.map((u: User) => ({ value: u.id, label: u.name, avatar: u.avatar }))]}
-                        value={task.assignedTo || ""} onChange={(v: string) => onUpdate({ ...task, assignedTo: v || null })} theme={theme}
-                        renderOption={(o: any) => <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: theme.text }}><span>{o.avatar}</span> {o.label}</span>}
-                      />
-                    ) : (
-                      <span style={{ fontSize: 14, color: theme.text, display: "flex", alignItems: "center", gap: 8 }}>
-                        {assignee ? <><span>{assignee.avatar}</span> {assignee.name}</> : "—"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {/* Prazo */}
-                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
-                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Prazo</div>
-                  <div style={{ flex: 1 }}>
-                    <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
-                      style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 14, outline: "none", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }} />
-                  </div>
-                </div>
-                {/* Link */}
-                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
-                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Link</div>
-                  <div style={{ flex: 1 }}>
-                    {canEdit ? (
-                      <input value={task.link || ""} onChange={(e) => onUpdate({ ...task, link: e.target.value })} placeholder="https://..."
-                        style={{ width: "100%", background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: "#579BFC", fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
-                    ) : task.link ? (
-                      <a href={task.link} target="_blank" rel="noopener noreferrer" style={{ color: "#579BFC", fontSize: 14 }}>{task.link}</a>
-                    ) : <span style={{ color: theme.textMuted, fontSize: 14 }}>—</span>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Descrição */}
-              <div style={{ marginTop: 24, marginBottom: 24 }}>
-                <div style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 600, marginBottom: 8 }}>Descrição</div>
-                <textarea value={task.description || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, description: e.target.value })}
-                  placeholder={canEdit ? "Adicione uma descrição detalhada..." : "Sem descrição"}
-                  rows={4}
-                  style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "12px 14px", color: theme.text, fontSize: 14, outline: "none", resize: canEdit ? "vertical" : "none", lineHeight: 1.6, fontFamily: "'Figtree', sans-serif" }} />
-              </div>
-
-              {/* Checklist */}
-              <div style={{ marginBottom: 24 }}>
-                <Checklist items={task.checklist || []} onChange={(items: ChecklistItem[]) => canEdit && onUpdate({ ...task, checklist: items })} theme={theme} disabled={!canEdit} />
-              </div>
-
-              {/* Subtarefas */}
-              <div>
-                <div style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 600, marginBottom: 10 }}>Subtarefas</div>
-                {(task.subtasks || []).map((st: Subtask, i: number) => (
-                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: theme.inputBg, borderRadius: 8, marginBottom: 4, border: `1px solid ${theme.border}` }}>
-                    <button onClick={() => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, checked: !st.checked }; onUpdate({ ...task, subtasks: n }); }}
-                      style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${st.checked ? "#00C875" : theme.textMuted}`, background: st.checked ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
-                      {st.checked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
-                    </button>
-                    <input value={st.title} readOnly={!canEdit} onChange={(e) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, title: e.target.value }; onUpdate({ ...task, subtasks: n }); }}
-                      style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", textDecoration: st.checked ? "line-through" : "none", opacity: st.checked ? 0.5 : 1, fontFamily: "'Figtree', sans-serif" }} />
-                    <StatusBadge value={st.status} compact onChange={(v: string) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, status: v }; onUpdate({ ...task, subtasks: n }); }} theme={theme} disabled={!canEdit} />
-                    {canEdit && <button onClick={() => onUpdate({ ...task, subtasks: task.subtasks.filter((_: any, j: number) => j !== i) })}
-                      style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>}
-                  </div>
-                ))}
-                {canEdit && (
-                  <button onClick={() => onUpdate({ ...task, subtasks: [...(task.subtasks || []), { id: genId(), title: "Nova subtarefa", status: "todo", checked: false }] })}
-                    style={{ marginTop: 6, background: theme.badgeBg("#7B61FF"), border: "1px dashed " + theme.badgeBorder("#7B61FF"), borderRadius: 8, color: "#7B61FF", padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, width: "100%" }}>
-                    + Adicionar subtarefa
-                  </button>
-                )}
-              </div>
             </div>
-          )}
+
+            {(task.checklist || []).map((item: ChecklistItem) => (
+              <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${theme.border}` }}>
+                <button onClick={() => canEdit && onUpdate({ ...task, checklist: task.checklist.map((i: ChecklistItem) => i.id === item.id ? { ...i, done: !i.done } : i) })}
+                  style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${item.done ? "#00C875" : theme.textMuted}`, background: item.done ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0, transition: "all 0.15s" }}>
+                  {item.done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
+                </button>
+                <span style={{ flex: 1, fontSize: 14, color: item.done ? theme.textMuted : theme.text, textDecoration: item.done ? "line-through" : "none", transition: "all 0.15s" }}>{item.text}</span>
+                {canEdit && <button onClick={() => onUpdate({ ...task, checklist: task.checklist.filter((i: ChecklistItem) => i.id !== item.id) })}
+                  style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px", opacity: 0.4, transition: "opacity 0.15s" }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>×</button>}
+              </div>
+            ))}
+
+            {canEdit && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px dashed ${theme.textMuted}`, opacity: 0.4, flexShrink: 0 }} />
+                <input ref={checkInputRef} value={newCheckItem} onChange={(e) => setNewCheckItem(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addCheckItem(); }}
+                  placeholder="Adicionar item..."
+                  style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', Roboto, sans-serif", padding: 0 }} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
