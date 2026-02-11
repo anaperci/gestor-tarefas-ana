@@ -66,6 +66,7 @@ export const api = {
   // Projects
   getProjects: () => request("/projects"),
   createProject: (data: any) => request("/projects", { method: "POST", body: JSON.stringify(data) }),
+  deleteProject: (id: string) => request(`/projects/${id}`, { method: "DELETE" }),
   updateShares: (id: string, sharedWith: string[]) =>
     request(`/projects/${id}/share`, { method: "PUT", body: JSON.stringify({ sharedWith }) }),
 

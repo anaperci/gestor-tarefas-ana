@@ -32,7 +32,11 @@ export async function GET(request: NextRequest) {
 
   const result = await Promise.all(
     projects.map(async (p: Record<string, unknown>) => ({
-      ...p,
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      icon: p.icon,
+      ownerId: p.owner_id,
       sharedWith: await getShares(p.id as string),
     }))
   );

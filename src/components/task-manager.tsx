@@ -584,108 +584,198 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
   );
 }
 
-// ——— Task Detail ———
+// ——— Task Detail (Monday.com style) ———
 function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }: any) {
+  const [activeTab, setActiveTab] = useState<"updates" | "info">("updates");
   const project = projects.find((p: Project) => p.id === task.projectId);
+  const assignee = users?.find((u: User) => u.id === task.assignedTo);
+  const tabs = [
+    { key: "updates", label: "Atualizações", icon: "🏠" },
+    { key: "info", label: "Informações", icon: "ℹ️" },
+  ];
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: theme.overlay, backdropFilter: "blur(4px)" }} />
       <div onClick={(e) => e.stopPropagation()} style={{
-        position: "relative", width: "min(580px, 92vw)", height: "100%",
-        background: theme.surface, overflowY: "auto", padding: "32px 28px",
-        boxShadow: "-8px 0 40px rgba(0,0,0,0.12)", animation: "slideIn 0.25s ease-out"
+        position: "relative", width: "min(640px, 94vw)", height: "100%",
+        background: theme.surface, display: "flex", flexDirection: "column",
+        boxShadow: "-8px 0 40px rgba(0,0,0,0.15)", animation: "slideIn 0.25s ease-out"
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-          <div style={{ flex: 1 }}>
-            {project && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: project.color, fontWeight: 600, background: theme.badgeBg(project.color), padding: "3px 10px", borderRadius: 12, marginBottom: 10 }}>
-                {project.icon} {project.name}
-              </span>
-            )}
+        {/* Header — Monday.com style */}
+        <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: theme.textSecondary, cursor: "pointer", fontSize: 20, padding: 4, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, flexShrink: 0 }}
+              onMouseEnter={(e) => e.currentTarget.style.background = theme.surfaceHover}
+              onMouseLeave={(e) => e.currentTarget.style.background = "none"}>✕</button>
             <input value={task.title} onChange={(e) => canEdit && onUpdate({ ...task, title: e.target.value })} readOnly={!canEdit}
-              style={{ display: "block", width: "100%", background: "transparent", border: "none", color: theme.text, fontSize: 22, fontWeight: 700, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0, marginTop: 6, cursor: canEdit ? "text" : "default" }} />
-          </div>
-          <button onClick={onClose} style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
-        </div>
-
-        {!canEdit && (
-          <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(87,155,252,0.1)", border: "1px solid rgba(87,155,252,0.2)", color: "#579BFC", fontSize: 12, fontWeight: 500, marginBottom: 20 }}>
-            👁️ Modo visualização — você não tem permissão para editar
-          </div>
-        )}
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28, padding: 16, background: theme.inputBg, borderRadius: 12, border: `1px solid ${theme.border}` }}>
-          <div>
-            <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Status</div>
-            <StatusBadge value={task.status} onChange={(v: string) => onUpdate({ ...task, status: v })} theme={theme} disabled={!canEdit} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Prioridade</div>
-            <PriorityBadge value={task.priority} onChange={(v: string) => onUpdate({ ...task, priority: v })} theme={theme} disabled={!canEdit} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Prazo</div>
-            <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
-              style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 10px", color: theme.text, fontSize: 13, outline: "none", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Responsável</div>
-            {canEdit ? (
-              <Dropdown
-                options={users.map((u: User) => ({ value: u.id, label: u.name, ...u }))}
-                value={task.assignedTo || ""} onChange={(v: string) => onUpdate({ ...task, assignedTo: v })} theme={theme}
-                renderOption={(o: any) => <span style={{ fontSize: 12, color: theme.text }}>{o.avatar} {o.label || o.name}</span>}
-              />
-            ) : (
-              <span style={{ fontSize: 12, color: theme.text }}>
-                {(() => { const u = users.find((u: User) => u.id === task.assignedTo); return u ? `${u.avatar} ${u.name}` : "—"; })()}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>Link</div>
-          {canEdit ? (
-            <input value={task.link || ""} onChange={(e) => onUpdate({ ...task, link: e.target.value })} placeholder="https://..."
-              style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "8px 12px", color: "#579BFC", fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
-          ) : task.link ? (
-            <a href={task.link} target="_blank" rel="noopener noreferrer" style={{ color: "#579BFC", fontSize: 13 }}>{task.link}</a>
-          ) : <span style={{ color: theme.textMuted, fontSize: 13 }}>—</span>}
-        </div>
-
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 13, color: theme.textSecondary, fontWeight: 600, marginBottom: 8 }}>Descrição</div>
-          <textarea value={task.description || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, description: e.target.value })}
-            placeholder={canEdit ? "Adicione uma descrição detalhada..." : "Sem descrição"}
-            rows={4}
-            style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "12px 14px", color: theme.text, fontSize: 14, outline: "none", resize: canEdit ? "vertical" : "none", lineHeight: 1.6, fontFamily: "'Figtree', sans-serif" }} />
-        </div>
-
-        <div style={{ marginBottom: 28 }}>
-          <Checklist items={task.checklist || []} onChange={(items: ChecklistItem[]) => canEdit && onUpdate({ ...task, checklist: items })} theme={theme} disabled={!canEdit} />
-        </div>
-
-        <div>
-          <div style={{ fontSize: 13, color: theme.textSecondary, fontWeight: 600, marginBottom: 10 }}>Subtarefas</div>
-          {(task.subtasks || []).map((st: Subtask, i: number) => (
-            <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: theme.inputBg, borderRadius: 8, marginBottom: 4, border: `1px solid ${theme.border}` }}>
-              <button onClick={() => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, checked: !st.checked }; onUpdate({ ...task, subtasks: n }); }}
-                style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${st.checked ? "#00C875" : theme.textMuted}`, background: st.checked ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
-                {st.checked && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
-              </button>
-              <input value={st.title} readOnly={!canEdit} onChange={(e) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, title: e.target.value }; onUpdate({ ...task, subtasks: n }); }}
-                style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 13, outline: "none", textDecoration: st.checked ? "line-through" : "none", opacity: st.checked ? 0.5 : 1, fontFamily: "'Figtree', sans-serif" }} />
-              <StatusBadge value={st.status} compact onChange={(v: string) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, status: v }; onUpdate({ ...task, subtasks: n }); }} theme={theme} disabled={!canEdit} />
-              {canEdit && <button onClick={() => onUpdate({ ...task, subtasks: task.subtasks.filter((_: any, j: number) => j !== i) })}
-                style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14, padding: "0 4px" }}>×</button>}
+              style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              {assignee && (
+                <div title={assignee.name} style={{ width: 32, height: 32, borderRadius: "50%", background: theme.badgeBg("#579BFC"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, border: `2px solid ${theme.border}` }}>
+                  {assignee.avatar}
+                </div>
+              )}
             </div>
-          ))}
-          {canEdit && (
-            <button onClick={() => onUpdate({ ...task, subtasks: [...(task.subtasks || []), { id: genId(), title: "Nova subtarefa", status: "todo", checked: false }] })}
-              style={{ marginTop: 6, background: theme.badgeBg("#7B61FF"), border: "1px dashed " + theme.badgeBorder("#7B61FF"), borderRadius: 8, color: "#7B61FF", padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600, width: "100%" }}>
-              + Adicionar subtarefa
-            </button>
+          </div>
+
+          {/* Tabs — Monday.com style */}
+          <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${theme.border}` }}>
+            {tabs.map((tab) => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
+                style={{
+                  background: "none", border: "none", borderBottom: activeTab === tab.key ? "2.5px solid #579BFC" : "2.5px solid transparent",
+                  color: activeTab === tab.key ? theme.text : theme.textSecondary,
+                  fontWeight: activeTab === tab.key ? 600 : 400,
+                  fontSize: 14, padding: "10px 16px", cursor: "pointer", fontFamily: "'Figtree', sans-serif",
+                  transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6,
+                  marginBottom: -1
+                }}
+                onMouseEnter={(e) => { if (activeTab !== tab.key) e.currentTarget.style.color = theme.text; }}
+                onMouseLeave={(e) => { if (activeTab !== tab.key) e.currentTarget.style.color = theme.textSecondary; }}>
+                <span style={{ fontSize: 14 }}>{tab.icon}</span> {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content area — scrollable */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 32px" }}>
+          {!canEdit && (
+            <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(87,155,252,0.1)", border: "1px solid rgba(87,155,252,0.2)", color: "#579BFC", fontSize: 13, fontWeight: 500, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+              <span>👁️</span> Modo visualização — você não tem permissão para editar
+            </div>
+          )}
+
+          {activeTab === "updates" && (
+            <div>
+              {/* Update input area — Monday.com style */}
+              <div style={{ border: `1px solid ${theme.border}`, borderRadius: 8, marginBottom: 24, overflow: "hidden" }}>
+                <textarea
+                  placeholder="Escreva uma atualização e mencione outros com @"
+                  rows={3}
+                  style={{ width: "100%", background: "transparent", border: "none", padding: "14px 16px", color: theme.text, fontSize: 14, outline: "none", resize: "none", lineHeight: 1.5, fontFamily: "'Figtree', sans-serif" }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 12px", borderTop: `1px solid ${theme.border}` }}>
+                  {["📎", "😊"].map((icon, i) => (
+                    <button key={i} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "4px 6px", borderRadius: 4, color: theme.textSecondary }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = theme.surfaceHover}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Empty state */}
+              <div style={{ textAlign: "center", padding: "48px 20px" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>📬</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: theme.text, marginBottom: 8, fontFamily: "'Figtree', sans-serif" }}>Nenhuma atualização ainda</div>
+                <div style={{ fontSize: 14, color: theme.textSecondary, lineHeight: 1.5 }}>Compartilhe o progresso, mencione um colega ou<br/>carregue um arquivo para dar andamento às coisas</div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "info" && (
+            <div>
+              {/* Project badge */}
+              {project && (
+                <div style={{ marginBottom: 20 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: project.color, fontWeight: 600, background: theme.badgeBg(project.color), padding: "4px 12px", borderRadius: 12 }}>
+                    {project.icon} {project.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Fields — Monday.com info style */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {/* Status */}
+                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
+                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Status</div>
+                  <div style={{ flex: 1 }}><StatusBadge value={task.status} onChange={(v: string) => onUpdate({ ...task, status: v })} theme={theme} disabled={!canEdit} /></div>
+                </div>
+                {/* Prioridade */}
+                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
+                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Prioridade</div>
+                  <div style={{ flex: 1 }}><PriorityBadge value={task.priority} onChange={(v: string) => onUpdate({ ...task, priority: v })} theme={theme} disabled={!canEdit} /></div>
+                </div>
+                {/* Responsável */}
+                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
+                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Responsável</div>
+                  <div style={{ flex: 1 }}>
+                    {canEdit ? (
+                      <Dropdown
+                        options={[{ value: "", label: "Ninguém", avatar: "—" }, ...users.map((u: User) => ({ value: u.id, label: u.name, avatar: u.avatar }))]}
+                        value={task.assignedTo || ""} onChange={(v: string) => onUpdate({ ...task, assignedTo: v || null })} theme={theme}
+                        renderOption={(o: any) => <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: theme.text }}><span>{o.avatar}</span> {o.label}</span>}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 14, color: theme.text, display: "flex", alignItems: "center", gap: 8 }}>
+                        {assignee ? <><span>{assignee.avatar}</span> {assignee.name}</> : "—"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* Prazo */}
+                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
+                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Prazo</div>
+                  <div style={{ flex: 1 }}>
+                    <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
+                      style={{ background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 14, outline: "none", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }} />
+                  </div>
+                </div>
+                {/* Link */}
+                <div style={{ display: "flex", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${theme.border}` }}>
+                  <div style={{ width: 140, fontSize: 14, color: theme.textSecondary, fontWeight: 400 }}>Link</div>
+                  <div style={{ flex: 1 }}>
+                    {canEdit ? (
+                      <input value={task.link || ""} onChange={(e) => onUpdate({ ...task, link: e.target.value })} placeholder="https://..."
+                        style={{ width: "100%", background: "transparent", border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: "#579BFC", fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+                    ) : task.link ? (
+                      <a href={task.link} target="_blank" rel="noopener noreferrer" style={{ color: "#579BFC", fontSize: 14 }}>{task.link}</a>
+                    ) : <span style={{ color: theme.textMuted, fontSize: 14 }}>—</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div style={{ marginTop: 24, marginBottom: 24 }}>
+                <div style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 600, marginBottom: 8 }}>Descrição</div>
+                <textarea value={task.description || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, description: e.target.value })}
+                  placeholder={canEdit ? "Adicione uma descrição detalhada..." : "Sem descrição"}
+                  rows={4}
+                  style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "12px 14px", color: theme.text, fontSize: 14, outline: "none", resize: canEdit ? "vertical" : "none", lineHeight: 1.6, fontFamily: "'Figtree', sans-serif" }} />
+              </div>
+
+              {/* Checklist */}
+              <div style={{ marginBottom: 24 }}>
+                <Checklist items={task.checklist || []} onChange={(items: ChecklistItem[]) => canEdit && onUpdate({ ...task, checklist: items })} theme={theme} disabled={!canEdit} />
+              </div>
+
+              {/* Subtarefas */}
+              <div>
+                <div style={{ fontSize: 14, color: theme.textSecondary, fontWeight: 600, marginBottom: 10 }}>Subtarefas</div>
+                {(task.subtasks || []).map((st: Subtask, i: number) => (
+                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: theme.inputBg, borderRadius: 8, marginBottom: 4, border: `1px solid ${theme.border}` }}>
+                    <button onClick={() => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, checked: !st.checked }; onUpdate({ ...task, subtasks: n }); }}
+                      style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${st.checked ? "#00C875" : theme.textMuted}`, background: st.checked ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
+                      {st.checked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
+                    </button>
+                    <input value={st.title} readOnly={!canEdit} onChange={(e) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, title: e.target.value }; onUpdate({ ...task, subtasks: n }); }}
+                      style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", textDecoration: st.checked ? "line-through" : "none", opacity: st.checked ? 0.5 : 1, fontFamily: "'Figtree', sans-serif" }} />
+                    <StatusBadge value={st.status} compact onChange={(v: string) => { if (!canEdit) return; const n = [...task.subtasks]; n[i] = { ...st, status: v }; onUpdate({ ...task, subtasks: n }); }} theme={theme} disabled={!canEdit} />
+                    {canEdit && <button onClick={() => onUpdate({ ...task, subtasks: task.subtasks.filter((_: any, j: number) => j !== i) })}
+                      style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>}
+                  </div>
+                ))}
+                {canEdit && (
+                  <button onClick={() => onUpdate({ ...task, subtasks: [...(task.subtasks || []), { id: genId(), title: "Nova subtarefa", status: "todo", checked: false }] })}
+                    style={{ marginTop: 6, background: theme.badgeBg("#7B61FF"), border: "1px dashed " + theme.badgeBorder("#7B61FF"), borderRadius: 8, color: "#7B61FF", padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, width: "100%" }}>
+                    + Adicionar subtarefa
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -752,8 +842,20 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
       )}
 
       {!isSubtask && (
-        <div style={{ textAlign: "center" }} title={assignee?.name || ""}>
-          <span style={{ fontSize: 16 }}>{assignee?.avatar || "—"}</span>
+        <div onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+          <Dropdown
+            options={[{ value: "", label: "Ninguém", avatar: "—" }, ...(users || []).map((u: User) => ({ value: u.id, label: u.name, avatar: u.avatar }))]}
+            value={task.assignedTo || ""}
+            onChange={(v: string) => canEdit && onUpdate({ ...task, assignedTo: v || null })}
+            theme={theme}
+            disabled={!canEdit}
+            renderOption={(o: any, isSelected: boolean) => (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: isSelected ? 16 : 13 }}>
+                <span>{o.avatar}</span>
+                {!isSelected && <span>{o.label}</span>}
+              </span>
+            )}
+          />
         </div>
       )}
 
@@ -1364,7 +1466,8 @@ export default function TaskManager() {
 
   const addTask = async () => {
     if (!canEdit || !currentUser) return;
-    const projectId = activeProject === "all" ? visibleProjects[0]?.id || "" : activeProject;
+    const projectId = activeProject === "all" ? visibleProjects[0]?.id : activeProject;
+    if (!projectId) { showToast("Nenhum projeto disponível. Peça ao admin para compartilhar um projeto com você."); return; }
     try {
       const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
       setTasks((prev) => [nt, ...prev]);
@@ -1393,6 +1496,20 @@ export default function TaskManager() {
     setNewProjectName(""); setShowNewProject(false);
   };
 
+  const deleteProject = async (projId: string) => {
+    if (!isAdmin) return;
+    const proj = projects.find((p) => p.id === projId);
+    const taskCount = tasks.filter((t) => t.projectId === projId).length;
+    if (!window.confirm(`Apagar "${proj?.name}"${taskCount > 0 ? ` e suas ${taskCount} tarefa${taskCount > 1 ? "s" : ""}` : ""}?`)) return;
+    try {
+      await api.deleteProject(projId);
+      setProjects((prev) => prev.filter((p) => p.id !== projId));
+      setTasks((prev) => prev.filter((t) => t.projectId !== projId));
+      if (activeProject === projId) setActiveProject("all");
+      showToast(`Projeto "${proj?.name}" apagado`, "success");
+    } catch { showToast("Erro ao apagar projeto"); }
+  };
+
   const counts: Record<string, number> = { all: filteredTasks.length };
   visibleProjects.forEach((p) => { counts[p.id] = tasks.filter((t) => t.projectId === p.id).length; });
   const activeProj = projects.find((p) => p.id === activeProject);
@@ -1414,16 +1531,18 @@ export default function TaskManager() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Figtree', sans-serif", background: theme.bg, color: theme.text }}>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Figtree', Roboto, sans-serif", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Poppins:wght@600;700;800;900&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${theme.scrollThumb}; border-radius: 10px; }
         .task-row:hover { background: ${theme.surfaceHover} !important; }
-        .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: 'Figtree', sans-serif; }
+        .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: 'Figtree', Roboto, sans-serif; }
         .sidebar-item:hover { background: ${theme.surfaceHover} !important; }
+        .sidebar-item:hover .proj-delete-btn { opacity: 0.6 !important; }
+        .sidebar-item .proj-delete-btn:hover { opacity: 1 !important; background: rgba(226,68,92,0.15) !important; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
@@ -1438,7 +1557,7 @@ export default function TaskManager() {
               <img src="/nexia-icon.svg" alt="NexIA Tasks" style={{ width: 34, height: 34, filter: mode === "dark" ? "invert(1) brightness(2)" : "none" }} />
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5, fontFamily: "'Poppins', sans-serif" }}>NexIA <span style={{ fontWeight: 400 }}>Tasks</span></div>
-                <div style={{ fontSize: 10, color: theme.textMuted, fontWeight: 500 }}>Gestor de Tarefas</div>
+                <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 400 }}>Gestor de Tarefas</div>
               </div>
             </div>
             <button onClick={() => setMode(mode === "dark" ? "light" : "dark")}
@@ -1451,7 +1570,7 @@ export default function TaskManager() {
             <span style={{ fontSize: 20 }}>{currentUser.avatar}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
-              <div style={{ fontSize: 11, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
+              <div style={{ fontSize: 12, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
             </div>
             <button onClick={handleLogout} title="Sair"
               style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14 }}>🚪</button>
@@ -1464,7 +1583,7 @@ export default function TaskManager() {
             <span style={{ fontSize: 16 }}>👤</span><span style={{ flex: 1 }}>Minha Área</span>
           </button>
 
-          <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
+          <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
 
           <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("#7B61FF") : "transparent", color: activeProject === "all" ? "#7B61FF" : theme.textSecondary }}>
@@ -1473,12 +1592,20 @@ export default function TaskManager() {
           </button>
 
           {visibleProjects.map((proj) => (
-            <button key={proj.id} className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? theme.badgeBg(proj.color) : "transparent", color: activeProject === proj.id ? proj.color : theme.textSecondary }}>
+            <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? theme.badgeBg(proj.color) : "transparent", color: activeProject === proj.id ? proj.color : theme.textSecondary, cursor: "pointer", position: "relative" }}
+              onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
               <span style={{ fontSize: 16 }}>{proj.icon}</span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
               <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts[proj.id] || 0}</span>
-            </button>
+              {isAdmin && (
+                <button onClick={(e) => { e.stopPropagation(); deleteProject(proj.id); }}
+                  className="proj-delete-btn"
+                  style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 12, padding: "2px 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
+                  title={`Apagar ${proj.name}`}>
+                  🗑️
+                </button>
+              )}
+            </div>
           ))}
 
           {isAdmin && (
@@ -1506,7 +1633,7 @@ export default function TaskManager() {
             </button>
           )}
           <div style={{ padding: "8px 12px", marginTop: 4 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: theme.textMuted }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: theme.textMuted }}>
               <span>Total: <b style={{ color: theme.text }}>{filteredTasks.length}</b></span>
               <span style={{ color: "#00C875" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
               <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
@@ -1523,7 +1650,7 @@ export default function TaskManager() {
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>
               {activeProj ? `${activeProj.icon} ${activeProj.name}` : "📊 Todas as Tarefas"}
             </h1>
-            <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
+            <p style={{ fontSize: 14, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
           </div>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, fontSize: 14 }}>🔍</span>
@@ -1548,7 +1675,7 @@ export default function TaskManager() {
             <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
               <div style={{ fontSize: 16, fontWeight: 600 }}>Nenhuma tarefa encontrada</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
+              <div style={{ fontSize: 14, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
             </div>
           )}
           <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
@@ -1560,7 +1687,7 @@ export default function TaskManager() {
                       <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} />
                       {!collapsedGroups.has(group.id) && (
                         <>
-                          <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                          <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
                             <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
                           </div>
                           {group.tasks.map((task) => (

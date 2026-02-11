@@ -83,7 +83,16 @@ async function canAccessProject(userId: string, role: string, projectId: string)
     .eq("project_id", projectId)
     .eq("user_id", userId)
     .single();
-  return !!share;
+  if (share) return true;
+  // Also allow if user has tasks assigned in this project
+  const { data: assigned } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("assigned_to", userId)
+    .limit(1)
+    .single();
+  return !!assigned;
 }
 
 export async function POST(request: NextRequest) {

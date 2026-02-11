@@ -76,7 +76,9 @@ RETURNS SETOF tasks AS $$
   SELECT DISTINCT t.* FROM tasks t
   JOIN projects p ON t.project_id = p.id
   LEFT JOIN project_shares ps ON p.id = ps.project_id AND ps.user_id = p_user_id
-  WHERE p.owner_id = p_user_id OR ps.user_id IS NOT NULL
+  WHERE p.owner_id = p_user_id
+     OR ps.user_id IS NOT NULL
+     OR t.assigned_to = p_user_id
   ORDER BY t.created_at DESC;
 $$ LANGUAGE sql STABLE;
 
@@ -84,7 +86,10 @@ CREATE OR REPLACE FUNCTION get_user_projects(p_user_id TEXT)
 RETURNS SETOF projects AS $$
   SELECT DISTINCT p.* FROM projects p
   LEFT JOIN project_shares ps ON p.id = ps.project_id
-  WHERE p.owner_id = p_user_id OR ps.user_id = p_user_id
+  LEFT JOIN tasks t ON t.project_id = p.id AND t.assigned_to = p_user_id
+  WHERE p.owner_id = p_user_id
+     OR ps.user_id = p_user_id
+     OR t.id IS NOT NULL
   ORDER BY p.created_at;
 $$ LANGUAGE sql STABLE;
 
