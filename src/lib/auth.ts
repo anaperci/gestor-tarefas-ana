@@ -1,8 +1,15 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "./supabase";
 
-const JWT_SECRET = process.env.JWT_SECRET || "taskhub-secret-key-change-in-prod";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
 
 export interface AuthUser {
   id: string;
@@ -17,7 +24,8 @@ interface AuthResult {
   error?: string;
 }
 
-export function hashPassword(pwd: string): string {
+// Legacy hash — only used for migration from old passwords
+function legacyHash(pwd: string): string {
   let hash = 0;
   for (let i = 0; i < pwd.length; i++) {
     const char = pwd.charCodeAt(i);
@@ -27,10 +35,30 @@ export function hashPassword(pwd: string): string {
   return "h_" + Math.abs(hash).toString(36);
 }
 
+export async function hashPassword(pwd: string): Promise<string> {
+  return bcrypt.hash(pwd, 10);
+}
+
+export async function verifyPassword(pwd: string, storedHash: string): Promise<boolean> {
+  // If it's a bcrypt hash, verify with bcrypt
+  if (storedHash.startsWith("$2")) {
+    return bcrypt.compare(pwd, storedHash);
+  }
+  // Legacy hash — check and auto-upgrade
+  return legacyHash(pwd) === storedHash;
+}
+
+export async function upgradePasswordIfNeeded(userId: string, pwd: string, storedHash: string): Promise<void> {
+  if (!storedHash.startsWith("$2")) {
+    const newHash = await hashPassword(pwd);
+    await supabase.from("users").update({ password_hash: newHash }).eq("id", userId);
+  }
+}
+
 export function generateToken(user: { id: string; username: string; role: string }): string {
   return jwt.sign(
     { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: "7d" }
   );
 }
@@ -42,7 +70,7 @@ export async function authenticate(request: NextRequest): Promise<AuthResult> {
   }
 
   try {
-    const decoded = jwt.verify(header.split(" ")[1], JWT_SECRET) as { id: string };
+    const decoded = jwt.verify(header.split(" ")[1], getJwtSecret()) as { id: string };
     const { data: user, error } = await supabase
       .from("users")
       .select("id, username, name, role, avatar")

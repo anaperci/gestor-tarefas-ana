@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { hashPassword, generateToken } from "@/lib/auth";
+import { verifyPassword, upgradePasswordIfNeeded, generateToken } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   const { username, password } = await request.json();
@@ -18,9 +18,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Usuário não encontrado" }, { status: 401 });
   }
 
-  if (user.password_hash !== hashPassword(password)) {
+  const valid = await verifyPassword(password, user.password_hash);
+  if (!valid) {
     return NextResponse.json({ error: "Senha incorreta" }, { status: 401 });
   }
+
+  // Auto-upgrade legacy hash to bcrypt
+  await upgradePasswordIfNeeded(user.id, password, user.password_hash);
 
   const token = generateToken(user);
   return NextResponse.json({

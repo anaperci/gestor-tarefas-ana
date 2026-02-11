@@ -21,7 +21,7 @@ export async function PUT(
 
   await supabase
     .from("users")
-    .update({ password_hash: hashPassword(password) })
+    .update({ password_hash: await hashPassword(password) })
     .eq("id", id);
 
   return NextResponse.json({ success: true });

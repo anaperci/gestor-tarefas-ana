@@ -75,4 +75,23 @@ export const api = {
   updateTask: (id: string, data: any) =>
     request(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteTask: (id: string) => request(`/tasks/${id}`, { method: "DELETE" }),
+
+  // Notes
+  getNotes: () => request("/notes"),
+  createNote: (data: { title?: string; content?: string }) =>
+    request("/notes", { method: "POST", body: JSON.stringify(data) }),
+  updateNote: (id: string, data: { title?: string; content?: string; pinned?: boolean }) =>
+    request(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteNote: (id: string) => request(`/notes/${id}`, { method: "DELETE" }),
+
+  // Routines
+  getRoutines: (date?: string) => request(`/routines${date ? `?date=${date}` : ""}`),
+  createRoutineItem: (data: { title: string }) =>
+    request("/routines", { method: "POST", body: JSON.stringify(data) }),
+  updateRoutineItem: (id: string, data: { title?: string; sort_order?: number; active?: boolean }) =>
+    request(`/routines/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteRoutineItem: (id: string) => request(`/routines/${id}`, { method: "DELETE" }),
+  toggleRoutineCheck: (id: string, date?: string) =>
+    request(`/routines/${id}/check`, { method: "POST", body: JSON.stringify({ date }) }),
+  getRoutineHistory: (days: number = 7) => request(`/routines/history?days=${days}`),
 };

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     id,
     username: usernameLower,
     name: name || username,
-    password_hash: hashPassword(password),
+    password_hash: await hashPassword(password),
     role,
     avatar: avatars[role] || "👤",
   });

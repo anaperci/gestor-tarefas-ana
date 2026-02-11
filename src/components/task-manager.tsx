@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { api } from "@/lib/api";
 
 interface User {
@@ -763,17 +766,40 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
 }
 
 // ——— Group Header ———
-function GroupHeader({ group, collapsed, onToggle, taskCount, theme }: { group: Group; collapsed: boolean; onToggle: () => void; taskCount: number; theme: Theme }) {
+function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleProps }: { group: Group; collapsed: boolean; onToggle: () => void; taskCount: number; theme: Theme; dragHandleProps?: Record<string, unknown> }) {
   return (
     <div onClick={onToggle} style={{
       display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
       borderLeft: `4px solid ${group.color}`, background: theme.surfaceHover,
-      cursor: "pointer", userSelect: "none", borderBottom: `1px solid ${theme.border}`
+      cursor: "pointer", userSelect: "none", borderBottom: `1px solid ${theme.border}`,
+      borderRadius: "12px 12px 0 0"
     }}>
+      {dragHandleProps && (
+        <span {...dragHandleProps} onClick={(e) => e.stopPropagation()} style={{ cursor: "grab", fontSize: 14, color: theme.textMuted, padding: "2px 4px", display: "flex", alignItems: "center", opacity: 0.5 }} title="Arrastar grupo">
+          ⠿
+        </span>
+      )}
       <span style={{ fontSize: 10, color: group.color, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", fontWeight: 700 }}>▶</span>
       <span style={{ fontSize: 16 }}>{group.icon}</span>
       <span style={{ fontSize: 15, fontWeight: 700, color: group.color }}>{group.name}</span>
       <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
+    </div>
+  );
+}
+
+// ——— Sortable Group Wrapper ———
+function SortableGroup({ id, children }: { id: string; children: (dragHandleProps: Record<string, unknown>) => ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: "relative",
+    zIndex: isDragging ? 10 : "auto",
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ ...attributes, ...listeners })}
     </div>
   );
 }
@@ -834,6 +860,362 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
   );
 }
 
+// ——— Personal Area Components ———
+
+function StatCard({ label, value, color, theme }: { label: string; value: number; color: string; theme: Theme }) {
+  return (
+    <div style={{ padding: "12px 16px", borderRadius: 12, background: theme.badgeBg(color), border: `1px solid ${theme.badgeBorder(color)}`, minWidth: 100, textAlign: "center", flex: 1 }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
+      <div style={{ fontSize: 11, color: theme.textSecondary, fontWeight: 600, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpenTask, onUpdateTask }: any) {
+  const myTasks = tasks.filter((t: Task) => t.assignedTo === currentUser.id);
+  const [myCollapsed, setMyCollapsed] = useState<Set<string>>(new Set());
+  const [myExpanded, setMyExpanded] = useState<Set<string>>(new Set());
+
+  const myGroups: Group[] = useMemo(() => {
+    const map = new Map<string, Group>();
+    myTasks.forEach((t: Task) => {
+      const proj = projects.find((p: Project) => p.id === t.projectId);
+      if (!proj) return;
+      if (!map.has(proj.id)) map.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [] });
+      map.get(proj.id)!.tasks.push(t);
+    });
+    return Array.from(map.values());
+  }, [myTasks, projects]);
+
+  const done = myTasks.filter((t: Task) => t.status === "done").length;
+  const overdue = myTasks.filter((t: Task) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length;
+  const doing = myTasks.filter((t: Task) => t.status === "doing").length;
+
+  return (
+    <div>
+      <div style={{ padding: "16px 24px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <StatCard label="Total" value={myTasks.length} color="#7B61FF" theme={theme} />
+        <StatCard label="Concluídas" value={done} color="#00C875" theme={theme} />
+        <StatCard label="Em progresso" value={doing} color="#FDAB3D" theme={theme} />
+        <StatCard label="Atrasadas" value={overdue} color="#E2445C" theme={theme} />
+      </div>
+      {myTasks.length === 0 && (
+        <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Nenhuma tarefa atribuída a você</div>
+        </div>
+      )}
+      {myGroups.map((group) => (
+        <div key={group.id} style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
+          <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
+          {!myCollapsed.has(group.id) && (<>
+            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
+            </div>
+            {group.tasks.map((task) => (
+              <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
+                <TaskRow task={task} projects={projects} users={users} onUpdate={onUpdateTask} onOpen={onOpenTask} theme={theme} canEdit={canEdit} isExpanded={myExpanded.has(task.id)} onToggleExpand={(id: string) => setMyExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })} />
+              </div>
+            ))}
+          </>)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RichTextToolbar({ theme }: { theme: Theme }) {
+  const exec = (cmd: string, val?: string) => { document.execCommand(cmd, false, val); };
+  const insertLink = () => { const url = prompt("URL do link:"); if (url) exec("createLink", url); };
+  const btns = [
+    { label: "B", cmd: "bold", s: { fontWeight: 700 } as React.CSSProperties },
+    { label: "I", cmd: "italic", s: { fontStyle: "italic" } as React.CSSProperties },
+    { label: "U", cmd: "underline", s: { textDecoration: "underline" } as React.CSSProperties },
+    { label: "• Lista", cmd: "insertUnorderedList", s: {} as React.CSSProperties },
+    { label: "1. Lista", cmd: "insertOrderedList", s: {} as React.CSSProperties },
+    { label: "🔗 Link", cmd: "link", s: {} as React.CSSProperties },
+  ];
+  return (
+    <div style={{ padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {btns.map((b) => (
+        <button key={b.cmd} onMouseDown={(e) => { e.preventDefault(); b.cmd === "link" ? insertLink() : exec(b.cmd); }}
+          style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer", fontSize: 12, fontFamily: "'Figtree', sans-serif", ...b.s }}>
+          {b.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
+  const [notes, setNotes] = useState<any[]>([]);
+  const [selectedNote, setSelectedNote] = useState<any | null>(null);
+  const [searchNotes, setSearchNotes] = useState("");
+  const [loading, setLoading] = useState(true);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const isDirtyRef = useRef(false);
+
+  useEffect(() => { loadNotes(); return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }; }, []);
+
+  const loadNotes = async () => { setLoading(true); try { const data = await api.getNotes(); setNotes(data); } catch {} finally { setLoading(false); } };
+
+  const createNote = async () => {
+    try {
+      const n = await api.createNote({ title: "Nova nota", content: "" });
+      setNotes((prev) => [n, ...prev]);
+      setSelectedNote(n);
+    } catch {}
+  };
+
+  const saveNote = async (note: any) => {
+    if (!note || !isDirtyRef.current) return;
+    isDirtyRef.current = false;
+    try {
+      const updated = await api.updateNote(note.id, { title: note.title, content: note.content, pinned: note.pinned });
+      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+    } catch {}
+  };
+
+  const scheduleAutosave = (note: any) => {
+    isDirtyRef.current = true;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveNote(note), 1500);
+  };
+
+  const deleteNote = async (id: string) => {
+    try { await api.deleteNote(id); setNotes((prev) => prev.filter((n) => n.id !== id)); } catch {}
+  };
+
+  const togglePin = async (note: any) => {
+    const newPinned = !note.pinned;
+    try {
+      const updated = await api.updateNote(note.id, { pinned: newPinned });
+      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+      if (selectedNote?.id === note.id) setSelectedNote({ ...selectedNote, pinned: newPinned });
+    } catch {}
+  };
+
+  const filteredNotes = notes.filter((n) => !searchNotes || n.title.toLowerCase().includes(searchNotes.toLowerCase()) || (n.content || "").replace(/<[^>]*>/g, "").toLowerCase().includes(searchNotes.toLowerCase()));
+
+  if (selectedNote) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%" }}>
+        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => { saveNote(selectedNote); setSelectedNote(null); }}
+            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "6px 14px", color: theme.text, cursor: "pointer", fontSize: 13, fontFamily: "'Figtree', sans-serif" }}>← Voltar</button>
+          <input value={selectedNote.title} onChange={(e) => { const u = { ...selectedNote, title: e.target.value }; setSelectedNote(u); scheduleAutosave(u); }}
+            style={{ flex: 1, fontSize: 20, fontWeight: 700, background: "transparent", border: "none", color: theme.text, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+          <button onMouseDown={(e) => { e.preventDefault(); togglePin(selectedNote); }}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: selectedNote.pinned ? 1 : 0.4 }}>📌</button>
+          <button onClick={() => { deleteNote(selectedNote.id); setSelectedNote(null); }}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#E2445C" }}>🗑️</button>
+        </div>
+        <RichTextToolbar theme={theme} />
+        <div ref={editorRef} contentEditable suppressContentEditableWarning
+          onInput={() => { if (editorRef.current) { const u = { ...selectedNote, content: editorRef.current.innerHTML }; setSelectedNote(u); scheduleAutosave(u); } }}
+          dangerouslySetInnerHTML={{ __html: selectedNote.content }}
+          style={{ padding: "20px 24px", flex: 1, outline: "none", color: theme.text, fontSize: 14, lineHeight: 1.8, fontFamily: "'Figtree', sans-serif", overflowY: "auto", minHeight: 200 }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ padding: "16px 24px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, fontSize: 14 }}>🔍</span>
+          <input value={searchNotes} onChange={(e) => setSearchNotes(e.target.value)} placeholder="Buscar anotações..."
+            style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+        </div>
+        <button onClick={createNote}
+          style={{ background: "linear-gradient(135deg, #7B61FF, #579BFC)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px rgba(123,97,255,0.3)", whiteSpace: "nowrap" }}>
+          + Nova Anotação
+        </button>
+      </div>
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40, color: theme.textMuted }}>Carregando...</div>
+      ) : filteredNotes.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>{searchNotes ? "Nenhuma nota encontrada" : "Nenhuma anotação ainda"}</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>Clique em &quot;+ Nova Anotação&quot; para começar</div>
+        </div>
+      ) : (
+        <div style={{ padding: "0 24px 24px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+          {filteredNotes.map((note) => (
+            <div key={note.id} onClick={() => setSelectedNote(note)}
+              style={{ padding: 16, borderRadius: 12, border: `1px solid ${theme.border}`, background: theme.surface, cursor: "pointer", transition: "all 0.15s" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                {note.pinned && <span>📌</span>}
+                <span style={{ fontSize: 15, fontWeight: 700, color: theme.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{note.title || "Sem título"}</span>
+              </div>
+              <div style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 1.5, maxHeight: 60, overflow: "hidden" }}>
+                {(note.content || "").replace(/<[^>]*>/g, "").slice(0, 120) || "Nota vazia..."}
+              </div>
+              <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 8 }}>{new Date(note.updatedAt || note.updated_at).toLocaleDateString("pt-BR")}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [checks, setChecks] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const today = new Date().toLocaleDateString("en-CA");
+  const todayFormatted = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+
+  useEffect(() => { loadRoutines(); loadHistory(); }, []);
+
+  const loadRoutines = async () => { setLoading(true); try { const data = await api.getRoutines(today); setItems(data.items); setChecks(data.checks); } catch {} finally { setLoading(false); } };
+  const loadHistory = async () => { try { const data = await api.getRoutineHistory(7); setHistory(data.history); } catch {} };
+
+  const isChecked = (itemId: string) => checks.some((c: any) => (c.routineItemId || c.routine_item_id) === itemId);
+
+  const toggleCheck = async (itemId: string) => {
+    const wasChecked = isChecked(itemId);
+    if (wasChecked) {
+      setChecks(checks.filter((c: any) => (c.routineItemId || c.routine_item_id) !== itemId));
+    } else {
+      setChecks([...checks, { routine_item_id: itemId, routineItemId: itemId, check_date: today }]);
+    }
+    await api.toggleRoutineCheck(itemId, today);
+    loadHistory();
+  };
+
+  const addItem = async () => {
+    if (!newTitle.trim()) return;
+    try { const created = await api.createRoutineItem({ title: newTitle.trim() }); setItems([...items, created]); setNewTitle(""); loadHistory(); } catch {}
+  };
+
+  const deleteItem = async (id: string) => {
+    try { await api.deleteRoutineItem(id); setItems(items.filter((i: any) => i.id !== id)); setChecks(checks.filter((c: any) => (c.routineItemId || c.routine_item_id) !== id)); loadHistory(); } catch {}
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editTitle.trim()) { setEditingId(null); return; }
+    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim() }); setItems(items.map((i: any) => (i.id === updated.id ? updated : i))); } catch {}
+    setEditingId(null);
+  };
+
+  const completedToday = checks.length;
+  const totalItems = items.length;
+  const pct = totalItems > 0 ? Math.round((completedToday / totalItems) * 100) : 0;
+
+  if (loading) return <div style={{ textAlign: "center", padding: 40, color: theme.textMuted }}>Carregando...</div>;
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <div style={{ fontSize: 13, color: theme.textMuted, textTransform: "capitalize" }}>{todayFormatted}</div>
+        <div style={{ fontSize: 40, fontWeight: 800, color: pct === 100 ? "#00C875" : "#7B61FF", marginTop: 4 }}>{pct}%</div>
+        <div style={{ maxWidth: 300, margin: "8px auto 0", height: 6, borderRadius: 6, background: theme.inputBg }}>
+          <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: pct === 100 ? "#00C875" : "#7B61FF", transition: "width 0.3s" }} />
+        </div>
+        <div style={{ fontSize: 12, color: theme.textSecondary, marginTop: 4 }}>{completedToday} de {totalItems} concluídos</div>
+      </div>
+
+      <div style={{ maxWidth: 500, margin: "0 auto" }}>
+        {items.length === 0 && (
+          <div style={{ textAlign: "center", padding: 30, color: theme.textMuted }}>
+            <div style={{ fontSize: 30, marginBottom: 8 }}>🔄</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Nenhum item na rotina</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>Adicione itens abaixo para começar</div>
+          </div>
+        )}
+        {items.map((item: any) => {
+          const checked = isChecked(item.id);
+          return (
+            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, border: `1px solid ${theme.border}`, marginBottom: 6, background: checked ? theme.badgeBg("#00C875") : "transparent", transition: "all 0.15s" }}>
+              <button onClick={() => toggleCheck(item.id)}
+                style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${checked ? "#00C875" : theme.textMuted}`, background: checked ? "#00C875" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
+                {checked && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+              </button>
+              {editingId === item.id ? (
+                <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onBlur={() => saveEdit(item.id)} onKeyDown={(e) => e.key === "Enter" && saveEdit(item.id)}
+                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "4px 8px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+              ) : (
+                <span onClick={() => { setEditingId(item.id); setEditTitle(item.title); }}
+                  style={{ flex: 1, fontSize: 14, fontWeight: 500, color: checked ? theme.textMuted : theme.text, textDecoration: checked ? "line-through" : "none", cursor: "text" }}>{item.title}</span>
+              )}
+              <button onClick={() => deleteItem(item.id)}
+                style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, opacity: 0.4, flexShrink: 0 }}>×</button>
+            </div>
+          );
+        })}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Adicionar item à rotina..."
+            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+          <button onClick={addItem} style={{ background: "#7B61FF", border: "none", borderRadius: 8, color: "#fff", padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+</button>
+        </div>
+      </div>
+
+      {history.length > 0 && (
+        <div style={{ maxWidth: 500, margin: "24px auto 0" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: theme.textSecondary, marginBottom: 10 }}>Últimos 7 dias</div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
+            {history.map((day: any) => {
+              const dayPct = day.total > 0 ? Math.round((day.completed / day.total) * 100) : 0;
+              const isToday = day.date === today;
+              return (
+                <div key={day.date} style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: 10, color: isToday ? "#7B61FF" : theme.textMuted, fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
+                    {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short" })}
+                  </div>
+                  <div style={{ height: 40, borderRadius: 6, background: theme.inputBg, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${dayPct}%`, background: dayPct === 100 ? "#00C875" : "#7B61FF", borderRadius: 6, transition: "height 0.3s" }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{dayPct}%</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: any) {
+  const tabs = [
+    { key: "minhas-tarefas", label: "📋 Minhas Tarefas" },
+    { key: "anotacoes", label: "📝 Anotações" },
+    { key: "rotina", label: "🔄 Rotina" },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>👤 Minha Área</h1>
+        <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{currentUser.name}</p>
+      </div>
+      <div style={{ display: "flex", gap: 0, padding: "0 24px", borderBottom: `1px solid ${theme.border}` }}>
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => onTabChange(t.key)}
+            style={{ padding: "12px 20px", border: "none", borderBottom: personalTab === t.key ? "2px solid #7B61FF" : "2px solid transparent", background: "transparent", color: personalTab === t.key ? "#7B61FF" : theme.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif", transition: "all 0.15s", marginBottom: -1 }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
+        {personalTab === "anotacoes" && <NotesTab theme={theme} currentUser={currentUser} />}
+        {personalTab === "rotina" && <RoutineTab theme={theme} currentUser={currentUser} />}
+      </div>
+    </div>
+  );
+}
+
 // ——— Main App ———
 export default function TaskManager() {
   const [mode, setMode] = useState(() => {
@@ -861,6 +1243,24 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [activeView, setActiveView] = useState<"tasks" | "personal">("tasks");
+  const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "anotacoes" | "rotina">("minhas-tarefas");
+  const [groupOrder, setGroupOrder] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nexia-group-order");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: "error" | "success" }[]>([]);
+
+  const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  }, []);
+
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const isAdmin = currentUser?.role === "admin";
   const isEditor = currentUser?.role === "editor";
@@ -896,8 +1296,29 @@ export default function TaskManager() {
       }
       groupMap.get(proj.id)!.tasks.push(t);
     });
-    return Array.from(groupMap.values());
-  }, [filteredTasks, activeProject, projects]);
+    const unsorted = Array.from(groupMap.values());
+    if (groupOrder.length === 0) return unsorted;
+    return unsorted.sort((a, b) => {
+      const ai = groupOrder.indexOf(a.id);
+      const bi = groupOrder.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [filteredTasks, activeProject, projects, groupOrder]);
+
+  const handleGroupDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = groups.map((g) => g.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(ids, oldIndex, newIndex);
+    setGroupOrder(newOrder);
+    localStorage.setItem("nexia-group-order", JSON.stringify(newOrder));
+  };
 
   const toggleExpandTask = (taskId: string) => {
     setExpandedTasks((prev) => {
@@ -921,7 +1342,7 @@ export default function TaskManager() {
       setUsers(u.map((x: any) => ({ ...x })));
       setProjects(p.map((x: any) => ({ ...x, ownerId: x.owner_id || x.ownerId, sharedWith: x.sharedWith || [] })));
       setTasks(t);
-    } catch { /* error loading data */ }
+    } catch { showToast("Erro ao carregar dados"); }
   }, []);
 
   // Auto-login from saved token
@@ -938,7 +1359,7 @@ export default function TaskManager() {
     if (!canEdit) return;
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     if (detailTask && detailTask.id === updated.id) setDetailTask(updated);
-    try { await api.updateTask(updated.id, { title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, deadline: updated.deadline, projectId: updated.projectId, assignedTo: updated.assignedTo, link: updated.link, checked: updated.checked, checklist: updated.checklist, subtasks: updated.subtasks }); } catch {}
+    try { await api.updateTask(updated.id, { title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, deadline: updated.deadline, projectId: updated.projectId, assignedTo: updated.assignedTo, link: updated.link, checked: updated.checked, checklist: updated.checklist, subtasks: updated.subtasks }); } catch { showToast("Erro ao salvar tarefa"); }
   };
 
   const addTask = async () => {
@@ -948,7 +1369,7 @@ export default function TaskManager() {
       const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
       setTasks((prev) => [nt, ...prev]);
       setDetailTask(nt);
-    } catch {}
+    } catch { showToast("Erro ao criar tarefa"); }
   };
 
   const addTaskInline = async (title: string, projectId: string) => {
@@ -956,7 +1377,7 @@ export default function TaskManager() {
     try {
       const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
       setTasks((prev) => [...prev, nt]);
-    } catch {}
+    } catch { showToast("Erro ao criar tarefa"); }
   };
 
   const addProject = async () => {
@@ -968,7 +1389,7 @@ export default function TaskManager() {
     try {
       const np = await api.createProject({ name: newProjectName.trim(), color, icon });
       setProjects((prev) => [...prev, { ...np, ownerId: np.ownerId || currentUser.id, sharedWith: np.sharedWith || [] }]);
-    } catch {}
+    } catch { showToast("Erro ao criar projeto"); }
     setNewProjectName(""); setShowNewProject(false);
   };
 
@@ -1038,16 +1459,21 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
+          <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? theme.badgeBg("#7B61FF") : "transparent", color: activeView === "personal" ? "#7B61FF" : theme.textSecondary, width: "100%", border: "none", cursor: "pointer", fontFamily: "'Figtree', sans-serif", textAlign: "left" }}>
+            <span style={{ fontSize: 16 }}>👤</span><span style={{ flex: 1 }}>Minha Área</span>
+          </button>
+
           <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
 
-          <button className="sidebar-item" onClick={() => setActiveProject("all")}
+          <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("#7B61FF") : "transparent", color: activeProject === "all" ? "#7B61FF" : theme.textSecondary }}>
             <span style={{ fontSize: 16 }}>📊</span><span style={{ flex: 1 }}>Todos</span>
             <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
           </button>
 
           {visibleProjects.map((proj) => (
-            <button key={proj.id} className="sidebar-item" onClick={() => setActiveProject(proj.id)}
+            <button key={proj.id} className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? theme.badgeBg(proj.color) : "transparent", color: activeProject === proj.id ? proj.color : theme.textSecondary }}>
               <span style={{ fontSize: 16 }}>{proj.icon}</span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
@@ -1091,6 +1517,7 @@ export default function TaskManager() {
 
       {/* Main */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {activeView === "tasks" ? (<>
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>
@@ -1116,7 +1543,7 @@ export default function TaskManager() {
           )}
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 0" }}>
           {filteredTasks.length === 0 && (
             <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
@@ -1124,30 +1551,41 @@ export default function TaskManager() {
               <div style={{ fontSize: 13, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
             </div>
           )}
-          {groups.map((group) => (
-            <div key={group.id}>
-              <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} />
-              {!collapsedGroups.has(group.id) && (
-                <>
-                  <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-                    <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
-                  </div>
-                  {group.tasks.map((task) => (
-                    <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
-                      <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
-                      {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => (
-                        <TaskRow key={st.id} task={st} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
-                          onUpdate={(updated: any) => { const n = task.subtasks.map((s) => (s.id === updated.id ? updated : s)); updateTask({ ...task, subtasks: n }); }}
-                          onOpen={() => setDetailTask(task)} theme={theme} />
-                      ))}
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+            <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+              {groups.map((group) => (
+                <SortableGroup key={group.id} id={group.id}>
+                  {(dragHandleProps) => (
+                    <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
+                      <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} />
+                      {!collapsedGroups.has(group.id) && (
+                        <>
+                          <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
+                          </div>
+                          {group.tasks.map((task) => (
+                            <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
+                              <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
+                              {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => (
+                                <TaskRow key={st.id} task={st} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
+                                  onUpdate={(updated: any) => { const n = task.subtasks.map((s) => (s.id === updated.id ? updated : s)); updateTask({ ...task, subtasks: n }); }}
+                                  onOpen={() => setDetailTask(task)} theme={theme} />
+                              ))}
+                            </div>
+                          ))}
+                          {canEdit && <div style={{ borderLeft: `4px solid ${group.color}`, borderRadius: "0 0 12px 0" }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
+                        </>
+                      )}
                     </div>
-                  ))}
-                  {canEdit && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
-                </>
-              )}
-            </div>
-          ))}
+                  )}
+                </SortableGroup>
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
+        </>) : (
+          <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
+        )}
       </div>
 
       {detailTask && (
@@ -1161,6 +1599,20 @@ export default function TaskManager() {
           onUpdateUsers={setUsers} onUpdateProjects={setProjects}
           onClose={() => setShowAdmin(false)} theme={theme} currentUser={currentUser} />
       )}
+
+      {/* Toast notifications */}
+      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8 }}>
+        {toasts.map((t) => (
+          <div key={t.id} style={{
+            padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+            background: t.type === "error" ? "rgba(226,68,92,0.95)" : "rgba(0,200,117,0.95)",
+            color: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+            animation: "fadeUp 0.25s ease-out", fontFamily: "'Figtree', sans-serif"
+          }}>
+            {t.type === "error" ? "⚠️" : "✓"} {t.message}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
