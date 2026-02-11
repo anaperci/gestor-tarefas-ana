@@ -83,7 +83,7 @@ const PRIORITY_OPTIONS = [
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 
-const GRID_COLUMNS = "36px 1fr 130px 130px 110px 100px 60px 60px";
+const GRID_COLUMNS = "36px 1fr 120px 120px 110px 100px 140px 48px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 // ——— Theme ———
@@ -842,7 +842,7 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
       )}
 
       {!isSubtask && (
-        <div onClick={(e) => e.stopPropagation()} style={{ textAlign: "center" }}>
+        <div onClick={(e) => e.stopPropagation()}>
           <Dropdown
             options={[{ value: "", label: "Ninguém", avatar: "—" }, ...(users || []).map((u: User) => ({ value: u.id, label: u.name, avatar: u.avatar }))]}
             value={task.assignedTo || ""}
@@ -850,9 +850,9 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
             theme={theme}
             disabled={!canEdit}
             renderOption={(o: any, isSelected: boolean) => (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: isSelected ? 16 : 13 }}>
-                <span>{o.avatar}</span>
-                {!isSelected && <span>{o.label}</span>}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ flexShrink: 0 }}>{o.avatar}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{isSelected ? (o.label === "Ninguém" ? "—" : o.label) : o.label}</span>
               </span>
             )}
           />
@@ -1012,7 +1012,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpe
           <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
           {!myCollapsed.has(group.id) && (<>
             <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
+              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div></div>
             </div>
             {group.tasks.map((task) => (
               <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
@@ -1541,8 +1541,9 @@ export default function TaskManager() {
         .task-row:hover { background: ${theme.surfaceHover} !important; }
         .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: 'Figtree', Roboto, sans-serif; }
         .sidebar-item:hover { background: ${theme.surfaceHover} !important; }
-        .sidebar-item:hover .proj-delete-btn { opacity: 0.6 !important; }
-        .sidebar-item .proj-delete-btn:hover { opacity: 1 !important; background: rgba(226,68,92,0.15) !important; }
+        .sidebar-item:hover .proj-menu-btn { opacity: 0.6 !important; }
+        .sidebar-item:hover .proj-count { opacity: 0 !important; position: absolute !important; }
+        .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: #E2445C !important; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
@@ -1596,13 +1597,13 @@ export default function TaskManager() {
               onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
               <span style={{ fontSize: 16 }}>{proj.icon}</span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
-              <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts[proj.id] || 0}</span>
+              <span className="proj-count" style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
               {isAdmin && (
                 <button onClick={(e) => { e.stopPropagation(); deleteProject(proj.id); }}
-                  className="proj-delete-btn"
-                  style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 12, padding: "2px 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }}
+                  className="proj-menu-btn"
+                  style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", letterSpacing: 1, lineHeight: 1, fontWeight: 700 }}
                   title={`Apagar ${proj.name}`}>
-                  🗑️
+                  ···
                 </button>
               )}
             </div>
@@ -1688,7 +1689,7 @@ export default function TaskManager() {
                       {!collapsedGroups.has(group.id) && (
                         <>
                           <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div style={{ textAlign: "center" }}>🤵</div><div></div>
+                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div></div>
                           </div>
                           {group.tasks.map((task) => (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
