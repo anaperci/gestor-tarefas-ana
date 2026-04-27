@@ -23,7 +23,8 @@ export const POST = withErrorHandling(async (request) => {
     .from("users")
     .select("*")
     .eq("username", username.toLowerCase().trim())
-    .single();
+    .is("deleted_at", null)
+    .maybeSingle();
 
   // Mensagem genérica para evitar user enumeration
   if (!user) {

@@ -78,7 +78,8 @@ export async function requireAuth(request: Request | NextRequest): Promise<AuthU
     .from("users")
     .select("id, username, name, role, avatar")
     .eq("id", decoded.id)
-    .single();
+    .is("deleted_at", null)
+    .maybeSingle();
 
   if (!user) throw new ApiError("AUTH_REQUIRED", "Usuário não encontrado");
   return user as AuthUser;
