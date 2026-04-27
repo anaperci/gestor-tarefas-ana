@@ -11,6 +11,7 @@ import {
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
   Link2, LayoutDashboard, List, KanbanSquare,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -2074,7 +2075,16 @@ export default function TaskManager() {
 
       {/* Main */}
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
+        <AnimatePresence mode="wait" initial={false}>
         {activeView === "dashboard" ? (
+          <motion.div
+            key="view-dashboard"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+          >
           <DashboardView
             currentUser={currentUser}
             projects={visibleProjects}
@@ -2087,7 +2097,16 @@ export default function TaskManager() {
             onSeeAllProjects={() => { setActiveView("tasks"); setActiveProject("all"); }}
             onNewProject={isAdmin ? () => { setActiveView("tasks"); setShowNewProject(true); } : undefined}
           />
-        ) : activeView === "tasks" ? (<>
+          </motion.div>
+        ) : activeView === "tasks" ? (
+          <motion.div
+            key="view-tasks"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+          >
         <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <button
             className="menu-toggle"
@@ -2228,9 +2247,20 @@ export default function TaskManager() {
           </DndContext>
         </div>
         )}
-        </>) : (
-          <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="view-personal"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+          >
+            <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {detailTask && (
