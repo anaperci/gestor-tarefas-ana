@@ -1,23 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { authenticate, requireAdmin } from "@/lib/auth";
+import { requireAuth, assertAdmin } from "@/lib/auth";
+import { ApiError, withErrorHandling } from "@/lib/api-error";
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
+export const DELETE = withErrorHandling(
+  async (request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const user = await requireAuth(request);
+    assertAdmin(user);
+
+    if (id === user.id) {
+      throw new ApiError("BAD_REQUEST", "Não pode deletar a si mesmo");
+    }
+
+    const { error } = await supabase.from("users").delete().eq("id", id);
+    if (error) {
+      console.error("[users.DELETE] failed:", error);
+      throw new ApiError("INTERNAL_ERROR", "Falha ao remover usuário");
+    }
+    return NextResponse.json({ success: true });
   }
-  const adminCheck = requireAdmin(authResult.user!);
-  if (adminCheck) return adminCheck;
-
-  if (id === authResult.user!.id) {
-    return NextResponse.json({ error: "Não pode deletar a si mesmo" }, { status: 400 });
-  }
-
-  await supabase.from("users").delete().eq("id", id);
-  return NextResponse.json({ success: true });
-}
+);

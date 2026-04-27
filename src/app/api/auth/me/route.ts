@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { authenticate } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
+import { withErrorHandling } from "@/lib/api-error";
 
-export async function GET(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-  return NextResponse.json({ user: authResult.user });
-}
+export const GET = withErrorHandling(async (request) => {
+  const user = await requireAuth(request);
+  return NextResponse.json({ user });
+});

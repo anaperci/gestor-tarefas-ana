@@ -1,28 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate, requireAdmin, hashPassword } from "@/lib/auth";
+import { requireAuth, assertAdmin, hashPassword } from "@/lib/auth";
+import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { passwordSchema } from "@/lib/password-policy";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
+const passwordChangeSchema = z.object({ password: passwordSchema });
+
+export const PUT = withErrorHandling(
+  async (request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const user = await requireAuth(request);
+    assertAdmin(user);
+
+    const { password } = await parseJson(request, passwordChangeSchema);
+
+    const { error } = await supabase
+      .from("users")
+      .update({ password_hash: await hashPassword(password) })
+      .eq("id", id);
+
+    if (error) {
+      console.error("[users.password.PUT] failed:", error);
+      throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar senha");
+    }
+    return NextResponse.json({ success: true });
   }
-  const adminCheck = requireAdmin(authResult.user!);
-  if (adminCheck) return adminCheck;
-
-  const { password } = await request.json();
-  if (!password) {
-    return NextResponse.json({ error: "Nova senha obrigatória" }, { status: 400 });
-  }
-
-  await supabase
-    .from("users")
-    .update({ password_hash: await hashPassword(password) })
-    .eq("id", id);
-
-  return NextResponse.json({ success: true });
-}
+);

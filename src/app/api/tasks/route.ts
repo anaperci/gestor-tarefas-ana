@@ -1,7 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate, requireEditorOrAdmin } from "@/lib/auth";
+import { requireAuth, assertEditorOrAdmin, AuthUser } from "@/lib/auth";
+import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
+import {
+  deadlineSchema,
+  idSchema,
+  linkSchema,
+  longTextSchema,
+  taskPrioritySchema,
+  taskStatusSchema,
+  titleSchema,
+} from "@/lib/validation";
 
 interface TaskRow {
   id: string;
@@ -19,6 +30,17 @@ interface TaskRow {
   updated_at: string;
 }
 
+const createTaskSchema = z.object({
+  title: titleSchema,
+  description: longTextSchema.optional(),
+  status: taskStatusSchema.optional(),
+  priority: taskPrioritySchema.optional(),
+  deadline: deadlineSchema.optional(),
+  projectId: idSchema,
+  assignedTo: idSchema.optional(),
+  link: linkSchema.optional().or(z.literal("").optional()),
+});
+
 async function enrichTask(task: TaskRow) {
   const { data: checklist } = await supabase
     .from("checklist_items")
@@ -35,8 +57,8 @@ async function enrichTask(task: TaskRow) {
   return {
     ...task,
     checked: !!task.checked,
-    checklist: (checklist || []).map((c) => ({ ...c, done: !!c.done })),
-    subtasks: (subtasks || []).map((s) => ({ ...s, checked: !!s.checked })),
+    checklist: (checklist ?? []).map((c) => ({ ...c, done: !!c.done })),
+    subtasks: (subtasks ?? []).map((s) => ({ ...s, checked: !!s.checked })),
     projectId: task.project_id,
     assignedTo: task.assigned_to,
     createdBy: task.created_by,
@@ -45,12 +67,36 @@ async function enrichTask(task: TaskRow) {
   };
 }
 
-export async function GET(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-  const user = authResult.user!;
+async function userCanAccessProject(user: AuthUser, projectId: string): Promise<boolean> {
+  if (user.role === "admin") return true;
+  const { data: proj } = await supabase
+    .from("projects")
+    .select("owner_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!proj) return false;
+  if (proj.owner_id === user.id) return true;
+
+  const { data: share } = await supabase
+    .from("project_shares")
+    .select("user_id")
+    .eq("project_id", projectId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (share) return true;
+
+  const { data: assigned } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("assigned_to", user.id)
+    .limit(1)
+    .maybeSingle();
+  return !!assigned;
+}
+
+export const GET = withErrorHandling(async (request) => {
+  const user = await requireAuth(request);
 
   let tasks: TaskRow[];
   if (user.role === "admin") {
@@ -58,88 +104,61 @@ export async function GET(request: NextRequest) {
       .from("tasks")
       .select("*")
       .order("created_at", { ascending: false });
-    tasks = (data || []) as TaskRow[];
+    tasks = (data ?? []) as TaskRow[];
   } else {
     const { data } = await supabase.rpc("get_user_tasks", { p_user_id: user.id });
-    tasks = (data || []) as TaskRow[];
+    tasks = (data ?? []) as TaskRow[];
   }
 
   const enriched = await Promise.all(tasks.map(enrichTask));
   return NextResponse.json(enriched);
-}
+});
 
-async function canAccessProject(userId: string, role: string, projectId: string): Promise<boolean> {
-  if (role === "admin") return true;
-  const { data: proj } = await supabase
-    .from("projects")
-    .select("owner_id")
-    .eq("id", projectId)
-    .single();
-  if (!proj) return false;
-  if (proj.owner_id === userId) return true;
-  const { data: share } = await supabase
-    .from("project_shares")
-    .select("user_id")
-    .eq("project_id", projectId)
-    .eq("user_id", userId)
-    .single();
-  if (share) return true;
-  // Also allow if user has tasks assigned in this project
-  const { data: assigned } = await supabase
-    .from("tasks")
-    .select("id")
-    .eq("project_id", projectId)
-    .eq("assigned_to", userId)
-    .limit(1)
-    .single();
-  return !!assigned;
-}
+export const POST = withErrorHandling(async (request) => {
+  const user = await requireAuth(request);
+  assertEditorOrAdmin(user);
 
-export async function POST(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-  const roleCheck = requireEditorOrAdmin(authResult.user!);
-  if (roleCheck) return roleCheck;
+  const body = await parseJson(request, createTaskSchema);
 
-  const { title, description, status, priority, deadline, projectId, assignedTo, link } =
-    await request.json();
+  const hasAccess = await userCanAccessProject(user, body.projectId);
+  if (!hasAccess) throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
 
-  if (!title || !projectId) {
-    return NextResponse.json({ error: "Título e projeto obrigatórios" }, { status: 400 });
-  }
-
-  const hasAccess = await canAccessProject(authResult.user!.id, authResult.user!.role, projectId);
-  if (!hasAccess) {
-    return NextResponse.json({ error: "Sem acesso ao projeto" }, { status: 403 });
+  // FASE1.9 — assignedTo precisa ter acesso ao projeto
+  const finalAssignee = body.assignedTo || user.id;
+  if (finalAssignee !== user.id) {
+    const { data: assignee } = await supabase
+      .from("users")
+      .select("id, username, name, role, avatar")
+      .eq("id", finalAssignee)
+      .maybeSingle();
+    if (!assignee) throw new ApiError("VALIDATION_ERROR", "Responsável inválido");
+    const assigneeCanAccess = await userCanAccessProject(assignee as AuthUser, body.projectId);
+    if (!assigneeCanAccess) {
+      throw new ApiError("VALIDATION_ERROR", "Responsável não tem acesso a este projeto");
+    }
   }
 
   const id = "task-" + genId();
   const { error } = await supabase.from("tasks").insert({
     id,
-    title,
-    description: description || "",
-    status: status || "todo",
-    priority: priority || "medium",
-    deadline: deadline || "",
-    project_id: projectId,
-    assigned_to: assignedTo || authResult.user!.id,
-    created_by: authResult.user!.id,
-    link: link || "",
+    title: body.title,
+    description: body.description ?? "",
+    status: body.status ?? "todo",
+    priority: body.priority ?? "medium",
+    deadline: body.deadline ?? "",
+    project_id: body.projectId,
+    assigned_to: finalAssignee,
+    created_by: user.id,
+    link: body.link ?? "",
     checked: false,
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[tasks.POST] failed:", error);
+    throw new ApiError("INTERNAL_ERROR", "Falha ao criar tarefa");
   }
 
-  const { data: task } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("id", id)
-    .single();
-
+  const { data: task } = await supabase.from("tasks").select("*").eq("id", id).single();
   const enriched = await enrichTask(task as TaskRow);
   return NextResponse.json(enriched, { status: 201 });
-}
+});

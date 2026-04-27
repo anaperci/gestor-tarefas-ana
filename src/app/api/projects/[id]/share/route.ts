@@ -1,36 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate, requireAdmin } from "@/lib/auth";
+import { requireAuth, assertAdmin } from "@/lib/auth";
+import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { idSchema, MAX_PROJECT_SHARES } from "@/lib/validation";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
+const shareSchema = z.object({
+  sharedWith: z.array(idSchema).max(MAX_PROJECT_SHARES),
+});
+
+export const PUT = withErrorHandling(
+  async (request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const user = await requireAuth(request);
+    assertAdmin(user);
+
+    const { sharedWith } = await parseJson(request, shareSchema);
+
+    // Garante que projeto existe
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!project) throw new ApiError("NOT_FOUND", "Projeto não encontrado");
+
+    // Valida que todos os user IDs existem (evita FK error vazar)
+    if (sharedWith.length > 0) {
+      const { data: validUsers } = await supabase
+        .from("users")
+        .select("id")
+        .in("id", sharedWith);
+      const validIds = new Set((validUsers ?? []).map((u) => u.id));
+      const invalid = sharedWith.filter((uid) => !validIds.has(uid));
+      if (invalid.length > 0) {
+        throw new ApiError("VALIDATION_ERROR", "Usuário(s) inválido(s)", { invalid });
+      }
+    }
+
+    await supabase.from("project_shares").delete().eq("project_id", id);
+
+    if (sharedWith.length > 0) {
+      const { error } = await supabase
+        .from("project_shares")
+        .insert(sharedWith.map((userId) => ({ project_id: id, user_id: userId })));
+      if (error) {
+        console.error("[projects.share.PUT] insert failed:", error);
+        throw new ApiError("INTERNAL_ERROR", "Falha ao salvar compartilhamentos");
+      }
+    }
+
+    return NextResponse.json({ success: true, sharedWith });
   }
-  const adminCheck = requireAdmin(authResult.user!);
-  if (adminCheck) return adminCheck;
-
-  const { sharedWith } = await request.json();
-  if (!Array.isArray(sharedWith)) {
-    return NextResponse.json({ error: "sharedWith deve ser um array" }, { status: 400 });
-  }
-
-  // Delete existing shares
-  await supabase.from("project_shares").delete().eq("project_id", id);
-
-  // Insert new shares
-  if (sharedWith.length > 0) {
-    await supabase.from("project_shares").insert(
-      sharedWith.map((userId: string) => ({
-        project_id: id,
-        user_id: userId,
-      }))
-    );
-  }
-
-  return NextResponse.json({ success: true, sharedWith });
-}
+);
