@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton, SkeletonList } from "@/components/ui/skeleton";
 import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
+import { LoginScreen } from "@/components/login/login-screen";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
@@ -263,115 +264,6 @@ function Checklist({ items, onChange, theme, disabled }: ChecklistComponentProps
           <button onClick={add} style={{ background: "var(--primary)", border: "none", borderRadius: 6, color: "#fff", padding: "6px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>+</button>
         </div>
       )}
-    </div>
-  );
-}
-
-// ——— Login Screen ———
-function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) => void; theme: Theme; onToggleTheme: () => void }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [shake, setShake] = useState(false);
-
-  const handleLogin = async () => {
-    try {
-      const user = await api.login(username.toLowerCase().trim(), password);
-      onLogin(user);
-    } catch (e) { triggerError(e instanceof Error ? e.message : "Erro no login"); }
-  };
-
-  const triggerError = (msg: string) => {
-    setError(msg);
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
-
-  return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: theme.loginBg, fontFamily: "'Figtree', sans-serif", padding: 20,
-      position: "relative"
-    }}>
-      <button onClick={onToggleTheme} aria-label={theme.scheme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"} style={{
-        position: "absolute", top: 20, right: 20, width: 40, height: 40, borderRadius: 12,
-        border: `1px solid ${theme.border}`, background: theme.inputBg, cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center", color: theme.text
-      }}>
-        {theme.scheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
-
-      <div style={{ position: "absolute", top: "10%", left: "5%", width: 300, height: 300, borderRadius: "50%", background: "var(--primary-soft)", filter: "blur(80px)" }} />
-      <div style={{ position: "absolute", bottom: "10%", right: "10%", width: 250, height: 250, borderRadius: "50%", background: "var(--primary-soft)", filter: "blur(60px)" }} />
-
-      <div style={{
-        width: 400, padding: "48px 40px", borderRadius: 24,
-        background: theme.cardBg, border: `1px solid ${theme.cardBorder}`,
-        boxShadow: theme.scheme === "dark" ? "0 20px 60px rgba(0,0,0,0.4)" : "0 20px 60px rgba(0,0,0,0.08)",
-        animation: shake ? "shakeX 0.4s" : "fadeUp 0.5s ease-out",
-        position: "relative", zIndex: 1
-      }}>
-        {/* keyframes (slideIn, fadeUp, shakeX) já vivem em globals.css */}
-        <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-            <OrdumLogo height={42} mode={theme.scheme} />
-          </div>
-          <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>Faça login para continuar</p>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.textSecondary, marginBottom: 6, letterSpacing: 0.3 }}>Usuário</label>
-          <input
-            value={username} onChange={(e) => { setUsername(e.target.value); setError(""); }}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            placeholder="seu.usuario"
-            autoFocus
-            style={{
-              width: "100%", padding: "12px 16px", borderRadius: 12,
-              background: theme.inputBg, border: `1.5px solid ${error ? "#E2445C" : theme.inputBorder}`,
-              color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif",
-              transition: "border-color 0.2s"
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: theme.textSecondary, marginBottom: 6, letterSpacing: 0.3 }}>Senha</label>
-          <input
-            type="password"
-            value={password} onChange={(e) => { setPassword(e.target.value); setError(""); }}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            placeholder="••••••••"
-            style={{
-              width: "100%", padding: "12px 16px", borderRadius: 12,
-              background: theme.inputBg, border: `1.5px solid ${error ? "#E2445C" : theme.inputBorder}`,
-              color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif",
-              transition: "border-color 0.2s"
-            }}
-          />
-        </div>
-
-        {error && (
-          <div style={{
-            padding: "10px 14px", borderRadius: 10, marginBottom: 16,
-            background: "rgba(226,68,92,0.1)", border: "1px solid rgba(226,68,92,0.2)",
-            color: "#E2445C", fontSize: 13, fontWeight: 500, textAlign: "center"
-          }}>{error}</div>
-        )}
-
-        <button onClick={handleLogin} style={{
-          width: "100%", padding: "13px", borderRadius: 12, border: "none",
-          background: "var(--primary)", color: "#fff",
-          fontSize: 14, fontWeight: 700, cursor: "pointer",
-          boxShadow: "0 4px 16px var(--primary-ring)",
-          transition: "transform 0.15s, box-shadow 0.15s"
-        }}
-          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = "translateY(-1px)"; (e.target as HTMLElement).style.background = "var(--primary-hover)"; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = "translateY(0)"; (e.target as HTMLElement).style.background = "var(--primary)"; }}>
-          Entrar
-        </button>
-
-      </div>
     </div>
   );
 }
@@ -1667,7 +1559,7 @@ export default function TaskManager() {
   useKeyboardShortcuts(shortcuts, !!currentUser);
 
   if (!currentUser) {
-    return <LoginScreen onLogin={handleLogin} theme={theme} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} />;
+    return <LoginScreen onLogin={handleLogin} mode={mode} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} />;
   }
 
   return (
