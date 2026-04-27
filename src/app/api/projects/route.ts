@@ -12,36 +12,55 @@ const createProjectSchema = z.object({
   icon: emojiSchema.optional(),
 });
 
-async function getShares(projectId: string): Promise<string[]> {
-  const { data } = await supabase
-    .from("project_shares")
-    .select("user_id")
-    .eq("project_id", projectId);
-  return (data ?? []).map((r) => r.user_id);
+interface ProjectRow {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  owner_id: string;
 }
 
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
 
-  let projects;
+  let projects: ProjectRow[];
   if (user.role === "admin") {
-    const { data } = await supabase.from("projects").select("*").order("created_at");
-    projects = data ?? [];
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name, color, icon, owner_id")
+      .is("deleted_at", null)
+      .order("created_at");
+    projects = (data ?? []) as ProjectRow[];
   } else {
+    // RPC já filtra deleted_at desde a sprint-1 SQL migration
     const { data } = await supabase.rpc("get_user_projects", { p_user_id: user.id });
-    projects = data ?? [];
+    projects = (data ?? []) as ProjectRow[];
   }
 
-  const result = await Promise.all(
-    projects.map(async (p: Record<string, unknown>) => ({
-      id: p.id,
-      name: p.name,
-      color: p.color,
-      icon: p.icon,
-      ownerId: p.owner_id,
-      sharedWith: await getShares(p.id as string),
-    }))
-  );
+  // FASE2.3a — eliminar N+1: 1 query agrega todos os shares, depois Map em memória
+  const projectIds = projects.map((p) => p.id);
+  const sharesByProject = new Map<string, string[]>();
+
+  if (projectIds.length > 0) {
+    const { data: shares } = await supabase
+      .from("project_shares")
+      .select("project_id, user_id")
+      .in("project_id", projectIds);
+    for (const row of shares ?? []) {
+      const list = sharesByProject.get(row.project_id) ?? [];
+      list.push(row.user_id);
+      sharesByProject.set(row.project_id, list);
+    }
+  }
+
+  const result = projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    color: p.color,
+    icon: p.icon,
+    ownerId: p.owner_id,
+    sharedWith: sharesByProject.get(p.id) ?? [],
+  }));
 
   return NextResponse.json(result);
 });

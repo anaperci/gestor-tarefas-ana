@@ -13,7 +13,13 @@ export const DELETE = withErrorHandling(
       throw new ApiError("BAD_REQUEST", "Não pode deletar a si mesmo");
     }
 
-    const { error } = await supabase.from("users").delete().eq("id", id);
+    // Soft delete: preserva FKs, histórico e auditoria
+    const { error } = await supabase
+      .from("users")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id)
+      .is("deleted_at", null);
+
     if (error) {
       console.error("[users.DELETE] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao remover usuário");

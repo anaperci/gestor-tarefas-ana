@@ -13,22 +13,7 @@ import {
   taskStatusSchema,
   titleSchema,
 } from "@/lib/validation";
-
-interface TaskRow {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  deadline: string;
-  project_id: string;
-  assigned_to: string | null;
-  created_by: string;
-  link: string;
-  checked: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { enrichTask, enrichTasksBatch, TaskRow } from "@/lib/tasks";
 
 const createTaskSchema = z.object({
   title: titleSchema,
@@ -41,38 +26,13 @@ const createTaskSchema = z.object({
   link: linkSchema.optional().or(z.literal("").optional()),
 });
 
-async function enrichTask(task: TaskRow) {
-  const { data: checklist } = await supabase
-    .from("checklist_items")
-    .select("id, text, done")
-    .eq("task_id", task.id)
-    .order("sort_order");
-
-  const { data: subtasks } = await supabase
-    .from("subtasks")
-    .select("id, title, status, checked")
-    .eq("task_id", task.id)
-    .order("sort_order");
-
-  return {
-    ...task,
-    checked: !!task.checked,
-    checklist: (checklist ?? []).map((c) => ({ ...c, done: !!c.done })),
-    subtasks: (subtasks ?? []).map((s) => ({ ...s, checked: !!s.checked })),
-    projectId: task.project_id,
-    assignedTo: task.assigned_to,
-    createdBy: task.created_by,
-    createdAt: task.created_at,
-    updatedAt: task.updated_at,
-  };
-}
-
 async function userCanAccessProject(user: AuthUser, projectId: string): Promise<boolean> {
   if (user.role === "admin") return true;
   const { data: proj } = await supabase
     .from("projects")
     .select("owner_id")
     .eq("id", projectId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (!proj) return false;
   if (proj.owner_id === user.id) return true;
@@ -90,6 +50,7 @@ async function userCanAccessProject(user: AuthUser, projectId: string): Promise<
     .select("id")
     .eq("project_id", projectId)
     .eq("assigned_to", user.id)
+    .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
   return !!assigned;
@@ -103,14 +64,18 @@ export const GET = withErrorHandling(async (request) => {
     const { data } = await supabase
       .from("tasks")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
     tasks = (data ?? []) as TaskRow[];
   } else {
+    // RPC já filtra deleted_at desde a sprint-1 SQL migration
     const { data } = await supabase.rpc("get_user_tasks", { p_user_id: user.id });
     tasks = (data ?? []) as TaskRow[];
   }
 
-  const enriched = await Promise.all(tasks.map(enrichTask));
+  // FASE2.3b — eliminar N+1: 2 queries em batch (checklist + subtasks)
+  // mesmo com 200 tasks, são apenas 3 queries totais
+  const enriched = await enrichTasksBatch(tasks);
   return NextResponse.json(enriched);
 });
 
@@ -130,6 +95,7 @@ export const POST = withErrorHandling(async (request) => {
       .from("users")
       .select("id, username, name, role, avatar")
       .eq("id", finalAssignee)
+      .is("deleted_at", null)
       .maybeSingle();
     if (!assignee) throw new ApiError("VALIDATION_ERROR", "Responsável inválido");
     const assigneeCanAccess = await userCanAccessProject(assignee as AuthUser, body.projectId);

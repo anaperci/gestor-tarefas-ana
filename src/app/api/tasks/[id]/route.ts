@@ -17,22 +17,7 @@ import {
   taskStatusSchema,
   titleSchema,
 } from "@/lib/validation";
-
-interface TaskRow {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  deadline: string;
-  project_id: string;
-  assigned_to: string | null;
-  created_by: string;
-  link: string;
-  checked: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { enrichTask, TaskRow } from "@/lib/tasks";
 
 const updateTaskSchema = z.object({
   title: titleSchema.optional(),
@@ -48,38 +33,13 @@ const updateTaskSchema = z.object({
   subtasks: z.array(subtaskSchema).max(MAX_SUBTASKS).optional(),
 });
 
-async function enrichTask(task: TaskRow) {
-  const { data: checklist } = await supabase
-    .from("checklist_items")
-    .select("id, text, done")
-    .eq("task_id", task.id)
-    .order("sort_order");
-
-  const { data: subtasks } = await supabase
-    .from("subtasks")
-    .select("id, title, status, checked")
-    .eq("task_id", task.id)
-    .order("sort_order");
-
-  return {
-    ...task,
-    checked: !!task.checked,
-    checklist: (checklist ?? []).map((c) => ({ ...c, done: !!c.done })),
-    subtasks: (subtasks ?? []).map((s) => ({ ...s, checked: !!s.checked })),
-    projectId: task.project_id,
-    assignedTo: task.assigned_to,
-    createdBy: task.created_by,
-    createdAt: task.created_at,
-    updatedAt: task.updated_at,
-  };
-}
-
 async function userCanAccessProject(user: AuthUser, projectId: string): Promise<boolean> {
   if (user.role === "admin") return true;
   const { data: proj } = await supabase
     .from("projects")
     .select("owner_id")
     .eq("id", projectId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (!proj) return false;
   if (proj.owner_id === user.id) return true;
@@ -103,6 +63,7 @@ export const PUT = withErrorHandling(
       .from("tasks")
       .select("*")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (!task) throw new ApiError("NOT_FOUND", "Tarefa não encontrada");
@@ -114,7 +75,6 @@ export const PUT = withErrorHandling(
 
     const targetProjectId = body.projectId ?? task.project_id;
 
-    // Se mudou projeto, valida acesso ao novo
     if (body.projectId && body.projectId !== task.project_id) {
       const okNewProject = await userCanAccessProject(user, body.projectId);
       if (!okNewProject) {
@@ -122,12 +82,12 @@ export const PUT = withErrorHandling(
       }
     }
 
-    // FASE1.9 — assignedTo precisa ter acesso ao projeto-alvo
     if (body.assignedTo !== undefined && body.assignedTo !== null && body.assignedTo !== task.assigned_to) {
       const { data: assignee } = await supabase
         .from("users")
         .select("id, username, name, role, avatar")
         .eq("id", body.assignedTo)
+        .is("deleted_at", null)
         .maybeSingle();
       if (!assignee) throw new ApiError("VALIDATION_ERROR", "Responsável inválido");
       const assigneeCanAccess = await userCanAccessProject(assignee as AuthUser, targetProjectId);
@@ -209,13 +169,18 @@ export const DELETE = withErrorHandling(
       .from("tasks")
       .select("project_id")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
     if (!task) throw new ApiError("NOT_FOUND", "Tarefa não encontrada");
 
     const hasAccess = await userCanAccessProject(user, task.project_id);
     if (!hasAccess) throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
 
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    // Soft delete: preserva auditoria e permite recovery
+    const { error } = await supabase
+      .from("tasks")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) {
       console.error("[tasks.DELETE] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao remover tarefa");

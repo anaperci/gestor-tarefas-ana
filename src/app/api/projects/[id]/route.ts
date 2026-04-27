@@ -9,13 +9,11 @@ export const DELETE = withErrorHandling(
     const user = await requireAuth(request);
     assertAdmin(user);
 
-    // FASE1.7 — validar ownership: admin só pode deletar projeto próprio
-    // (Sistema só admite admin único por ora, mas isso bloqueia qualquer
-    // admin futuro de apagar projeto alheio sem trilha de auditoria.)
     const { data: project } = await supabase
       .from("projects")
       .select("owner_id")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (!project) throw new ApiError("NOT_FOUND", "Projeto não encontrado");
@@ -23,11 +21,32 @@ export const DELETE = withErrorHandling(
       throw new ApiError("FORBIDDEN", "Só o dono do projeto pode removê-lo");
     }
 
-    const { error } = await supabase.from("projects").delete().eq("id", id);
-    if (error) {
-      console.error("[projects.DELETE] failed:", error);
+    const now = new Date().toISOString();
+
+    // Soft delete em cascata: projeto + suas tasks
+    // (subtasks/checklist permanecem ligados às tasks via FK; ocultos
+    // automaticamente porque a task está soft-deleted)
+    const { error: projErr } = await supabase
+      .from("projects")
+      .update({ deleted_at: now })
+      .eq("id", id);
+
+    if (projErr) {
+      console.error("[projects.DELETE] project update failed:", projErr);
       throw new ApiError("INTERNAL_ERROR", "Falha ao remover projeto");
     }
+
+    const { error: tasksErr } = await supabase
+      .from("tasks")
+      .update({ deleted_at: now })
+      .eq("project_id", id)
+      .is("deleted_at", null);
+
+    if (tasksErr) {
+      console.error("[projects.DELETE] tasks cascade failed:", tasksErr);
+      // Projeto já está soft-deleted; tasks órfãs podem ser limpas depois
+    }
+
     return NextResponse.json({ success: true });
   }
 );

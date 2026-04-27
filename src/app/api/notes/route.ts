@@ -18,6 +18,7 @@ export const GET = withErrorHandling(async (request) => {
     .from("notes")
     .select("*")
     .eq("user_id", user.id)
+    .is("deleted_at", null)
     .order("pinned", { ascending: false })
     .order("updated_at", { ascending: false });
 
