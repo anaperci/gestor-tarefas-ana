@@ -9,7 +9,7 @@ import {
   LogOut, Moon, Plus, Search, Settings, Sun, User as UserIcon,
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
-  Link2,
+  Link2, LayoutDashboard,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton, SkeletonList } from "@/components/ui/skeleton";
 import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
 import { LoginScreen } from "@/components/login/login-screen";
+import { DashboardView } from "@/components/dashboard/DashboardView";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
@@ -1528,7 +1529,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"tasks" | "personal">("tasks");
+  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal">("dashboard");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "anotacoes" | "rotina">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -1821,6 +1822,11 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
+          <button className="sidebar-item" onClick={() => { setActiveView("dashboard"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "dashboard" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "dashboard" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            <LayoutDashboard size={16} aria-hidden /><span style={{ flex: 1 }}>Dashboard</span>
+          </button>
+
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
@@ -1887,7 +1893,20 @@ export default function TaskManager() {
 
       {/* Main */}
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
-        {activeView === "tasks" ? (<>
+        {activeView === "dashboard" ? (
+          <DashboardView
+            currentUser={currentUser}
+            projects={visibleProjects}
+            users={users}
+            canEdit={canEdit}
+            isAdmin={isAdmin}
+            defaultProjectId={visibleProjects[0]?.id ?? null}
+            onOpenTask={(t) => setDetailTask(t)}
+            onOpenProject={(projId) => { setActiveView("tasks"); setActiveProject(projId); }}
+            onSeeAllProjects={() => { setActiveView("tasks"); setActiveProject("all"); }}
+            onNewProject={isAdmin ? () => { setActiveView("tasks"); setShowNewProject(true); } : undefined}
+          />
+        ) : activeView === "tasks" ? (<>
         <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <button
             className="menu-toggle"

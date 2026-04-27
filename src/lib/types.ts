@@ -84,6 +84,32 @@ export interface RoutineHistoryDay {
   total: number;
 }
 
+// ─── Dashboard ─────────────────────────────────────────────────────────
+
+export interface DashboardProjectSummary extends Project {
+  open_count: number;
+  done_count: number;
+  total_count: number;
+  last_activity: string | null;
+}
+
+export interface DashboardRoutine extends RoutineItem {
+  checked: boolean;
+}
+
+export interface DashboardPayload {
+  greeting: { name: string; period: "manhã" | "tarde" | "noite" };
+  weekly_stats: { done: number; total: number };
+  today_tasks: Task[];
+  overdue_tasks: Task[];
+  review_tasks: Task[];
+  delegated_tasks: Task[];
+  active_projects: DashboardProjectSummary[];
+  today_routines: DashboardRoutine[];
+  recent_notes: Note[];
+  meta: { fetched_at: string; user_id: string; role: Role };
+}
+
 // ─── API payloads ──────────────────────────────────────────────────────
 
 export interface CreateUserPayload {
