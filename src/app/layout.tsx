@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Figtree, Poppins } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 
-const figtree = Figtree({
+const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-figtree",
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -30,13 +30,12 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <script
-          // Aplica o tema ANTES do React montar pra evitar flash
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('ordum-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(_){document.documentElement.setAttribute('data-theme','dark');}})();`,
           }}
         />
       </head>
-      <body className={`${figtree.variable} ${poppins.variable}`}>
+      <body className={`${inter.variable} ${poppins.variable}`}>
         {children}
       </body>
     </html>

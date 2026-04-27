@@ -30,8 +30,11 @@ import type {
 } from "@/lib/types";
 
 /** Ícone wordmark — branco serve no dark, mix-blend pra ficar visível no light. */
-function OrdumLogo({ height = 28, mode }: { height?: number; mode: "dark" | "light" }) {
-  const src = mode === "dark" ? "/logos/ordum-wordmark-branco.svg" : "/logos/ordum-wordmark-roxo.svg";
+function OrdumLogo({ height = 28, mode, forceWhite }: { height?: number; mode: "dark" | "light"; forceWhite?: boolean }) {
+  // forceWhite: usado na sidebar (que é roxa nos dois temas) → sempre logo branco
+  const src = forceWhite || mode === "dark"
+    ? "/logos/ordum-wordmark-branco.svg"
+    : "/logos/ordum-wordmark-roxo.svg";
   return <img src={src} alt="Ordum" style={{ height, width: "auto", display: "block" }} />;
 }
 
@@ -160,7 +163,7 @@ function Dropdown({ options, value, onChange, renderOption, theme, disabled }: D
                 display: "block", width: "100%", padding: "8px 12px", border: "none",
                 background: opt.value === value ? theme.dropdownHover : "transparent",
                 color: theme.text, borderRadius: 7, cursor: "pointer", textAlign: "left", fontSize: 13,
-                fontFamily: "'Figtree', sans-serif"
+                fontFamily: "inherit"
               }}
               onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
               onMouseLeave={(e) => (e.target as HTMLElement).style.background = opt.value === value ? theme.dropdownHover : "transparent"}>
@@ -260,7 +263,7 @@ function Checklist({ items, onChange, theme, disabled }: ChecklistComponentProps
       {!disabled && (
         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
           <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Adicionar item..."
-            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
           <button onClick={add} style={{ background: "var(--primary)", border: "none", borderRadius: 6, color: "#fff", padding: "6px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>+</button>
         </div>
       )}
@@ -338,7 +341,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
 
   const inputStyle: CSSProperties = {
     background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8,
-    padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif"
+    padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit"
   };
 
   return (
@@ -365,7 +368,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid var(--primary)" : "2px solid transparent",
               background: "transparent", color: tab === t.key ? "var(--primary)" : theme.textSecondary,
-              fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif",
+              fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
               transition: "all 0.15s", marginBottom: -1
             }}>{t.label}</button>
           ))}
@@ -435,7 +438,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
                             borderRadius: 20, border: `1.5px solid ${isShared ? "#00C875" : theme.border}`,
                             background: isShared ? "rgba(0,200,117,0.1)" : "transparent",
                             color: isShared ? "#00C875" : theme.textMuted,
-                            cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Figtree', sans-serif",
+                            cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit",
                             transition: "all 0.15s"
                           }}>
                           <span style={{ fontSize: 14 }}>{isShared ? "✓" : "+"}</span>
@@ -513,7 +516,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
         style={{
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8,
           padding: "5px 8px", color: role.color, fontSize: 12, fontWeight: 600, outline: "none",
-          cursor: isMe ? "default" : "pointer", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif"
+          cursor: isMe ? "default" : "pointer", colorScheme: theme.scheme, fontFamily: "inherit"
         }}>
         {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
       </select>
@@ -521,7 +524,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
       {showReset ? (
         <div style={{ display: "flex", gap: 4 }}>
           <input value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Nova senha"
-            style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 8px", color: theme.text, fontSize: 12, outline: "none", width: 120, fontFamily: "'Figtree', sans-serif" }} />
+            style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "5px 8px", color: theme.text, fontSize: 12, outline: "none", width: 120, fontFamily: "inherit" }} />
           <button onClick={() => { if (newPwd.trim()) { onResetPassword(newPwd); setShowReset(false); setNewPwd(""); } }}
             style={{ background: "#00C875", border: "none", color: "#fff", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✓</button>
           <button onClick={() => setShowReset(false)}
@@ -529,7 +532,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
         </div>
       ) : (
         <button onClick={() => setShowReset(true)}
-          style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'Figtree', sans-serif" }}>
+          style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>
           🔑 Reset
         </button>
       )}
@@ -585,7 +588,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
 
   const toolBtn = (label: string, action: () => void, title: string) => (
     <button onClick={action} title={title}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 14, fontWeight: label === "B" ? 700 : label === "I" ? 400 : 500, fontStyle: label === "I" ? "italic" : "normal", fontFamily: "'Figtree', sans-serif", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 14, fontWeight: label === "B" ? 700 : label === "I" ? 400 : 500, fontStyle: label === "I" ? "italic" : "normal", fontFamily: "inherit", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
       onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = theme.textSecondary; }}>
       {label}
@@ -614,7 +617,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
         data-placeholder={placeholder}
         style={{
           padding: "14px 16px", minHeight: 120, outline: "none", color: theme.text,
-          fontSize: 14, lineHeight: 1.7, fontFamily: "'Figtree', sans-serif",
+          fontSize: 14, lineHeight: 1.7, fontFamily: "inherit",
           overflowY: "auto", maxHeight: 400, cursor: readOnly ? "default" : "text",
         }}
       />
@@ -668,7 +671,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
               onMouseEnter={(e) => e.currentTarget.style.background = theme.surfaceHover}
               onMouseLeave={(e) => e.currentTarget.style.background = "none"}>✕</button>
             <input value={task.title} onChange={(e) => canEdit && onUpdate({ ...task, title: e.target.value })} readOnly={!canEdit}
-              style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
+              style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "inherit", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               {assignee && (
                 <div title={assignee.name} style={{ width: 34, height: 34, borderRadius: "50%", background: theme.badgeBg("#579BFC"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, border: `2px solid ${theme.border}` }}>
@@ -735,7 +738,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
                 <input ref={checkInputRef} value={newCheckItem} onChange={(e) => setNewCheckItem(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addCheckItem(); }}
                   placeholder="Adicionar item..."
-                  style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0 }} />
+                  style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit", padding: 0 }} />
               </div>
             )}
           </div>
@@ -807,7 +810,7 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
 
       <div onClick={(e) => e.stopPropagation()}>
         <input type="date" value={task.deadline || ""} readOnly={!canEdit} onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
-          style={{ background: "transparent", border: "none", color: overdue ? "#E2445C" : theme.textSecondary, fontSize: 13, outline: "none", width: "100%", colorScheme: theme.scheme, cursor: canEdit ? "pointer" : "default", fontFamily: "'Figtree', sans-serif" }} />
+          style={{ background: "transparent", border: "none", color: overdue ? "#E2445C" : theme.textSecondary, fontSize: 13, outline: "none", width: "100%", colorScheme: theme.scheme, cursor: canEdit ? "pointer" : "default", fontFamily: "inherit" }} />
       </div>
 
       {!isSubtask && (
@@ -930,7 +933,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
           style={{
             width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
             borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13,
-            outline: "none", fontFamily: "'Figtree', sans-serif"
+            outline: "none", fontFamily: "inherit"
           }} />
       </div>
     </div>
@@ -1028,7 +1031,7 @@ function RichTextToolbar({ theme }: { theme: Theme }) {
     <div style={{ padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
       {btns.map((b) => (
         <button key={b.cmd} onMouseDown={(e) => { e.preventDefault(); b.cmd === "link" ? insertLink() : exec(b.cmd); }}
-          style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer", fontSize: 12, fontFamily: "'Figtree', sans-serif", ...b.s }}>
+          style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer", fontSize: 12, fontFamily: "inherit", ...b.s }}>
           {b.label}
         </button>
       ))}
@@ -1092,9 +1095,9 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
       <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%" }}>
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => { saveNote(selectedNote); setSelectedNote(null); }}
-            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "6px 14px", color: theme.text, cursor: "pointer", fontSize: 13, fontFamily: "'Figtree', sans-serif" }}>← Voltar</button>
+            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "6px 14px", color: theme.text, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>← Voltar</button>
           <input value={selectedNote.title} onChange={(e) => { const u = { ...selectedNote, title: e.target.value }; setSelectedNote(u); scheduleAutosave(u); }}
-            style={{ flex: 1, fontSize: 20, fontWeight: 700, background: "transparent", border: "none", color: theme.text, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+            style={{ flex: 1, fontSize: 20, fontWeight: 700, background: "transparent", border: "none", color: theme.text, outline: "none", fontFamily: "inherit" }} />
           <button onMouseDown={(e) => { e.preventDefault(); togglePin(selectedNote); }}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: selectedNote.pinned ? 1 : 0.4 }}>📌</button>
           <button onClick={() => { deleteNote(selectedNote.id); setSelectedNote(null); }}
@@ -1104,7 +1107,7 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
         <div ref={editorRef} contentEditable suppressContentEditableWarning
           onInput={() => { if (editorRef.current) { const u = { ...selectedNote, content: editorRef.current.innerHTML }; setSelectedNote(u); scheduleAutosave(u); } }}
           dangerouslySetInnerHTML={{ __html: selectedNote.content }}
-          style={{ padding: "20px 24px", flex: 1, outline: "none", color: theme.text, fontSize: 14, lineHeight: 1.8, fontFamily: "'Figtree', sans-serif", overflowY: "auto", minHeight: 200 }}
+          style={{ padding: "20px 24px", flex: 1, outline: "none", color: theme.text, fontSize: 14, lineHeight: 1.8, fontFamily: "inherit", overflowY: "auto", minHeight: 200 }}
         />
       </div>
     );
@@ -1116,7 +1119,7 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
         <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
           <span aria-hidden style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, display: "flex" }}><Search size={16} /></span>
           <input value={searchNotes} onChange={(e) => setSearchNotes(e.target.value)} placeholder="Buscar anotações..."
-            style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+            style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
         </div>
         <button onClick={createNote}
           style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px var(--primary-ring)", whiteSpace: "nowrap" }}>
@@ -1241,7 +1244,7 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
               </button>
               {editingId === item.id ? (
                 <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onBlur={() => saveEdit(item.id)} onKeyDown={(e) => e.key === "Enter" && saveEdit(item.id)}
-                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "4px 8px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "4px 8px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
               ) : (
                 <span onClick={() => { setEditingId(item.id); setEditTitle(item.title); }}
                   style={{ flex: 1, fontSize: 14, fontWeight: 500, color: checked ? theme.textMuted : theme.text, textDecoration: checked ? "line-through" : "none", cursor: "text" }}>{item.title}</span>
@@ -1254,7 +1257,7 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
 
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Adicionar item à rotina..."
-            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
+            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
           <button onClick={addItem} style={{ background: "var(--primary)", border: "none", borderRadius: 8, color: "#fff", padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+</button>
         </div>
       </div>
@@ -1313,7 +1316,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab,
       <div style={{ display: "flex", gap: 0, padding: "0 24px", borderBottom: `1px solid ${theme.border}` }}>
         {tabs.map((t) => (
           <button key={t.key} onClick={() => onTabChange(t.key)}
-            style={{ padding: "12px 20px", border: "none", borderBottom: personalTab === t.key ? "2px solid var(--primary)" : "2px solid transparent", background: "transparent", color: personalTab === t.key ? "var(--primary)" : theme.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif", transition: "all 0.15s", marginBottom: -1 }}>
+            style={{ padding: "12px 20px", border: "none", borderBottom: personalTab === t.key ? "2px solid var(--primary)" : "2px solid transparent", background: "transparent", color: personalTab === t.key ? "var(--primary)" : theme.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", marginBottom: -1 }}>
             {t.label}
           </button>
         ))}
@@ -1563,7 +1566,7 @@ export default function TaskManager() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Figtree', sans-serif", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "inherit", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
       <style>{`
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -1608,25 +1611,25 @@ export default function TaskManager() {
 
       {/* Sidebar */}
       <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"}
-        style={{ width: 260, background: theme.sidebar, borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
-        <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${theme.border}` }}>
+        style={{ width: 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
+        <div style={{ padding: "0 20px 20px", borderBottom: `1px solid var(--sidebar-border)` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <OrdumLogo height={28} mode={mode} />
+            <OrdumLogo height={28} mode={mode} forceWhite />
             <button onClick={() => setMode(mode === "dark" ? "light" : "dark")}
               aria-label={mode === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-              style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: theme.text }}>
+              style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid var(--sidebar-border)`, background: "var(--sidebar-input-bg)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sidebar-text)" }}>
               {mode === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: theme.inputBg }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
             <span style={{ fontSize: 20 }} aria-hidden>{currentUser.avatar}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
-              <div style={{ fontSize: 12, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
+              <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
             </div>
             <button onClick={handleLogout} aria-label="Sair"
-              style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, borderRadius: 6 }}>
+              style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, borderRadius: 6 }}>
               <LogOut size={16} />
             </button>
           </div>
@@ -1634,28 +1637,28 @@ export default function TaskManager() {
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? theme.badgeBg("var(--primary)") : "transparent", color: activeView === "personal" ? "var(--primary)" : theme.textSecondary, width: "100%", border: "none", cursor: "pointer", fontFamily: "'Figtree', sans-serif", textAlign: "left" }}>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
           </button>
 
-          <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
+          <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
 
           <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("var(--primary)") : "transparent", color: activeProject === "all" ? "var(--primary)" : theme.textSecondary }}>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === "all" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
             <LayoutGrid size={16} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
-            <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
+            <span style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
           </button>
 
           {visibleProjects.map((proj) => (
-            <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? theme.badgeBg(proj.color) : "transparent", color: activeProject === proj.id ? proj.color : theme.textSecondary, cursor: "pointer", position: "relative" }}
+            <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
               onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
               <span style={{ fontSize: 16 }}>{proj.icon}</span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
-              <span className="proj-count" style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
+              <span className="proj-count" style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
               {isAdmin && (
                 <button onClick={(e) => { e.stopPropagation(); deleteProject(proj.id); }}
                   className="proj-menu-btn"
-                  style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", letterSpacing: 1, lineHeight: 1, fontWeight: 700 }}
+                  style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", fontSize: 16, padding: "0 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", letterSpacing: 1, lineHeight: 1, fontWeight: 700 }}
                   title={`Apagar ${proj.name}`}>
                   ···
                 </button>
@@ -1667,30 +1670,30 @@ export default function TaskManager() {
             showNewProject ? (
               <div style={{ display: "flex", gap: 4, marginTop: 8, padding: "0 4px" }}>
                 <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addProject()} placeholder="Nome do projeto"
-                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 12, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
-                <button onClick={addProject} style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
-                <button onClick={() => setShowNewProject(false)} style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
+                  style={{ flex: 1, background: "var(--sidebar-input-bg)", border: `1px solid var(--sidebar-border)`, borderRadius: 6, padding: "6px 10px", color: "var(--sidebar-text)", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={addProject} style={{ background: "var(--sidebar-active-bg)", border: "none", color: "var(--sidebar-text)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                <button onClick={() => setShowNewProject(false)} style={{ background: "var(--sidebar-input-bg)", border: "none", color: "var(--sidebar-text-secondary)", borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
               </div>
             ) : (
               <button onClick={() => setShowNewProject(true)} className="sidebar-item"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, marginTop: 6, fontSize: 12, color: theme.textMuted, background: "transparent" }}>
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, marginTop: 6, fontSize: 12, color: "var(--sidebar-text-muted)", background: "transparent" }}>
                 <span style={{ fontSize: 14 }}>+</span> Novo projeto
               </button>
             )
           )}
         </div>
 
-        <div style={{ padding: "12px 12px", borderTop: `1px solid ${theme.border}` }}>
+        <div style={{ padding: "12px 12px", borderTop: `1px solid var(--sidebar-border)` }}>
           {isAdmin && (
             <button onClick={() => setShowAdmin(true)} className="sidebar-item"
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#E2445C", background: "transparent" }}>
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#FFB4BD", background: "transparent" }}>
               <Settings size={16} aria-hidden /> Painel Admin
             </button>
           )}
           <div style={{ padding: "8px 12px", marginTop: 4 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: theme.textMuted }}>
-              <span>Total: <b style={{ color: theme.text }}>{filteredTasks.length}</b></span>
-              <span style={{ color: "#00C875" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--sidebar-text-muted)" }}>
+              <span>Total: <b style={{ color: "var(--sidebar-text)" }}>{filteredTasks.length}</b></span>
+              <span style={{ color: "#7CFFB4" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
               <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
             </div>
           </div>
@@ -1721,10 +1724,10 @@ export default function TaskManager() {
             <span aria-hidden style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, display: "flex" }}><Search size={16} /></span>
             <input ref={searchRef} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarefas..."
               aria-label="Buscar tarefas"
-              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", width: 200, fontFamily: "'Figtree', sans-serif" }} />
+              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", width: 200, fontFamily: "inherit" }} />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px", color: theme.text, fontSize: 14, outline: "none", cursor: "pointer", colorScheme: theme.scheme, fontFamily: "'Figtree', sans-serif" }}>
+            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px", color: theme.text, fontSize: 14, outline: "none", cursor: "pointer", colorScheme: theme.scheme, fontFamily: "inherit" }}>
             <option value="all">Todos Status</option>
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
