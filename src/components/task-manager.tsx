@@ -18,6 +18,8 @@ import { Skeleton, SkeletonList } from "@/components/ui/skeleton";
 import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
 import { LoginScreen } from "@/components/login/login-screen";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { AvatarPicker } from "@/components/ui/avatar-picker";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
@@ -380,7 +382,19 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
     const avatars: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
     try {
       await api.changeRole(userId, newRole);
-      onUpdateUsers(users.map((u) => u.id === userId ? { ...u, role: newRole, avatar: avatars[newRole] } : u));
+      // Mantém avatar custom se já não for emoji default; emoji só é trocado se ainda for
+      onUpdateUsers(users.map((u) => {
+        if (u.id !== userId) return u;
+        const isDefaultRoleAvatar = u.avatar === "👑" || u.avatar === "✏️" || u.avatar === "👁️";
+        return { ...u, role: newRole, avatar: isDefaultRoleAvatar ? avatars[newRole] : u.avatar };
+      }));
+    } catch {}
+  };
+
+  const changeAvatar = async (userId: string, avatar: string) => {
+    try {
+      await api.updateAvatar(userId, avatar);
+      onUpdateUsers(users.map((u) => u.id === userId ? { ...u, avatar } : u));
     } catch {}
   };
 
@@ -465,6 +479,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
                 <UserRow key={user.id} user={user} currentUser={currentUser} theme={theme}
                   onResetPassword={(pwd: string) => resetPassword(user.id, pwd)}
                   onChangeRole={(r: Role) => changeRole(user.id, r)}
+                  onChangeAvatar={(seed: string) => changeAvatar(user.id, seed)}
                   onDelete={() => deleteUser(user.id)} />
               ))}
             </>
@@ -545,11 +560,13 @@ interface UserRowProps {
   theme: Theme;
   onResetPassword: (password: string) => void;
   onChangeRole: (role: Role) => void;
+  onChangeAvatar: (avatar: string) => void;
   onDelete: () => void;
 }
 
-function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDelete }: UserRowProps) {
+function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onDelete }: UserRowProps) {
   const [showReset, setShowReset] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [newPwd, setNewPwd] = useState("");
   const isMe = user.id === currentUser.id;
   const role = ROLES[user.role];
@@ -560,7 +577,14 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
       borderRadius: 12, border: `1px solid ${theme.border}`, marginBottom: 6,
       background: isMe ? theme.badgeBg("var(--primary)") : "transparent"
     }}>
-      <span style={{ fontSize: 24 }}>{user.avatar}</span>
+      <button
+        onClick={() => setShowAvatarPicker(true)}
+        aria-label={`Editar avatar de ${user.name}`}
+        title="Trocar avatar"
+        style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", borderRadius: "50%" }}
+      >
+        <UserAvatar avatar={user.avatar} name={user.name} size={36} />
+      </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: theme.text }}>
           {user.name} {isMe && <span style={{ fontSize: 10, color: "var(--primary)" }}>(você)</span>}
@@ -599,6 +623,14 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
           🗑️
         </button>
       )}
+
+      <AvatarPicker
+        open={showAvatarPicker}
+        currentAvatar={user.avatar}
+        userName={user.name}
+        onCancel={() => setShowAvatarPicker(false)}
+        onSelect={(seed) => { onChangeAvatar(seed); setShowAvatarPicker(false); }}
+      />
     </div>
   );
 }
@@ -798,8 +830,134 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
               </div>
             )}
           </div>
+
+          {/* Subtarefas — bloco separado abaixo do checklist */}
+          <SubtasksBlock task={task} canEdit={canEdit} theme={theme} onUpdate={onUpdate} />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ——— Subtasks Block (dentro do TaskDetail) ———
+function SubtasksBlock({ task, canEdit, theme, onUpdate }: { task: Task; canEdit: boolean; theme: Theme; onUpdate: (t: Task) => void }) {
+  const [newTitle, setNewTitle] = useState("");
+  const subtasks = task.subtasks || [];
+  const stDone = subtasks.filter((s) => s.checked).length;
+  const stTotal = subtasks.length;
+  const stPct = stTotal ? Math.round((stDone / stTotal) * 100) : 0;
+
+  const addSubtask = () => {
+    const title = newTitle.trim();
+    if (!title || !canEdit) return;
+    onUpdate({ ...task, subtasks: [...subtasks, { id: genId(), title, status: "todo", checked: false }] });
+    setNewTitle("");
+  };
+
+  const toggle = (id: string) => {
+    if (!canEdit) return;
+    onUpdate({ ...task, subtasks: subtasks.map((s) => s.id === id ? { ...s, checked: !s.checked, status: !s.checked ? "done" : "todo" } : s) });
+  };
+
+  const updateTitle = (id: string, title: string) => {
+    if (!canEdit) return;
+    onUpdate({ ...task, subtasks: subtasks.map((s) => s.id === id ? { ...s, title } : s) });
+  };
+
+  const updateStatus = (id: string, status: string) => {
+    if (!canEdit) return;
+    onUpdate({ ...task, subtasks: subtasks.map((s) => s.id === id ? { ...s, status, checked: status === "done" } : s) });
+  };
+
+  const remove = (id: string) => {
+    if (!canEdit) return;
+    onUpdate({ ...task, subtasks: subtasks.filter((s) => s.id !== id) });
+  };
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: theme.text }}>Subtarefas</span>
+        {stTotal > 0 && (
+          <>
+            <span style={{ fontSize: 12, color: theme.textMuted }}>{stDone}/{stTotal}</span>
+            <div style={{ flex: 1, height: 4, borderRadius: 4, background: theme.inputBg, maxWidth: 120 }}>
+              <div style={{ width: stPct + "%", height: "100%", borderRadius: 4, background: "var(--status-done)", transition: "width 0.3s" }} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {subtasks.map((st) => (
+        <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${theme.border}` }}>
+          <button
+            onClick={() => toggle(st.id)}
+            aria-label={st.checked ? "Desmarcar subtarefa" : "Marcar como concluída"}
+            disabled={!canEdit}
+            style={{
+              width: 18, height: 18, borderRadius: 4,
+              border: `2px solid ${st.checked ? "var(--status-done)" : theme.textMuted}`,
+              background: st.checked ? "var(--status-done)" : "transparent",
+              cursor: canEdit ? "pointer" : "default",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, padding: 0,
+            }}
+          >
+            {st.checked && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
+          </button>
+          <input
+            value={st.title}
+            onChange={(e) => updateTitle(st.id, e.target.value)}
+            disabled={!canEdit}
+            aria-label="Título da subtarefa"
+            style={{
+              flex: 1, fontSize: 14, color: st.checked ? theme.textMuted : theme.text,
+              textDecoration: st.checked ? "line-through" : "none",
+              background: "transparent", border: "none", outline: "none",
+              fontFamily: "inherit", padding: 0,
+            }}
+          />
+          <select
+            value={st.status}
+            onChange={(e) => updateStatus(st.id, e.target.value)}
+            disabled={!canEdit}
+            aria-label="Status da subtarefa"
+            style={{
+              background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
+              borderRadius: 6, padding: "3px 8px", color: theme.text, fontSize: 11,
+              outline: "none", cursor: canEdit ? "pointer" : "default",
+              fontFamily: "inherit", colorScheme: theme.scheme,
+            }}
+          >
+            {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          {canEdit && (
+            <button
+              onClick={() => remove(st.id)}
+              aria-label="Remover subtarefa"
+              style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px", opacity: 0.4 }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.4")}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      ))}
+
+      {canEdit && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+          <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px dashed ${theme.textMuted}`, opacity: 0.4, flexShrink: 0 }} />
+          <input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") addSubtask(); }}
+            placeholder="Adicionar subtarefa..."
+            aria-label="Nova subtarefa"
+            style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit", padding: 0 }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1809,7 +1967,7 @@ export default function TaskManager() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
-            <span style={{ fontSize: 20 }} aria-hidden>{currentUser.avatar}</span>
+            <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={32} background="rgba(255,255,255,0.18)" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
               <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>

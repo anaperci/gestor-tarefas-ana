@@ -7,6 +7,7 @@ export type AuditAction =
   | "user.delete"
   | "user.role.change"
   | "user.password.change"
+  | "user.avatar.change"
   | "project.create"
   | "project.delete"
   | "project.share"
