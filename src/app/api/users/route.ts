@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin, hashPassword } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 import { genId } from "@/lib/utils";
 import { nameSchema, roleSchema, usernameSchema } from "@/lib/validation";
 import { passwordSchema } from "@/lib/password-policy";
@@ -58,6 +59,16 @@ export const POST = withErrorHandling(async (request) => {
     console.error("[users.POST] insert failed:", error);
     throw new ApiError("INTERNAL_ERROR", "Falha ao criar usuário");
   }
+
+  await audit({
+    action: "user.create",
+    resource: "users",
+    resourceId: id,
+    actorId: user.id,
+    actorRole: user.role,
+    metadata: { username: usernameLower, role },
+    request,
+  });
 
   return NextResponse.json(
     { id, username: usernameLower, name: finalName, role, avatar },

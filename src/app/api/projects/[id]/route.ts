@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin } from "@/lib/auth";
 import { ApiError, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 
 export const DELETE = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
@@ -46,6 +47,15 @@ export const DELETE = withErrorHandling(
       console.error("[projects.DELETE] tasks cascade failed:", tasksErr);
       // Projeto já está soft-deleted; tasks órfãs podem ser limpas depois
     }
+
+    await audit({
+      action: "project.delete",
+      resource: "projects",
+      resourceId: id,
+      actorId: user.id,
+      actorRole: user.role,
+      request,
+    });
 
     return NextResponse.json({ success: true });
   }

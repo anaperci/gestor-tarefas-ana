@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 import { idSchema, MAX_PROJECT_SHARES } from "@/lib/validation";
 
 const shareSchema = z.object({
@@ -51,6 +52,16 @@ export const PUT = withErrorHandling(
         throw new ApiError("INTERNAL_ERROR", "Falha ao salvar compartilhamentos");
       }
     }
+
+    await audit({
+      action: "project.share",
+      resource: "projects",
+      resourceId: id,
+      actorId: user.id,
+      actorRole: user.role,
+      metadata: { sharedWith },
+      request,
+    });
 
     return NextResponse.json({ success: true, sharedWith });
   }

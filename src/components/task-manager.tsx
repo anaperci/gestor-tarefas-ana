@@ -7,9 +7,14 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   LogOut, Moon, Plus, Search, Settings, Sun, User as UserIcon,
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
+  Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton, SkeletonList } from "@/components/ui/skeleton";
+import { ShortcutsHelp } from "@/components/ui/shortcuts-help";
+import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
   Note,
@@ -1091,10 +1096,11 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpe
         <StatCard label="Atrasadas" value={overdue} color="#E2445C" theme={theme} />
       </div>
       {myTasks.length === 0 && (
-        <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>Nenhuma tarefa atribuída a você</div>
-        </div>
+        <EmptyState
+          icon={Inbox}
+          title="Nenhuma tarefa atribuída a você"
+          description="Quando alguém te marcar numa tarefa, ela aparece aqui."
+        />
       )}
       {myGroups.map((group) => (
         <div key={group.id} style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
@@ -1226,13 +1232,13 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
         </button>
       </div>
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: theme.textMuted }}>Carregando...</div>
+        <SkeletonList rows={5} />
       ) : filteredNotes.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>{searchNotes ? "Nenhuma nota encontrada" : "Nenhuma anotação ainda"}</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Clique em &quot;+ Nova Anotação&quot; para começar</div>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title={searchNotes ? "Nenhuma nota encontrada" : "Nenhuma anotação ainda"}
+          description={searchNotes ? "Tente outro termo de busca." : "Clique em “Nova Anotação” acima para começar a escrever."}
+        />
       ) : (
         <div style={{ padding: "0 24px 24px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
           {filteredNotes.map((note) => (
@@ -1303,7 +1309,15 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
   const totalItems = items.length;
   const pct = totalItems > 0 ? Math.round((completedToday / totalItems) * 100) : 0;
 
-  if (loading) return <div style={{ textAlign: "center", padding: 40, color: theme.textMuted }}>Carregando...</div>;
+  if (loading) return (
+    <div style={{ padding: 24, maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <Skeleton width={120} height={12} style={{ margin: "0 auto 10px" }} />
+        <Skeleton width={80} height={36} rounded={10} style={{ margin: "0 auto" }} />
+      </div>
+      <SkeletonList rows={4} />
+    </div>
+  );
 
   return (
     <div style={{ padding: 24 }}>
@@ -1318,11 +1332,12 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
 
       <div style={{ maxWidth: 500, margin: "0 auto" }}>
         {items.length === 0 && (
-          <div style={{ textAlign: "center", padding: 30, color: theme.textMuted }}>
-            <div style={{ fontSize: 30, marginBottom: 8 }}>🔄</div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Nenhum item na rotina</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Adicione itens abaixo para começar</div>
-          </div>
+          <EmptyState
+            icon={Repeat}
+            title="Nenhum item na rotina"
+            description="Adicione hábitos no campo abaixo para acompanhar todo dia."
+            size="sm"
+          />
         )}
         {items.map((item) => {
           const checked = isChecked(item.id);
@@ -1460,6 +1475,9 @@ export default function TaskManager() {
   });
   const [toasts, setToasts] = useState<{ id: string; message: string; type: "error" | "success" }[]>([]);
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
     const id = Math.random().toString(36).slice(2);
@@ -1639,6 +1657,15 @@ export default function TaskManager() {
     setTasks([]);
   };
 
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { combo: "n", description: "Nova tarefa", handler: (e) => { e.preventDefault(); if (canEdit) addTask(); } },
+    { combo: "/", description: "Focar busca", handler: (e) => { e.preventDefault(); searchRef.current?.focus(); } },
+    { combo: "shift+/", description: "Mostrar atalhos", handler: (e) => { e.preventDefault(); setShortcutsOpen(true); } },
+    { combo: "Escape", description: "Fechar modais", handler: () => { setShortcutsOpen(false); setSidebarOpen(false); setDetailTask(null); }, allowInInputs: true },
+  ], [canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useKeyboardShortcuts(shortcuts, !!currentUser);
+
   if (!currentUser) {
     return <LoginScreen onLogin={handleLogin} theme={theme} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} />;
   }
@@ -1656,10 +1683,40 @@ export default function TaskManager() {
         .sidebar-item:hover .proj-count { opacity: 0 !important; position: absolute !important; }
         .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: var(--status-review) !important; }
         input::placeholder, textarea::placeholder { color: var(--text-muted); }
+
+        /* ── Responsividade: sidebar vira drawer em <=1024px ─────── */
+        .menu-toggle { display: none; }
+        .sidebar-backdrop { display: none; }
+        @media (max-width: 1024px) {
+          .menu-toggle { display: inline-flex; }
+          .app-sidebar {
+            position: fixed !important;
+            inset: 0 auto 0 0;
+            z-index: 1100;
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            box-shadow: 8px 0 32px rgba(0,0,0,0.18);
+          }
+          .app-sidebar[data-open="true"] { transform: translateX(0); }
+          .sidebar-backdrop {
+            display: block;
+            position: fixed; inset: 0; z-index: 1099;
+            background: var(--overlay); backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease-out;
+          }
+        }
+        @media (max-width: 768px) {
+          .app-header-search { width: 100% !important; }
+          .app-header { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; }
+        }
       `}</style>
 
+      {/* Backdrop (mobile drawer) */}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden />}
+
       {/* Sidebar */}
-      <div style={{ width: 260, background: theme.sidebar, borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0 }}>
+      <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"}
+        style={{ width: 260, background: theme.sidebar, borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
         <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${theme.border}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <OrdumLogo height={28} mode={mode} />
@@ -1746,12 +1803,20 @@ export default function TaskManager() {
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
       {/* Main */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {activeView === "tasks" ? (<>
-        <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <button
+            className="menu-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menu"
+            style={{ alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer" }}
+          >
+            <MenuIcon size={18} aria-hidden />
+          </button>
           <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
               {activeProj
@@ -1762,7 +1827,8 @@ export default function TaskManager() {
           </div>
           <div style={{ position: "relative" }}>
             <span aria-hidden style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, display: "flex" }}><Search size={16} /></span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarefas..."
+            <input ref={searchRef} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarefas..."
+              aria-label="Buscar tarefas"
               style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", width: 200, fontFamily: "'Figtree', sans-serif" }} />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
@@ -1780,11 +1846,13 @@ export default function TaskManager() {
 
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 0" }}>
           {filteredTasks.length === 0 && (
-            <div style={{ textAlign: "center", padding: 60, color: theme.textMuted }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>Nenhuma tarefa encontrada</div>
-              <div style={{ fontSize: 14, marginTop: 4 }}>{canEdit ? "Clique em \"+ Nova Tarefa\" para começar" : "Peça ao admin para compartilhar projetos com você"}</div>
-            </div>
+            <EmptyState
+              icon={ListChecks}
+              title="Nenhuma tarefa encontrada"
+              description={canEdit
+                ? "Clique em “Nova Tarefa” ou pressione N para começar."
+                : "Peça ao admin para compartilhar projetos com você."}
+            />
           )}
           <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
             <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
@@ -1868,6 +1936,8 @@ export default function TaskManager() {
         onConfirm={() => confirm?.onConfirm()}
         onCancel={() => setConfirm(null)}
       />
+
+      <ShortcutsHelp open={shortcutsOpen} shortcuts={shortcuts} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin } from "@/lib/auth";
 import { ApiError, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 
 export const DELETE = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
@@ -24,6 +25,15 @@ export const DELETE = withErrorHandling(
       console.error("[users.DELETE] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao remover usuário");
     }
+
+    await audit({
+      action: "user.delete",
+      resource: "users",
+      resourceId: id,
+      actorId: user.id,
+      actorRole: user.role,
+      request,
+    });
     return NextResponse.json({ success: true });
   }
 );

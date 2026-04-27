@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 import { genId } from "@/lib/utils";
 import { colorSchema, emojiSchema, titleSchema } from "@/lib/validation";
 
@@ -87,6 +88,16 @@ export const POST = withErrorHandling(async (request) => {
     console.error("[projects.POST] failed:", error);
     throw new ApiError("INTERNAL_ERROR", "Falha ao criar projeto");
   }
+
+  await audit({
+    action: "project.create",
+    resource: "projects",
+    resourceId: id,
+    actorId: user.id,
+    actorRole: user.role,
+    metadata: { name },
+    request,
+  });
 
   return NextResponse.json(
     { id, name, color: finalColor, icon: finalIcon, ownerId: user.id, sharedWith: [] },
