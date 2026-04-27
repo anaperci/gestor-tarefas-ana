@@ -23,6 +23,8 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarPicker } from "@/components/ui/avatar-picker";
 import { ProfilePanel } from "@/components/profile/profile-panel";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
+import { TagsPicker } from "@/components/tags/tags-picker";
+import type { Tag } from "@/lib/types";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
@@ -78,8 +80,8 @@ const PRIORITY_OPTIONS = [
 const genId = () => Math.random().toString(36).slice(2, 10);
 
 // 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
-// 9 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
-const GRID_COLUMNS = "36px minmax(220px, 380px) 120px 120px 110px 100px 140px 70px 48px";
+// 10 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
+const GRID_COLUMNS = "36px minmax(220px, 380px) 120px 120px 110px 100px 140px 130px 70px 48px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 // ——— Theme ———
@@ -337,14 +339,16 @@ interface AdminPanelProps {
   users: User[];
   projects: Project[];
   tasks: Task[];
+  tags: Tag[];
   onUpdateUsers: (users: User[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
+  onUpdateTags: (tags: Tag[]) => void;
   onClose: () => void;
   theme: Theme;
   currentUser: User;
 }
 
-function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose, theme, currentUser }: AdminPanelProps) {
+function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, onUpdateTags, onClose, theme, currentUser }: AdminPanelProps) {
   const [tab, setTab] = useState("users");
   const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role }>({
     username: "", name: "", password: "", role: "editor",
@@ -437,7 +441,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
         </div>
 
         <div style={{ display: "flex", gap: 4, padding: "16px 28px 0", borderBottom: `1px solid ${theme.border}` }}>
-          {[{ key: "users", label: "👥 Usuários" }, { key: "permissions", label: "🔐 Permissões" }].map((t) => (
+          {[{ key: "users", label: "👥 Usuários" }, { key: "permissions", label: "🔐 Permissões" }, { key: "tags", label: "🏷️ Etiquetas" }].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid var(--primary)" : "2px solid transparent",
               background: "transparent", color: tab === t.key ? "var(--primary)" : theme.textSecondary,
@@ -540,6 +544,10 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
               </div>
             </>
           )}
+
+          {tab === "tags" && (
+            <TagsManagement tags={tags} onUpdate={onUpdateTags} theme={theme} />
+          )}
         </div>
       </div>
 
@@ -552,6 +560,142 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
         onConfirm={() => confirm?.onConfirm()}
         onCancel={() => setConfirm(null)}
       />
+    </div>
+  );
+}
+
+// ——— Tags Management ———
+const TAG_COLOR_PALETTE = [
+  "#7B61FF", "#46347F", "#579BFC", "#00C875", "#FDAB3D",
+  "#E2445C", "#FF78CB", "#9B59B6", "#1ABC9C", "#A0A0A0",
+];
+
+function TagsManagement({ tags, onUpdate, theme }: { tags: Tag[]; onUpdate: (tags: Tag[]) => void; theme: Theme }) {
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(TAG_COLOR_PALETTE[0]);
+  const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ name: string; color: string }>({ name: "", color: "" });
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const create = async () => {
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const created = await api.createTag({ name: name.trim(), color });
+      onUpdate([...tags, created]);
+      setName("");
+    } catch {
+      // ignore
+    } finally { setSubmitting(false); }
+  };
+
+  const startEdit = (t: Tag) => { setEditingId(t.id); setEditDraft({ name: t.name, color: t.color }); };
+  const cancelEdit = () => { setEditingId(null); };
+  const saveEdit = async (t: Tag) => {
+    const draft = editDraft;
+    if (!draft.name.trim()) return;
+    try {
+      await api.updateTag(t.id, { name: draft.name.trim(), color: draft.color });
+      onUpdate(tags.map((x) => x.id === t.id ? { ...x, name: draft.name.trim(), color: draft.color } : x));
+      setEditingId(null);
+    } catch {}
+  };
+
+  const remove = async (t: Tag) => {
+    try {
+      await api.deleteTag(t.id);
+      onUpdate(tags.filter((x) => x.id !== t.id));
+    } catch {}
+    setConfirmDeleteId(null);
+  };
+
+  return (
+    <div>
+      <div style={{ padding: 16, borderRadius: 12, background: theme.inputBg, border: `1px solid ${theme.border}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 12 }}>Criar nova etiqueta</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
+          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") create(); }} placeholder="Nome (ex: Urgente, Cliente X)"
+            style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+          <ColorPalette value={color} onChange={setColor} />
+          <button onClick={create} disabled={!name.trim() || submitting}
+            style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700, opacity: !name.trim() || submitting ? 0.5 : 1 }}>
+            + Criar
+          </button>
+        </div>
+      </div>
+
+      {tags.length === 0 ? (
+        <div style={{ padding: 20, textAlign: "center", color: theme.textMuted, fontSize: 13 }}>
+          Nenhuma etiqueta criada ainda.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {tags.map((t) => (
+            <div key={t.id} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
+              borderRadius: 10, border: `1px solid ${theme.border}`,
+            }}>
+              {editingId === t.id ? (
+                <>
+                  <ColorPalette value={editDraft.color} onChange={(c) => setEditDraft({ ...editDraft, color: c })} />
+                  <input autoFocus value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveEdit(t); if (e.key === "Escape") cancelEdit(); }}
+                    style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                  <button onClick={() => saveEdit(t)}
+                    style={{ background: "var(--status-done)", border: "none", color: "#fff", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✓</button>
+                  <button onClick={cancelEdit}
+                    style={{ background: theme.inputBg, border: "none", color: theme.textMuted, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11 }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ width: 14, height: 14, borderRadius: 4, background: t.color, flexShrink: 0 }} aria-hidden />
+                  <span style={{ flex: 1, fontSize: 14, color: theme.text }}>{t.name}</span>
+                  <button onClick={() => startEdit(t)} aria-label="Editar"
+                    style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "4px 10px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>
+                    Editar
+                  </button>
+                  <button onClick={() => setConfirmDeleteId(t.id)} aria-label="Excluir"
+                    style={{ background: "rgba(226,68,92,0.1)", border: "1px solid rgba(226,68,92,0.2)", borderRadius: 8, padding: "4px 10px", color: "#E2445C", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                    🗑️
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Excluir etiqueta?"
+        description="Tarefas que usam esta etiqueta perdem o vínculo (mas continuam intactas)."
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={() => { const t = tags.find((x) => x.id === confirmDeleteId); if (t) remove(t); }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
+    </div>
+  );
+}
+
+function ColorPalette({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 4 }} role="radiogroup" aria-label="Cor da etiqueta">
+      {TAG_COLOR_PALETTE.map((c) => (
+        <button key={c} type="button" onClick={() => onChange(c)}
+          aria-checked={value === c} role="radio"
+          aria-label={`Cor ${c}`}
+          style={{
+            width: 22, height: 22, borderRadius: 6,
+            background: c,
+            border: `2px solid ${value === c ? "var(--text)" : "transparent"}`,
+            cursor: "pointer", padding: 0,
+            transition: "transform 0.1s",
+            transform: value === c ? "scale(1.05)" : "scale(1)",
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -725,13 +869,23 @@ interface TaskDetailProps {
   task: Task;
   projects: Project[];
   users: User[];
+  tags: Tag[];
   onUpdate: (task: Task) => void;
   onClose: () => void;
   theme: Theme;
   canEdit: boolean;
 }
 
-function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }: TaskDetailProps) {
+function DrawerField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--text-muted)", marginBottom: 6 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, canEdit }: TaskDetailProps) {
   const [newCheckItem, setNewCheckItem] = useState("");
   const checkInputRef = useRef<HTMLInputElement>(null);
   const assignee = users?.find((u) => u.id === task.assignedTo);
@@ -794,6 +948,55 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
             readOnly={!canEdit}
             placeholder={canEdit ? "Escreva aqui... Use a barra de ferramentas para formatar" : "Sem descrição"}
           />
+
+          {/* Meta: timeline + estimativa + tags */}
+          <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <DrawerField label="Início">
+              <input
+                type="date"
+                value={task.startDate || ""}
+                readOnly={!canEdit}
+                onChange={(e) => canEdit && onUpdate({ ...task, startDate: e.target.value })}
+                style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", colorScheme: theme.scheme, fontFamily: "inherit" }}
+              />
+            </DrawerField>
+            <DrawerField label="Prazo">
+              <input
+                type="date"
+                value={task.deadline || ""}
+                readOnly={!canEdit}
+                onChange={(e) => canEdit && onUpdate({ ...task, deadline: e.target.value })}
+                style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", colorScheme: theme.scheme, fontFamily: "inherit" }}
+              />
+            </DrawerField>
+            <DrawerField label="Estimativa (horas)">
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                value={task.estimateHours ?? ""}
+                readOnly={!canEdit}
+                onChange={(e) => {
+                  if (!canEdit) return;
+                  const v = e.target.value;
+                  onUpdate({ ...task, estimateHours: v === "" ? null : parseFloat(v) });
+                }}
+                placeholder="Ex: 2.5"
+                style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "8px 12px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }}
+              />
+            </DrawerField>
+            <DrawerField label="Etiquetas">
+              <div style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "8px 12px", minHeight: 38, display: "flex", alignItems: "center" }}>
+                <TagsPicker
+                  allTags={tags}
+                  selectedIds={task.tagIds || []}
+                  onChange={(ids) => canEdit && onUpdate({ ...task, tagIds: ids })}
+                  disabled={!canEdit}
+                  variant="full"
+                />
+              </div>
+            </DrawerField>
+          </div>
 
           {/* Checklist — simple Monday.com style */}
           <div style={{ marginTop: 28 }}>
@@ -970,6 +1173,7 @@ interface TaskRowProps {
   task: Task;
   projects: Project[];
   users: User[];
+  tags: Tag[];
   onUpdate: (task: Task) => void;
   onOpen: (task: Task) => void;
   isSubtask?: boolean;
@@ -979,7 +1183,7 @@ interface TaskRowProps {
   onToggleExpand?: (id: string) => void;
 }
 
-function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand }: TaskRowProps) {
+function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand }: TaskRowProps) {
   const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
   const stDone = (task.subtasks || []).filter((s) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
@@ -1050,6 +1254,18 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{isSelected ? (o.label === "Ninguém" ? "—" : o.label) : o.label}</span>
               </span>
             )}
+          />
+        </div>
+      )}
+
+      {!isSubtask && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <TagsPicker
+            allTags={tags}
+            selectedIds={task.tagIds || []}
+            onChange={(ids) => onUpdate({ ...task, tagIds: ids })}
+            disabled={!canEdit}
+            variant="compact"
           />
         </div>
       )}
@@ -1288,12 +1504,13 @@ interface MyTasksTabProps {
   tasks: Task[];
   projects: Project[];
   users: User[];
+  tags: Tag[];
   canEdit: boolean;
   onOpenTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
 }
 
-function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpenTask, onUpdateTask }: MyTasksTabProps) {
+function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit, onOpenTask, onUpdateTask }: MyTasksTabProps) {
   const myTasks = tasks.filter((t) => t.assignedTo === currentUser.id);
   const [myCollapsed, setMyCollapsed] = useState<Set<string>>(new Set());
   const [myExpanded, setMyExpanded] = useState<Set<string>>(new Set());
@@ -1333,11 +1550,11 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpe
           <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
           {!myCollapsed.has(group.id) && (<>
             <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Link</div><div></div>
+              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
             </div>
             {group.tasks.map((task) => (
               <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
-                <TaskRow task={task} projects={projects} users={users} onUpdate={onUpdateTask} onOpen={onOpenTask} theme={theme} canEdit={canEdit} isExpanded={myExpanded.has(task.id)} onToggleExpand={(id: string) => setMyExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })} />
+                <TaskRow task={task} projects={projects} users={users} tags={tags} onUpdate={onUpdateTask} onOpen={onOpenTask} theme={theme} canEdit={canEdit} isExpanded={myExpanded.has(task.id)} onToggleExpand={(id: string) => setMyExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })} />
               </div>
             ))}
           </>)}
@@ -1625,6 +1842,7 @@ interface PersonalAreaProps {
   tasks: Task[];
   projects: Project[];
   users: User[];
+  tags: Tag[];
   personalTab: "minhas-tarefas" | "anotacoes" | "rotina";
   onTabChange: (tab: "minhas-tarefas" | "anotacoes" | "rotina") => void;
   canEdit: boolean;
@@ -1632,7 +1850,7 @@ interface PersonalAreaProps {
   onUpdateTask: (task: Task) => void;
 }
 
-function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: PersonalAreaProps) {
+function PersonalArea({ theme, currentUser, tasks, projects, users, tags, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: PersonalAreaProps) {
   const tabs: { key: PersonalAreaProps["personalTab"]; label: string }[] = [
     { key: "minhas-tarefas", label: "📋 Minhas Tarefas" },
     { key: "anotacoes", label: "📝 Anotações" },
@@ -1653,7 +1871,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab,
         ))}
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
+        {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} tags={tags} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
         {personalTab === "anotacoes" && <NotesTab theme={theme} currentUser={currentUser} />}
         {personalTab === "rotina" && <RoutineTab theme={theme} currentUser={currentUser} />}
       </div>
@@ -1678,6 +1896,7 @@ export default function TaskManager() {
   }, [mode]);
 
   const [users, setUsers] = useState<User[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -1798,10 +2017,16 @@ export default function TaskManager() {
 
   const loadData = useCallback(async () => {
     try {
-      const [u, p, t] = await Promise.all([api.getUsers(), api.getProjects(), api.getTasks()]);
+      const [u, p, t, tg] = await Promise.all([
+        api.getUsers(),
+        api.getProjects(),
+        api.getTasks(),
+        api.getTags(),
+      ]);
       setUsers(u);
       setProjects(p.map((x) => ({ ...x, sharedWith: x.sharedWith || [] })));
       setTasks(t);
+      setTags(tg);
     } catch { showToast("Erro ao carregar dados"); }
   }, []);
 
@@ -1819,7 +2044,24 @@ export default function TaskManager() {
     if (!canEdit) return;
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     if (detailTask && detailTask.id === updated.id) setDetailTask(updated);
-    try { await api.updateTask(updated.id, { title: updated.title, description: updated.description, status: updated.status, priority: updated.priority, deadline: updated.deadline, projectId: updated.projectId, assignedTo: updated.assignedTo, link: updated.link, checked: updated.checked, checklist: updated.checklist, subtasks: updated.subtasks }); } catch { showToast("Erro ao salvar tarefa"); }
+    try {
+      await api.updateTask(updated.id, {
+        title: updated.title,
+        description: updated.description,
+        status: updated.status,
+        priority: updated.priority,
+        deadline: updated.deadline,
+        startDate: updated.startDate,
+        estimateHours: updated.estimateHours,
+        tagIds: updated.tagIds,
+        projectId: updated.projectId,
+        assignedTo: updated.assignedTo,
+        link: updated.link,
+        checked: updated.checked,
+        checklist: updated.checklist,
+        subtasks: updated.subtasks,
+      });
+    } catch { showToast("Erro ao salvar tarefa"); }
   };
 
   const addTask = async () => {
@@ -2183,6 +2425,7 @@ export default function TaskManager() {
             tasks={filteredTasks}
             projects={visibleProjects}
             users={users}
+            tags={tags}
             canEdit={canEdit}
             defaultProjectId={activeProject !== "all" ? activeProject : (visibleProjects[0]?.id ?? null)}
             onUpdate={updateTask}
@@ -2215,17 +2458,17 @@ export default function TaskManager() {
                       {!collapsedGroups.has(group.id) && (
                         <>
                           <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Link</div><div></div>
+                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
                           </div>
                           {/* Quick add no TOPO do grupo (estilo monday): clica e digita */}
                           {canEdit && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
                           {group.tasks.map((task) => (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
-                              <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
+                              <TaskRow task={task} projects={visibleProjects} users={users} tags={tags} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
                               {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => {
                                 const stAsTask: Task = { ...task, id: st.id, title: st.title, status: st.status, checked: st.checked, subtasks: [], checklist: [] };
                                 return (
-                                  <TaskRow key={st.id} task={stAsTask} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
+                                  <TaskRow key={st.id} task={stAsTask} projects={visibleProjects} users={users} tags={tags} isSubtask canEdit={canEdit}
                                     onUpdate={(updated) => {
                                       const n: Subtask[] = task.subtasks.map((s) =>
                                         s.id === updated.id ? { id: s.id, title: updated.title, status: updated.status, checked: updated.checked } : s
@@ -2257,21 +2500,21 @@ export default function TaskManager() {
             transition={{ duration: 0.18, ease: "easeOut" }}
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
-            <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
+            <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} tags={tags} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
           </motion.div>
         )}
         </AnimatePresence>
       </div>
 
       {detailTask && (
-        <TaskDetail task={detailTask} projects={visibleProjects} users={users}
+        <TaskDetail task={detailTask} projects={visibleProjects} users={users} tags={tags}
           onUpdate={(u: Task) => { updateTask(u); setDetailTask(u); }}
           onClose={() => setDetailTask(null)} theme={theme} canEdit={canEdit} />
       )}
 
       {showAdmin && isAdmin && (
-        <AdminPanel users={users} projects={projects} tasks={tasks}
-          onUpdateUsers={setUsers} onUpdateProjects={setProjects}
+        <AdminPanel users={users} projects={projects} tasks={tasks} tags={tags}
+          onUpdateUsers={setUsers} onUpdateProjects={setProjects} onUpdateTags={setTags}
           onClose={() => setShowAdmin(false)} theme={theme} currentUser={currentUser} />
       )}
 

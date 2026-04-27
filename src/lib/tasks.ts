@@ -7,6 +7,9 @@ export interface TaskRow {
   status: string;
   priority: string;
   deadline: string;
+  start_date?: string | null;
+  estimate_hours?: number | string | null;
+  tag_ids?: string[] | null;
   project_id: string;
   assigned_to: string | null;
   created_by: string;
@@ -40,6 +43,9 @@ export interface EnrichedTask {
   status: string;
   priority: string;
   deadline: string;
+  startDate: string;
+  estimateHours: number | null;
+  tagIds: string[];
   link: string;
   checked: boolean;
   projectId: string;
@@ -56,6 +62,12 @@ function toEnriched(
   checklist: { id: string; text: string; done: boolean }[],
   subtasks: { id: string; title: string; status: string; checked: boolean }[]
 ): EnrichedTask {
+  // estimate_hours pode chegar como string (NUMERIC) ou number do Supabase
+  let estimateHours: number | null = null;
+  if (task.estimate_hours !== null && task.estimate_hours !== undefined) {
+    const n = typeof task.estimate_hours === "string" ? parseFloat(task.estimate_hours) : task.estimate_hours;
+    if (!Number.isNaN(n)) estimateHours = n;
+  }
   return {
     id: task.id,
     title: task.title,
@@ -63,6 +75,9 @@ function toEnriched(
     status: task.status,
     priority: task.priority,
     deadline: task.deadline,
+    startDate: task.start_date ?? "",
+    estimateHours,
+    tagIds: Array.isArray(task.tag_ids) ? task.tag_ids : [],
     link: task.link,
     checked: !!task.checked,
     projectId: task.project_id,

@@ -40,6 +40,9 @@ export interface Task {
   status: TaskStatus | string;
   priority: TaskPriority | string;
   deadline: string;
+  startDate: string;
+  estimateHours: number | null;
+  tagIds: string[];
   link: string;
   checked: boolean;
   projectId: string;
@@ -49,6 +52,13 @@ export interface Task {
   updatedAt: string;
   checklist: ChecklistItem[];
   subtasks: Subtask[];
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
 }
 
 export interface Note {
@@ -142,6 +152,9 @@ export interface UpdateTaskPayload {
   status?: TaskStatus | string;
   priority?: TaskPriority | string;
   deadline?: string;
+  startDate?: string;
+  estimateHours?: number | null;
+  tagIds?: string[];
   projectId?: string;
   assignedTo?: string | null;
   link?: string;
