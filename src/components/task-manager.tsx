@@ -1969,36 +1969,12 @@ export default function TaskManager() {
       <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"}
         style={{ width: 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
         <div style={{ padding: "0 20px 20px", borderBottom: `1px solid var(--sidebar-border)` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <OrdumLogo height={28} mode={mode} forceWhite />
             <button onClick={() => setMode(mode === "dark" ? "light" : "dark")}
               aria-label={mode === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
               style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid var(--sidebar-border)`, background: "var(--sidebar-input-bg)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sidebar-text)" }}>
               {mode === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
-            <button
-              onClick={() => setProfileOpen(true)}
-              aria-label="Abrir meu perfil"
-              title="Editar perfil"
-              style={{
-                flex: 1, display: "flex", alignItems: "center", gap: 10,
-                background: "transparent", border: "none", cursor: "pointer",
-                padding: "4px 4px", borderRadius: 8,
-                fontFamily: "inherit", textAlign: "left", minWidth: 0,
-              }}
-            >
-              <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={32} background="rgba(255,255,255,0.18)" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
-                <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
-              </div>
-            </button>
-            <button onClick={handleLogout} aria-label="Sair"
-              style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 6 }}>
-              <LogOut size={16} />
             </button>
           </div>
         </div>
@@ -2056,19 +2032,43 @@ export default function TaskManager() {
           )}
         </div>
 
-        <div style={{ padding: "12px 12px", borderTop: `1px solid var(--sidebar-border)` }}>
+        <div style={{ padding: "12px", borderTop: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", gap: 8 }}>
           {isAdmin && (
             <button onClick={() => setShowAdmin(true)} className="sidebar-item"
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#FFB4BD", background: "transparent" }}>
               <Settings size={16} aria-hidden /> Painel Admin
             </button>
           )}
-          <div style={{ padding: "8px 12px", marginTop: 4 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--sidebar-text-muted)" }}>
-              <span>Total: <b style={{ color: "var(--sidebar-text)" }}>{filteredTasks.length}</b></span>
-              <span style={{ color: "#7CFFB4" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
-              <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
-            </div>
+
+          <div style={{ padding: "6px 12px", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--sidebar-text-muted)" }}>
+            <span>Total: <b style={{ color: "var(--sidebar-text)" }}>{filteredTasks.length}</b></span>
+            <span style={{ color: "#7CFFB4" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
+            <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
+          </div>
+
+          {/* Bloco do usuário — agora no footer */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
+            <button
+              onClick={() => setProfileOpen(true)}
+              aria-label="Abrir meu perfil"
+              title="Editar perfil"
+              style={{
+                flex: 1, display: "flex", alignItems: "center", gap: 10,
+                background: "transparent", border: "none", cursor: "pointer",
+                padding: "4px 4px", borderRadius: 8,
+                fontFamily: "inherit", textAlign: "left", minWidth: 0,
+              }}
+            >
+              <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={32} background="rgba(255,255,255,0.18)" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
+                <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
+              </div>
+            </button>
+            <button onClick={handleLogout} aria-label="Sair"
+              style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 6 }}>
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
