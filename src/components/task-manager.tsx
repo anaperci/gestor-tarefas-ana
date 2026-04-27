@@ -9,7 +9,7 @@ import {
   LogOut, Moon, Plus, Search, Settings, Sun, User as UserIcon,
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
-  Link2, LayoutDashboard,
+  Link2, LayoutDashboard, List, KanbanSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -21,6 +21,7 @@ import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarPicker } from "@/components/ui/avatar-picker";
 import { ProfilePanel } from "@/components/profile/profile-panel";
+import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
@@ -1702,6 +1703,14 @@ export default function TaskManager() {
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [tasksViewMode, setTasksViewMode] = useState<"list" | "kanban">(() => {
+    if (typeof window === "undefined") return "list";
+    const saved = localStorage.getItem("ordum-tasks-view");
+    return saved === "kanban" ? "kanban" : "list";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("ordum-tasks-view", tasksViewMode);
+  }, [tasksViewMode]);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
@@ -2107,6 +2116,41 @@ export default function TaskManager() {
             <option value="all">Todos Status</option>
             {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
+
+          {/* Toggle Lista/Kanban */}
+          <div role="tablist" aria-label="Modo de visualização" style={{ display: "inline-flex", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 3 }}>
+            <button
+              role="tab"
+              aria-selected={tasksViewMode === "list"}
+              aria-label="Visualização em lista"
+              onClick={() => setTasksViewMode("list")}
+              title="Lista"
+              style={{
+                width: 34, height: 30, borderRadius: 7, border: "none",
+                background: tasksViewMode === "list" ? "var(--primary)" : "transparent",
+                color: tasksViewMode === "list" ? "#fff" : theme.textSecondary,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <List size={15} aria-hidden />
+            </button>
+            <button
+              role="tab"
+              aria-selected={tasksViewMode === "kanban"}
+              aria-label="Visualização Kanban"
+              onClick={() => setTasksViewMode("kanban")}
+              title="Kanban"
+              style={{
+                width: 34, height: 30, borderRadius: 7, border: "none",
+                background: tasksViewMode === "kanban" ? "var(--primary)" : "transparent",
+                color: tasksViewMode === "kanban" ? "#fff" : theme.textSecondary,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <KanbanSquare size={15} aria-hidden />
+            </button>
+          </div>
+
           {canEdit && (
             <button onClick={addTask}
               style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px var(--primary-ring)" }}>
@@ -2115,6 +2159,23 @@ export default function TaskManager() {
           )}
         </div>
 
+        {tasksViewMode === "kanban" ? (
+          <KanbanBoard
+            tasks={filteredTasks}
+            projects={visibleProjects}
+            users={users}
+            canEdit={canEdit}
+            defaultProjectId={activeProject !== "all" ? activeProject : (visibleProjects[0]?.id ?? null)}
+            onUpdate={updateTask}
+            onOpen={(t) => setDetailTask(t)}
+            onQuickAdd={(projectId, status) => {
+              if (!currentUser) return;
+              api.createTask({ title: "Nova tarefa", status, priority: "medium", projectId, assignedTo: currentUser.id })
+                .then((nt) => { setTasks((prev) => [nt, ...prev]); setDetailTask(nt); })
+                .catch(() => showToast("Erro ao criar tarefa"));
+            }}
+          />
+        ) : (
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 0" }}>
           {filteredTasks.length === 0 && (
             <EmptyState
@@ -2166,6 +2227,7 @@ export default function TaskManager() {
             </SortableContext>
           </DndContext>
         </div>
+        )}
         </>) : (
           <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
         )}
