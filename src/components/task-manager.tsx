@@ -20,6 +20,7 @@ import { LoginScreen } from "@/components/login/login-screen";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarPicker } from "@/components/ui/avatar-picker";
+import { ProfilePanel } from "@/components/profile/profile-panel";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   ChecklistItem,
@@ -1700,6 +1701,7 @@ export default function TaskManager() {
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
@@ -1966,14 +1968,26 @@ export default function TaskManager() {
             </button>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
-            <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={32} background="rgba(255,255,255,0.18)" />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
-              <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
+            <button
+              onClick={() => setProfileOpen(true)}
+              aria-label="Abrir meu perfil"
+              title="Editar perfil"
+              style={{
+                flex: 1, display: "flex", alignItems: "center", gap: 10,
+                background: "transparent", border: "none", cursor: "pointer",
+                padding: "4px 4px", borderRadius: 8,
+                fontFamily: "inherit", textAlign: "left", minWidth: 0,
+              }}
+            >
+              <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={32} background="rgba(255,255,255,0.18)" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
+                <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
+              </div>
+            </button>
             <button onClick={handleLogout} aria-label="Sair"
-              style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, borderRadius: 6 }}>
+              style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 6 }}>
               <LogOut size={16} />
             </button>
           </div>
@@ -2195,6 +2209,17 @@ export default function TaskManager() {
       />
 
       <ShortcutsHelp open={shortcutsOpen} shortcuts={shortcuts} onClose={() => setShortcutsOpen(false)} />
+
+      <ProfilePanel
+        open={profileOpen}
+        user={currentUser}
+        onClose={() => setProfileOpen(false)}
+        onUserUpdated={(u) => {
+          setCurrentUser(u);
+          // Mantém a lista de users em sync também
+          setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, name: u.name, avatar: u.avatar } : x)));
+        }}
+      />
     </div>
   );
 }

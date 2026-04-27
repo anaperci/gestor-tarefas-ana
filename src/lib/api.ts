@@ -87,6 +87,16 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ password }),
     }),
+  changeOwnPassword: (id: string, currentPassword: string, password: string) =>
+    request<{ success: boolean }>(`/users/${id}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password, currentPassword }),
+    }),
+  updateProfile: (id: string, data: { name?: string }) =>
+    request<{ success: boolean }>(`/users/${id}/profile`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   changeRole: (id: string, role: Role) =>
     request<{ success: boolean }>(`/users/${id}/role`, {
       method: "PUT",
