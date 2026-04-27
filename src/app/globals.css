@@ -1,5 +1,144 @@
+/* ============================================================
+   Ordum — Design tokens
+   Identidade NexIA: primary #46347F, dark bg #0f0d1a, light bg #f4f3f8
+   ============================================================ */
+
+:root,
+[data-theme="light"] {
+  /* Brand */
+  --primary:        #46347F;
+  --primary-hover:  #5b4699;
+  --primary-soft:   #46347F15;
+  --primary-ring:   #46347F40;
+
+  /* Surfaces */
+  --bg:             #f4f3f8;
+  --surface:        #ffffff;
+  --surface-2:      #fafafa;
+  --surface-hover:  rgba(70, 52, 127, 0.04);
+  --sidebar:        #ffffff;
+
+  /* Borders */
+  --border:         rgba(0, 0, 0, 0.06);
+  --border-strong:  rgba(0, 0, 0, 0.09);
+
+  /* Text */
+  --text:           #1a1d2e;
+  --text-secondary: #5a6178;
+  --text-muted:     #9ca3b8;
+
+  /* Inputs */
+  --input-bg:       rgba(0, 0, 0, 0.03);
+  --input-border:   rgba(0, 0, 0, 0.1);
+  --dropdown-bg:    #ffffff;
+  --dropdown-hover: rgba(70, 52, 127, 0.06);
+
+  /* Overlay */
+  --overlay:        rgba(15, 13, 26, 0.25);
+  --scroll-thumb:   rgba(0, 0, 0, 0.12);
+  --color-scheme:   light;
+
+  /* Status — uniformes nos dois temas */
+  --status-backlog: #A0A0A0;
+  --status-todo:    #579BFC;
+  --status-doing:   #FDAB3D;
+  --status-review:  #E2445C;
+  --status-done:    #00C875;
+
+  /* Priority */
+  --priority-critical: #E2445C;
+  --priority-high:     #FDAB3D;
+  --priority-medium:   #579BFC;
+  --priority-low:      #A0A0A0;
+}
+
+[data-theme="dark"] {
+  --primary:        #7c5fcc;          /* primary clareado pra contraste no dark */
+  --primary-hover:  #8e74d6;
+  --primary-soft:   #7c5fcc20;
+  --primary-ring:   #7c5fcc55;
+
+  --bg:             #0f0d1a;
+  --surface:        #16142a;
+  --surface-2:      #1c1a32;
+  --surface-hover:  rgba(255, 255, 255, 0.04);
+  --sidebar:        #13112a;
+
+  --border:         rgba(255, 255, 255, 0.06);
+  --border-strong:  rgba(255, 255, 255, 0.1);
+
+  --text:           #edf2f4;
+  --text-secondary: #9ba3b9;
+  --text-muted:     #6b7290;
+
+  --input-bg:       rgba(255, 255, 255, 0.04);
+  --input-border:   rgba(255, 255, 255, 0.08);
+  --dropdown-bg:    #1f1c38;
+  --dropdown-hover: rgba(255, 255, 255, 0.08);
+
+  --overlay:        rgba(0, 0, 0, 0.55);
+  --scroll-thumb:   rgba(255, 255, 255, 0.1);
+  --color-scheme:   dark;
+}
+
+/* ============================================================
+   Reset + base
+   ============================================================ */
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html, body {
+  background: var(--bg);
+  color-scheme: var(--color-scheme);
+}
+
+body {
+  font-family: var(--font-figtree), 'Figtree', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   A11y — focus visível em tudo que interage
+   ============================================================ */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+button { font-family: inherit; }
+
+/* ============================================================
+   Animações reaproveitadas pelos modais
+   ============================================================ */
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes fadeUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-8px); }
+  40%      { transform: translateX(8px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
