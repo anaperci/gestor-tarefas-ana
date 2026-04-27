@@ -187,7 +187,7 @@ export function LoginForm({ onLogin, mode, onToggleTheme }: LoginFormProps) {
               border: "none",
               background: "var(--primary)",
               color: "#fff",
-              fontFamily: "var(--font-inter), Inter, sans-serif",
+              fontFamily: "var(--font-figtree), Figtree, sans-serif",
               fontWeight: 600,
               fontSize: 15,
               cursor: submitting ? "wait" : "pointer",
