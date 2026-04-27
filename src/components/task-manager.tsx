@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -8,6 +9,7 @@ import {
   LogOut, Moon, Plus, Search, Settings, Sun, User as UserIcon,
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
+  Link2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -69,7 +71,8 @@ const PRIORITY_OPTIONS = [
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 
-const GRID_COLUMNS = "36px 1fr 120px 120px 110px 100px 140px 48px";
+// 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
+const GRID_COLUMNS = "36px 1fr 120px 120px 110px 100px 140px 70px 48px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 // ——— Theme ———
@@ -136,43 +139,94 @@ interface DropdownProps {
 
 function Dropdown({ options, value, onChange, renderOption, theme, disabled }: DropdownProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value) || options[0];
 
+  // Reposiciona ao abrir
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const menuWidth = Math.max(rect.width, 160);
+    const menuHeight = options.length * 36 + 12;
+    // Se passa do bottom da viewport, abre pra cima
+    const flipUp = rect.bottom + 4 + menuHeight > window.innerHeight - 12;
+    const top = flipUp ? rect.top - menuHeight - 4 : rect.bottom + 4;
+    // Se passa da direita, alinha pela direita
+    const left = rect.left + menuWidth > window.innerWidth - 12
+      ? Math.max(8, window.innerWidth - menuWidth - 12)
+      : rect.left;
+    setPos({ top, left, minWidth: menuWidth });
+  }, [open, options.length]);
+
+  // Fecha ao clicar fora, scrollar ou redimensionar
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
+    if (!open) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        menuRef.current && !menuRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    };
+    const onScroll = () => setOpen(false);
+    document.addEventListener("mousedown", onClickOutside);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button onClick={(e) => { e.stopPropagation(); if (!disabled) setOpen(!open); }}
-        style={{ background: "none", border: "none", padding: 0, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>
+    <>
+      <button
+        ref={triggerRef}
+        onClick={(e) => { e.stopPropagation(); if (!disabled) setOpen((o) => !o); }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        style={{ background: "none", border: "none", padding: 0, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}
+      >
         {renderOption ? renderOption(selected, true) : selected.label}
       </button>
-      {open && !disabled && (
-        <div style={{
-          position: "absolute", top: "110%", left: 0, zIndex: 999,
-          background: theme.dropdownBg, borderRadius: 10, padding: 4, minWidth: 155,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.18)", border: `1px solid ${theme.border}`
-        }}>
+
+      {open && !disabled && pos && typeof window !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          style={{
+            position: "fixed",
+            top: pos.top, left: pos.left, minWidth: pos.minWidth,
+            zIndex: 9999,
+            background: theme.dropdownBg, borderRadius: 10, padding: 4,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)", border: `1px solid ${theme.border}`,
+            animation: "fadeIn 0.12s ease-out",
+          }}
+        >
           {options.map((opt) => (
-            <button key={opt.value} onClick={(e) => { e.stopPropagation(); onChange(opt.value); setOpen(false); }}
+            <button
+              key={opt.value}
+              role="option"
+              aria-selected={opt.value === value}
+              onClick={(e) => { e.stopPropagation(); onChange(opt.value); setOpen(false); }}
               style={{
                 display: "block", width: "100%", padding: "8px 12px", border: "none",
                 background: opt.value === value ? theme.dropdownHover : "transparent",
                 color: theme.text, borderRadius: 7, cursor: "pointer", textAlign: "left", fontSize: 13,
-                fontFamily: "inherit"
+                fontFamily: "inherit",
               }}
-              onMouseEnter={(e) => (e.target as HTMLElement).style.background = theme.dropdownHover}
-              onMouseLeave={(e) => (e.target as HTMLElement).style.background = opt.value === value ? theme.dropdownHover : "transparent"}>
+              onMouseEnter={(e) => (e.currentTarget.style.background = theme.dropdownHover)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = opt.value === value ? theme.dropdownHover : "transparent")}
+            >
               {renderOption ? renderOption(opt, false) : opt.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
@@ -837,6 +891,10 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
         </div>
       )}
 
+      {!isSubtask && (
+        <LinkCell task={task} theme={theme} canEdit={canEdit} onUpdate={onUpdate} />
+      )}
+
       <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
         <button onClick={(e) => { e.stopPropagation(); onOpen(task); }}
           style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 14 }}>❯</button>
@@ -845,8 +903,101 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
   );
 }
 
+// ——— Link Cell ———
+function LinkCell({ task, theme, canEdit, onUpdate }: { task: Task; theme: Theme; canEdit: boolean; onUpdate: (t: Task) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(task.link || "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(task.link || ""); }, [task.link]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = () => {
+    const v = value.trim();
+    if (v !== (task.link || "")) onUpdate({ ...task, link: v });
+    setEditing(false);
+  };
+
+  const isValid = (() => {
+    if (!task.link) return false;
+    try { new URL(task.link); return true; } catch { return false; }
+  })();
+
+  if (editing) {
+    return (
+      <div onClick={(e) => e.stopPropagation()}>
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") { setValue(task.link || ""); setEditing(false); }
+          }}
+          placeholder="https://…"
+          aria-label="URL do link"
+          style={{
+            width: "100%", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`,
+            borderRadius: 6, padding: "4px 8px", color: theme.text, fontSize: 12,
+            outline: "none", fontFamily: "inherit",
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (isValid) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+        <a
+          href={task.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={task.link}
+          aria-label={`Abrir ${task.link}`}
+          style={{ color: "var(--primary)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, textDecoration: "none", padding: "2px 6px", borderRadius: 6, background: "var(--primary-soft)" }}
+        >
+          <Link2 size={14} aria-hidden /> abrir
+        </a>
+        {canEdit && (
+          <button
+            onClick={() => setEditing(true)}
+            aria-label="Editar link"
+            title="Editar"
+            style={{ background: "transparent", border: "none", color: theme.textMuted, cursor: "pointer", padding: "2px 4px", borderRadius: 4, fontSize: 11, opacity: 0.5 }}
+          >
+            ✎
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (!canEdit) return <div />;
+
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      aria-label="Adicionar link"
+      style={{ background: "transparent", border: `1px dashed ${theme.border}`, color: theme.textMuted, cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "inherit" }}
+    >
+      <Link2 size={12} aria-hidden /> link
+    </button>
+  );
+}
+
 // ——— Group Header ———
-function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleProps }: { group: Group; collapsed: boolean; onToggle: () => void; taskCount: number; theme: Theme; dragHandleProps?: Record<string, unknown> }) {
+function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleProps, canEdit, onQuickAdd }: {
+  group: Group;
+  collapsed: boolean;
+  onToggle: () => void;
+  taskCount: number;
+  theme: Theme;
+  dragHandleProps?: Record<string, unknown>;
+  canEdit?: boolean;
+  onQuickAdd?: () => void;
+}) {
   return (
     <div onClick={onToggle} style={{
       display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
@@ -863,6 +1014,23 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleP
       <span style={{ fontSize: 16 }}>{group.icon}</span>
       <span style={{ fontSize: 15, fontWeight: 700, color: group.color }}>{group.name}</span>
       <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
+
+      {canEdit && onQuickAdd && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
+          aria-label={`Nova tarefa em ${group.name}`}
+          title="Nova tarefa neste grupo"
+          style={{
+            marginLeft: "auto",
+            display: "inline-flex", alignItems: "center", gap: 4,
+            background: theme.inputBg, border: `1px solid ${theme.border}`, color: group.color,
+            padding: "4px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
+            fontFamily: "inherit",
+          }}
+        >
+          + tarefa
+        </button>
+      )}
     </div>
   );
 }
@@ -1002,7 +1170,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpe
           <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
           {!myCollapsed.has(group.id) && (<>
             <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div></div>
+              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Link</div><div></div>
             </div>
             {group.tasks.map((task) => (
               <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
@@ -1501,6 +1669,22 @@ export default function TaskManager() {
     } catch { showToast("Erro ao criar tarefa"); }
   };
 
+  /** Cria "Nova tarefa" no projeto e abre o drawer pra editar imediatamente. */
+  const addTaskInGroup = async (projectId: string) => {
+    if (!canEdit || !currentUser) return;
+    try {
+      const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
+      setTasks((prev) => [nt, ...prev]);
+      // Garante que o grupo correspondente fica expandido
+      setCollapsedGroups((prev) => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+      setDetailTask(nt);
+    } catch { showToast("Erro ao criar tarefa"); }
+  };
+
   const addProject = async () => {
     if (!newProjectName.trim() || !isAdmin || !currentUser) return;
     const colors = ["var(--primary)", "#00C875", "#FF6B6B", "#FDAB3D", "#579BFC", "#FF78CB", "#9B59B6", "#1ABC9C"];
@@ -1755,17 +1939,18 @@ export default function TaskManager() {
                 <SortableGroup key={group.id} id={group.id}>
                   {(dragHandleProps) => (
                     <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
-                      <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} />
+                      <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} canEdit={canEdit} onQuickAdd={() => addTaskInGroup(group.id)} />
                       {!collapsedGroups.has(group.id) && (
                         <>
                           <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div></div>
+                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Link</div><div></div>
                           </div>
+                          {/* Quick add no TOPO do grupo (estilo monday): clica e digita */}
+                          {canEdit && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
                           {group.tasks.map((task) => (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
                               <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
                               {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => {
-                                // Adapta Subtask para o shape de Task (TaskRow só mostra title/status/checked quando isSubtask)
                                 const stAsTask: Task = { ...task, id: st.id, title: st.title, status: st.status, checked: st.checked, subtasks: [], checklist: [] };
                                 return (
                                   <TaskRow key={st.id} task={stAsTask} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
@@ -1780,7 +1965,6 @@ export default function TaskManager() {
                               })}
                             </div>
                           ))}
-                          {canEdit && <div style={{ borderLeft: `4px solid ${group.color}`, borderRadius: "0 0 12px 0" }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
                         </>
                       )}
                     </div>
