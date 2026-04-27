@@ -1,48 +1,83 @@
 "use client";
 
 import { useMemo } from "react";
-import { createAvatar } from "@dicebear/core";
-import { adventurer } from "@dicebear/collection";
+import { createAvatar, type Style } from "@dicebear/core";
+import { adventurer, notionists, personas, avataaars } from "@dicebear/collection";
 
-/** 8 seeds pré-definidos pra escolha — ficam variados visualmente */
+/** 8 seeds compartilhados entre os 4 estilos */
 export const AVATAR_SEEDS = [
   "Ada", "Buzz", "Coco", "Drift", "Echo", "Fox", "Gigi", "Holly",
 ] as const;
-
 export type AvatarSeed = (typeof AVATAR_SEEDS)[number];
 
-/** True se a string é só emoji (compat com avatares antigos) */
+/** Estilos suportados — chave usada como prefixo no campo `avatar` */
+export const AVATAR_STYLES = [
+  { id: "adventurer", label: "Aventureiro",  hint: "fofo, chibi",        style: adventurer  as unknown as Style<object> },
+  { id: "notionists", label: "Notion",       hint: "linha minimalista",  style: notionists  as unknown as Style<object> },
+  { id: "personas",   label: "Persona",      hint: "ilustração formal",  style: personas    as unknown as Style<object> },
+  { id: "avataaars",  label: "Clássico",     hint: "estilo executivo",   style: avataaars   as unknown as Style<object> },
+] as const;
+
+export type AvatarStyleId = (typeof AVATAR_STYLES)[number]["id"];
+const STYLE_BY_ID = new Map<AvatarStyleId, Style<object>>(
+  AVATAR_STYLES.map((s) => [s.id, s.style as Style<object>])
+);
+
+const BACKGROUND_COLORS = ["b6e3f4", "c0aede", "d1d4f9", "ffd5dc", "ffdfbf"];
+
 function looksLikeEmoji(s: string): boolean {
   if (!s) return true;
-  // Aceita seqs curtas; emoji canonical é 1-4 chars
   if (s.length > 4) return false;
   return /\p{Extended_Pictographic}/u.test(s);
 }
 
+/** Faz parse do campo `avatar`. Aceita "style:seed", "seed" (legacy = adventurer) ou emoji. */
+export function parseAvatar(raw: string | null | undefined): {
+  kind: "emoji" | "dicebear";
+  emoji?: string;
+  styleId?: AvatarStyleId;
+  seed?: string;
+} {
+  if (!raw) return { kind: "emoji", emoji: "👤" };
+  if (looksLikeEmoji(raw)) return { kind: "emoji", emoji: raw };
+  if (raw.includes(":")) {
+    const [styleId, seed] = raw.split(":", 2);
+    if (STYLE_BY_ID.has(styleId as AvatarStyleId) && seed) {
+      return { kind: "dicebear", styleId: styleId as AvatarStyleId, seed };
+    }
+  }
+  // Legacy seed sem prefixo → adventurer
+  return { kind: "dicebear", styleId: "adventurer", seed: raw };
+}
+
+/** Monta o id "style:seed" a partir das partes — usado pelo picker. */
+export function composeAvatar(styleId: AvatarStyleId, seed: string): string {
+  return `${styleId}:${seed}`;
+}
+
 interface UserAvatarProps {
-  /** Pode ser emoji legado OU um seed do DiceBear */
   avatar?: string | null;
   name: string;
   size?: number;
-  /** Tom de fundo para o quadrado quando renderiza emoji */
   background?: string;
   className?: string;
 }
 
 export function UserAvatar({ avatar, name, size = 32, background, className }: UserAvatarProps) {
-  const isEmoji = looksLikeEmoji(avatar ?? "");
+  const parsed = useMemo(() => parseAvatar(avatar), [avatar]);
 
   const dataUri = useMemo(() => {
-    if (isEmoji) return null;
-    const seed = avatar ?? name;
-    return createAvatar(adventurer, {
-      seed,
-      backgroundColor: ["b6e3f4", "c0aede", "d1d4f9", "ffd5dc", "ffdfbf"],
+    if (parsed.kind !== "dicebear" || !parsed.styleId || !parsed.seed) return null;
+    const style = STYLE_BY_ID.get(parsed.styleId);
+    if (!style) return null;
+    return createAvatar(style, {
+      seed: parsed.seed,
+      backgroundColor: BACKGROUND_COLORS,
       radius: 50,
     }).toDataUri();
-  }, [avatar, name, isEmoji]);
+  }, [parsed]);
 
-  if (isEmoji) {
+  if (parsed.kind === "emoji") {
     return (
       <span
         aria-label={name}
@@ -61,7 +96,7 @@ export function UserAvatar({ avatar, name, size = 32, background, className }: U
           userSelect: "none",
         }}
       >
-        {avatar || "👤"}
+        {parsed.emoji}
       </span>
     );
   }

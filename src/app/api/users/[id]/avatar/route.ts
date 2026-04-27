@@ -6,10 +6,13 @@ import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { audit } from "@/lib/audit";
 import { emojiSchema } from "@/lib/validation";
 
-// Aceita emoji curto OU um seed alfanumérico (DiceBear)
+// Aceita emoji curto OU um seed alfanumérico OU "style:seed" (DiceBear)
 const avatarSchema = z.union([
   emojiSchema,
-  z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/, "Seed deve ser alfanumérico"),
+  z.string().min(1).max(80).regex(
+    /^[A-Za-z0-9_-]+(:[A-Za-z0-9_-]+)?$/,
+    "Avatar deve ser alfanumérico ou no formato 'style:seed'"
+  ),
 ]);
 
 const bodySchema = z.object({ avatar: avatarSchema });
