@@ -72,7 +72,7 @@ export function LoginHeroPanel() {
         animate={{ opacity: 0.78 }}
         transition={{ duration: 0.5, delay: 0.5 }}
         style={{
-          fontFamily: "var(--font-figtree), Figtree, sans-serif",
+          fontFamily: "var(--font-inter), Inter, sans-serif",
           fontWeight: 400,
           fontSize: 18,
           margin: "0 0 24px",
@@ -87,7 +87,7 @@ export function LoginHeroPanel() {
       {/* Footer */}
       <footer
         style={{
-          fontFamily: "var(--font-figtree), Figtree, sans-serif",
+          fontFamily: "var(--font-inter), Inter, sans-serif",
           fontSize: 13,
           opacity: 0.5,
           position: "relative",
