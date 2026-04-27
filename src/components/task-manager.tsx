@@ -72,7 +72,8 @@ const PRIORITY_OPTIONS = [
 const genId = () => Math.random().toString(36).slice(2, 10);
 
 // 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
-const GRID_COLUMNS = "36px 1fr 120px 120px 110px 100px 140px 70px 48px";
+// 9 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
+const GRID_COLUMNS = "36px minmax(220px, 380px) 120px 120px 110px 100px 140px 70px 48px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 // ——— Theme ———
@@ -1750,7 +1751,7 @@ export default function TaskManager() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "inherit", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
+    <div className="app-shell" style={{ display: "flex", height: "100vh", fontFamily: "inherit", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
       <style>{`
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -1885,7 +1886,7 @@ export default function TaskManager() {
       </aside>
 
       {/* Main */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
         {activeView === "tasks" ? (<>
         <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <button
