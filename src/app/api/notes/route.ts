@@ -1,23 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
+import { longTextSchema, titleSchema } from "@/lib/validation";
 
-export async function GET(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
+const createNoteSchema = z.object({
+  title: titleSchema.optional(),
+  content: longTextSchema.optional(),
+});
+
+export const GET = withErrorHandling(async (request) => {
+  const user = await requireAuth(request);
 
   const { data } = await supabase
     .from("notes")
     .select("*")
-    .eq("user_id", authResult.user!.id)
+    .eq("user_id", user.id)
     .order("pinned", { ascending: false })
     .order("updated_at", { ascending: false });
 
   return NextResponse.json(
-    (data || []).map((n) => ({
+    (data ?? []).map((n) => ({
       ...n,
       pinned: !!n.pinned,
       userId: n.user_id,
@@ -25,36 +30,28 @@ export async function GET(request: NextRequest) {
       updatedAt: n.updated_at,
     }))
   );
-}
+});
 
-export async function POST(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-
-  const { title, content } = await request.json();
+export const POST = withErrorHandling(async (request) => {
+  const user = await requireAuth(request);
+  const { title, content } = await parseJson(request, createNoteSchema);
 
   const id = "note-" + genId();
   const { error } = await supabase.from("notes").insert({
     id,
-    user_id: authResult.user!.id,
-    title: title || "Sem título",
+    user_id: user.id,
+    title: title?.trim() || "Sem título",
     content: content || "",
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[notes.POST] failed:", error);
+    throw new ApiError("INTERNAL_ERROR", "Falha ao criar nota");
   }
 
-  const { data: note } = await supabase
-    .from("notes")
-    .select("*")
-    .eq("id", id)
-    .single();
-
+  const { data: note } = await supabase.from("notes").select("*").eq("id", id).single();
   return NextResponse.json(
     { ...note, pinned: !!note!.pinned, userId: note!.user_id, createdAt: note!.created_at, updatedAt: note!.updated_at },
     { status: 201 }
   );
-}
+});

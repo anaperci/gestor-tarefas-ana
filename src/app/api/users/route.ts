@@ -1,66 +1,64 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate, requireAdmin, hashPassword } from "@/lib/auth";
+import { requireAuth, assertAdmin, hashPassword } from "@/lib/auth";
+import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
+import { nameSchema, roleSchema, usernameSchema } from "@/lib/validation";
+import { passwordSchema } from "@/lib/password-policy";
 
-export async function GET(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
+const ROLE_AVATARS: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
 
+const createUserSchema = z.object({
+  username: usernameSchema,
+  name: nameSchema.optional(),
+  password: passwordSchema,
+  role: roleSchema,
+});
+
+export const GET = withErrorHandling(async (request) => {
+  await requireAuth(request);
   const { data: users } = await supabase
     .from("users")
     .select("id, username, name, role, avatar, created_at");
+  return NextResponse.json(users ?? []);
+});
 
-  return NextResponse.json(users || []);
-}
+export const POST = withErrorHandling(async (request) => {
+  const user = await requireAuth(request);
+  assertAdmin(user);
 
-export async function POST(request: NextRequest) {
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-  const adminCheck = requireAdmin(authResult.user!);
-  if (adminCheck) return adminCheck;
-
-  const { username, name, password, role } = await request.json();
-  if (!username || !password) {
-    return NextResponse.json({ error: "Username e senha obrigatórios" }, { status: 400 });
-  }
-  if (!["admin", "editor", "viewer"].includes(role)) {
-    return NextResponse.json({ error: "Role inválida" }, { status: 400 });
-  }
+  const { username, name, password, role } = await parseJson(request, createUserSchema);
+  const usernameLower = username.toLowerCase().trim();
 
   const { data: exists } = await supabase
     .from("users")
     .select("id")
-    .eq("username", username.toLowerCase().trim())
-    .single();
+    .eq("username", usernameLower)
+    .maybeSingle();
 
-  if (exists) {
-    return NextResponse.json({ error: "Username já existe" }, { status: 409 });
-  }
+  if (exists) throw new ApiError("CONFLICT", "Username já existe");
 
-  const avatars: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
   const id = "user-" + genId();
-  const usernameLower = username.toLowerCase().trim();
+  const finalName = name?.trim() || usernameLower;
+  const avatar = ROLE_AVATARS[role] ?? "👤";
 
   const { error } = await supabase.from("users").insert({
     id,
     username: usernameLower,
-    name: name || username,
+    name: finalName,
     password_hash: await hashPassword(password),
     role,
-    avatar: avatars[role] || "👤",
+    avatar,
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[users.POST] insert failed:", error);
+    throw new ApiError("INTERNAL_ERROR", "Falha ao criar usuário");
   }
 
   return NextResponse.json(
-    { id, username: usernameLower, name: name || username, role, avatar: avatars[role] },
+    { id, username: usernameLower, name: finalName, role, avatar },
     { status: 201 }
   );
-}
+});

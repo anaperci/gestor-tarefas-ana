@@ -1,80 +1,76 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { longTextSchema, titleSchema } from "@/lib/validation";
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
+const updateNoteSchema = z.object({
+  title: titleSchema.optional(),
+  content: longTextSchema.optional(),
+  pinned: z.boolean().optional(),
+});
+
+export const PUT = withErrorHandling(
+  async (request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const user = await requireAuth(request);
+
+    const { data: note } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!note) throw new ApiError("NOT_FOUND", "Nota não encontrada");
+    if (note.user_id !== user.id) throw new ApiError("FORBIDDEN", "Sem acesso");
+
+    const body = await parseJson(request, updateNoteSchema);
+
+    const { error } = await supabase
+      .from("notes")
+      .update({
+        title: body.title ?? note.title,
+        content: body.content ?? note.content,
+        pinned: body.pinned ?? note.pinned,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("[notes.PUT] failed:", error);
+      throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar nota");
+    }
+
+    const { data: updated } = await supabase.from("notes").select("*").eq("id", id).single();
+    return NextResponse.json({
+      ...updated,
+      pinned: !!updated!.pinned,
+      userId: updated!.user_id,
+      createdAt: updated!.created_at,
+      updatedAt: updated!.updated_at,
+    });
   }
+);
 
-  const { data: note } = await supabase
-    .from("notes")
-    .select("*")
-    .eq("id", id)
-    .single();
+export const DELETE = withErrorHandling(
+  async (request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const user = await requireAuth(request);
 
-  if (!note) {
-    return NextResponse.json({ error: "Nota não encontrada" }, { status: 404 });
+    const { data: note } = await supabase
+      .from("notes")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!note) throw new ApiError("NOT_FOUND", "Nota não encontrada");
+    if (note.user_id !== user.id) throw new ApiError("FORBIDDEN", "Sem acesso");
+
+    const { error } = await supabase.from("notes").delete().eq("id", id);
+    if (error) {
+      console.error("[notes.DELETE] failed:", error);
+      throw new ApiError("INTERNAL_ERROR", "Falha ao remover nota");
+    }
+    return NextResponse.json({ success: true });
   }
-  if (note.user_id !== authResult.user!.id) {
-    return NextResponse.json({ error: "Sem acesso" }, { status: 403 });
-  }
-
-  const body = await request.json();
-
-  await supabase
-    .from("notes")
-    .update({
-      title: body.title ?? note.title,
-      content: body.content ?? note.content,
-      pinned: body.pinned ?? note.pinned,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  const { data: updated } = await supabase
-    .from("notes")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  return NextResponse.json({
-    ...updated,
-    pinned: !!updated!.pinned,
-    userId: updated!.user_id,
-    createdAt: updated!.created_at,
-    updatedAt: updated!.updated_at,
-  });
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
-
-  const { data: note } = await supabase
-    .from("notes")
-    .select("user_id")
-    .eq("id", id)
-    .single();
-
-  if (!note) {
-    return NextResponse.json({ error: "Nota não encontrada" }, { status: 404 });
-  }
-  if (note.user_id !== authResult.user!.id) {
-    return NextResponse.json({ error: "Sem acesso" }, { status: 403 });
-  }
-
-  await supabase.from("notes").delete().eq("id", id);
-  return NextResponse.json({ success: true });
-}
+);

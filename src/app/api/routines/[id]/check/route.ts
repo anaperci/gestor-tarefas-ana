@@ -1,60 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { authenticate } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { ApiError, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const authResult = await authenticate(request);
-  if (authResult.error) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
-  }
+const checkBodySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
 
-  const { data: item } = await supabase
-    .from("routine_items")
-    .select("user_id")
-    .eq("id", id)
-    .single();
+export const POST = withErrorHandling(
+  async (request, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params;
+    const user = await requireAuth(request);
 
-  if (!item) {
-    return NextResponse.json({ error: "Item não encontrado" }, { status: 404 });
-  }
-  if (item.user_id !== authResult.user!.id) {
-    return NextResponse.json({ error: "Sem acesso" }, { status: 403 });
-  }
+    const { data: item } = await supabase
+      .from("routine_items")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!item) throw new ApiError("NOT_FOUND", "Item não encontrado");
+    if (item.user_id !== user.id) throw new ApiError("FORBIDDEN", "Sem acesso");
 
-  let body: { date?: string } = {};
-  try {
-    body = await request.json();
-  } catch {
-    // empty body ok
-  }
+    let raw: unknown = {};
+    try {
+      raw = await request.json();
+    } catch {
+      // body vazio é aceitável
+    }
+    const body = checkBodySchema.parse(raw ?? {});
+    const checkDate = body.date ?? new Date().toLocaleDateString("en-CA");
 
-  const checkDate = body.date || new Date().toLocaleDateString("en-CA");
+    const { data: existing } = await supabase
+      .from("routine_checks")
+      .select("id")
+      .eq("routine_item_id", id)
+      .eq("check_date", checkDate)
+      .maybeSingle();
 
-  // Check if already checked today
-  const { data: existing } = await supabase
-    .from("routine_checks")
-    .select("id")
-    .eq("routine_item_id", id)
-    .eq("check_date", checkDate)
-    .single();
+    if (existing) {
+      await supabase.from("routine_checks").delete().eq("id", existing.id);
+      return NextResponse.json({ checked: false, date: checkDate });
+    }
 
-  if (existing) {
-    // Uncheck: delete the record
-    await supabase.from("routine_checks").delete().eq("id", existing.id);
-    return NextResponse.json({ checked: false, date: checkDate });
-  } else {
-    // Check: insert new record
-    await supabase.from("routine_checks").insert({
+    const { error } = await supabase.from("routine_checks").insert({
       id: "rcheck-" + genId(),
       routine_item_id: id,
-      user_id: authResult.user!.id,
+      user_id: user.id,
       check_date: checkDate,
     });
+    if (error) {
+      console.error("[routines.check.POST] failed:", error);
+      throw new ApiError("INTERNAL_ERROR", "Falha ao registrar check");
+    }
     return NextResponse.json({ checked: true, date: checkDate });
   }
-}
+);
