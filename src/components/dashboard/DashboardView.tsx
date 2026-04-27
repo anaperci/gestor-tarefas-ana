@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, RotateCw } from "lucide-react";
+import { AlertCircle, PanelRightOpen, RotateCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { useDashboardData } from "@/lib/use-dashboard-data";
 import type { Project, Task, User } from "@/lib/types";
@@ -38,8 +38,17 @@ export function DashboardView({
 }: DashboardViewProps) {
   const { data, error, isLoading, mutate } = useDashboardData();
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("ordum-notes-open");
+    return saved === null ? true : saved === "true";
+  });
 
-  // Atalho N — abre o popover (já existe no task-manager, mas damos duplo aqui pra ser seguro)
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("ordum-notes-open", String(notesOpen));
+  }, [notesOpen]);
+
+  // Atalhos: N (nova tarefa), ] (toggle notas)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -48,6 +57,10 @@ export function DashboardView({
       if (e.key === "n" && !e.ctrlKey && !e.metaKey && canEdit) {
         e.preventDefault();
         setPopoverOpen(true);
+      }
+      if (e.key === "]") {
+        e.preventDefault();
+        setNotesOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -177,14 +190,51 @@ export function DashboardView({
             />
 
             <footer style={{ marginTop: 24, fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
-              <kbd style={kbdStyle}>N</kbd> nova tarefa · <kbd style={kbdStyle}>?</kbd> mais atalhos
+              <kbd style={kbdStyle}>N</kbd> nova tarefa · <kbd style={kbdStyle}>]</kbd> notas · <kbd style={kbdStyle}>?</kbd> mais atalhos
             </footer>
           </div>
         </div>
 
-        <div className="dashboard-notes-col">
-          <NotesColumn notes={data.recent_notes} onMutate={() => mutate()} />
-        </div>
+        {notesOpen && (
+          <div className="dashboard-notes-col">
+            <NotesColumn notes={data.recent_notes} onMutate={() => mutate()} onCollapse={() => setNotesOpen(false)} />
+          </div>
+        )}
+
+        {!notesOpen && (
+          <button
+            onClick={() => setNotesOpen(true)}
+            aria-label="Abrir coluna de notas"
+            title="Abrir notas (])"
+            className="dashboard-notes-tab"
+            style={{
+              width: 36,
+              background: "var(--primary-soft)",
+              borderLeft: "1px solid var(--border)",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              padding: "20px 0",
+              gap: 14,
+              color: "var(--primary)",
+              fontFamily: "inherit",
+            }}
+          >
+            <PanelRightOpen size={18} aria-hidden />
+            <span style={{
+              writingMode: "vertical-rl",
+              transform: "rotate(180deg)",
+              fontSize: 12, fontWeight: 600,
+              letterSpacing: 0.5,
+              color: "var(--primary)",
+            }}>
+              Notas
+            </span>
+          </button>
+        )}
       </div>
 
       <QuickTaskPopover
@@ -197,8 +247,9 @@ export function DashboardView({
 
       <style>{`
         .dashboard-notes-col { display: block; }
+        .dashboard-notes-tab { display: flex; }
         @media (max-width: 1279px) {
-          .dashboard-notes-col { display: none; }
+          .dashboard-notes-col, .dashboard-notes-tab { display: none !important; }
         }
         @media (max-width: 767px) {
           .dashboard-row-2 { grid-template-columns: 1fr !important; }

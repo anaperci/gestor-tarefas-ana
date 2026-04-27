@@ -92,6 +92,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ role }),
     }),
+  updateAvatar: (id: string, avatar: string) =>
+    request<{ success: boolean; avatar: string }>(`/users/${id}/avatar`, {
+      method: "PUT",
+      body: JSON.stringify({ avatar }),
+    }),
   deleteUser: (id: string) =>
     request<{ success: boolean }>(`/users/${id}`, { method: "DELETE" }),
 

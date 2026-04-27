@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { StickyNote, Trash2 } from "lucide-react";
+import { PanelRightClose, StickyNote, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Note } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 interface NotesColumnProps {
   notes: Note[];
   onMutate: () => Promise<unknown> | void;
+  onCollapse?: () => void;
 }
 
 function relTime(dateStr: string): string {
@@ -26,7 +27,7 @@ function relTime(dateStr: string): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-export function NotesColumn({ notes: initialNotes, onMutate }: NotesColumnProps) {
+export function NotesColumn({ notes: initialNotes, onMutate, onCollapse }: NotesColumnProps) {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Note | null>(null);
@@ -74,9 +75,26 @@ export function NotesColumn({ notes: initialNotes, onMutate }: NotesColumnProps)
         <h2 style={{
           margin: 0, fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontSize: 16, fontWeight: 600, color: "var(--text)",
+          flex: 1,
         }}>
           Notas
         </h2>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            aria-label="Recolher coluna de notas"
+            title="Recolher (])"
+            style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--text-secondary)", padding: 4, borderRadius: 6,
+              display: "flex", alignItems: "center",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; e.currentTarget.style.background = "var(--surface-hover)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; e.currentTarget.style.background = "transparent"; }}
+          >
+            <PanelRightClose size={16} />
+          </button>
+        )}
       </header>
 
       <QuickCapture onCreate={handleCreate} />
