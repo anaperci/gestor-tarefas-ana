@@ -4,7 +4,12 @@ import { useState, useEffect, useRef, useMemo, createContext, useContext, useCal
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  LogOut, Moon, Plus, Search, Settings, Sun, User as UserIcon,
+  LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
+} from "lucide-react";
 import { api } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type {
   ChecklistItem,
   Note,
@@ -17,6 +22,12 @@ import type {
   Task,
   User,
 } from "@/lib/types";
+
+/** Ícone wordmark — branco serve no dark, mix-blend pra ficar visível no light. */
+function OrdumLogo({ height = 28, mode }: { height?: number; mode: "dark" | "light" }) {
+  const src = mode === "dark" ? "/logos/ordum-wordmark-branco.svg" : "/logos/ordum-wordmark-roxo.svg";
+  return <img src={src} alt="Ordum" style={{ height, width: "auto", display: "block" }} />;
+}
 
 interface Group {
   id: string;
@@ -53,39 +64,46 @@ const GRID_COLUMNS = "36px 1fr 120px 120px 110px 100px 140px 48px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 // ——— Theme ———
+// Após a Leva C, todos os valores apontam para CSS custom properties em
+// globals.css. O `mode` ("dark"|"light") só afeta `scheme` (e o atributo
+// data-theme no <html>) — o restante muda automaticamente via CSS.
 interface Theme {
   bg: string; sidebar: string; surface: string; surfaceHover: string;
   border: string; borderStrong: string; text: string; textSecondary: string; textMuted: string;
   inputBg: string; inputBorder: string; dropdownBg: string; dropdownHover: string;
   badgeBg: (c: string) => string; badgeBorder: (c: string) => string;
-  scrollThumb: string; overlay: string; scheme: string;
+  scrollThumb: string; overlay: string; scheme: "dark" | "light";
   loginBg: string; cardBg: string; cardBorder: string;
 }
 
-const themes: Record<string, Theme> = {
-  dark: {
-    bg: "#0F1021", sidebar: "#13142A", surface: "#1A1B2E", surfaceHover: "rgba(255,255,255,0.03)",
-    border: "rgba(255,255,255,0.04)", borderStrong: "rgba(255,255,255,0.06)",
-    text: "#EDF2F4", textSecondary: "#8D99AE", textMuted: "#555",
-    inputBg: "rgba(255,255,255,0.04)", inputBorder: "rgba(255,255,255,0.08)",
-    dropdownBg: "#2B2D42", dropdownHover: "rgba(255,255,255,0.1)",
-    badgeBg: (c: string) => c + "22", badgeBorder: (c: string) => c + "44",
-    scrollThumb: "rgba(255,255,255,0.1)", overlay: "rgba(0,0,0,0.5)", scheme: "dark",
-    loginBg: "linear-gradient(135deg, #0F1021 0%, #1A1B2E 50%, #13142A 100%)",
-    cardBg: "#1A1B2E", cardBorder: "rgba(255,255,255,0.06)",
-  },
-  light: {
-    bg: "#FFFFFF", sidebar: "#FFFFFF", surface: "#FFFFFF", surfaceHover: "rgba(0,0,0,0.02)",
-    border: "rgba(0,0,0,0.06)", borderStrong: "rgba(0,0,0,0.09)",
-    text: "#1A1D2E", textSecondary: "#5A6178", textMuted: "#9CA3B8",
-    inputBg: "rgba(0,0,0,0.03)", inputBorder: "rgba(0,0,0,0.1)",
-    dropdownBg: "#FFFFFF", dropdownHover: "rgba(0,0,0,0.04)",
-    badgeBg: (c: string) => c + "15", badgeBorder: (c: string) => c + "30",
-    scrollThumb: "rgba(0,0,0,0.12)", overlay: "rgba(0,0,0,0.25)", scheme: "light",
-    loginBg: "linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 50%, #FFFFFF 100%)",
-    cardBg: "#FFFFFF", cardBorder: "rgba(0,0,0,0.08)",
-  },
-};
+function getTheme(mode: "dark" | "light"): Theme {
+  // Opacidade do badge varia entre temas (mais claro no dark, mais sutil no light)
+  const badgeAlpha = mode === "dark" ? "22" : "15";
+  const badgeBorderAlpha = mode === "dark" ? "44" : "30";
+  return {
+    bg: "var(--bg)",
+    sidebar: "var(--sidebar)",
+    surface: "var(--surface)",
+    surfaceHover: "var(--surface-hover)",
+    border: "var(--border)",
+    borderStrong: "var(--border-strong)",
+    text: "var(--text)",
+    textSecondary: "var(--text-secondary)",
+    textMuted: "var(--text-muted)",
+    inputBg: "var(--input-bg)",
+    inputBorder: "var(--input-border)",
+    dropdownBg: "var(--dropdown-bg)",
+    dropdownHover: "var(--dropdown-hover)",
+    badgeBg: (c: string) => c + badgeAlpha,
+    badgeBorder: (c: string) => c + badgeBorderAlpha,
+    scrollThumb: "var(--scroll-thumb)",
+    overlay: "var(--overlay)",
+    scheme: mode,
+    loginBg: "var(--bg)",
+    cardBg: "var(--surface)",
+    cardBorder: "var(--border)",
+  };
+}
 
 // ——— Dropdown ———
 interface DropdownOption {
@@ -237,7 +255,7 @@ function Checklist({ items, onChange, theme, disabled }: ChecklistComponentProps
         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
           <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Adicionar item..."
             style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
-          <button onClick={add} style={{ background: "#7B61FF", border: "none", borderRadius: 6, color: "#fff", padding: "6px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>+</button>
+          <button onClick={add} style={{ background: "var(--primary)", border: "none", borderRadius: 6, color: "#fff", padding: "6px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>+</button>
         </div>
       )}
     </div>
@@ -270,16 +288,16 @@ function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) 
       background: theme.loginBg, fontFamily: "'Figtree', sans-serif", padding: 20,
       position: "relative"
     }}>
-      <button onClick={onToggleTheme} style={{
+      <button onClick={onToggleTheme} aria-label={theme.scheme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"} style={{
         position: "absolute", top: 20, right: 20, width: 40, height: 40, borderRadius: 12,
         border: `1px solid ${theme.border}`, background: theme.inputBg, cursor: "pointer",
-        fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", color: theme.text
+        display: "flex", alignItems: "center", justifyContent: "center", color: theme.text
       }}>
-        {theme.scheme === "dark" ? "☀️" : "🌙"}
+        {theme.scheme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
       </button>
 
-      <div style={{ position: "absolute", top: "10%", left: "5%", width: 300, height: 300, borderRadius: "50%", background: "rgba(123,97,255,0.04)", filter: "blur(80px)" }} />
-      <div style={{ position: "absolute", bottom: "10%", right: "10%", width: 250, height: 250, borderRadius: "50%", background: "rgba(87,155,252,0.04)", filter: "blur(60px)" }} />
+      <div style={{ position: "absolute", top: "10%", left: "5%", width: 300, height: 300, borderRadius: "50%", background: "var(--primary-soft)", filter: "blur(80px)" }} />
+      <div style={{ position: "absolute", bottom: "10%", right: "10%", width: 250, height: 250, borderRadius: "50%", background: "var(--primary-soft)", filter: "blur(60px)" }} />
 
       <div style={{
         width: 400, padding: "48px 40px", borderRadius: 24,
@@ -288,15 +306,11 @@ function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) 
         animation: shake ? "shakeX 0.4s" : "fadeUp 0.5s ease-out",
         position: "relative", zIndex: 1
       }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Poppins:wght@600;700;800;900&display=swap');
-          @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-          @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-          @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
-        `}</style>
+        {/* keyframes (slideIn, fadeUp, shakeX) já vivem em globals.css */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <img src="/nexia-icon.svg" alt="NexIA Tasks" style={{ width: 56, height: 56, margin: "0 auto 16px", display: "block", filter: theme.scheme === "dark" ? "invert(1) brightness(2)" : "none" }} />
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: theme.text, letterSpacing: -0.5, margin: 0, fontFamily: "'Poppins', sans-serif" }}>NexIA <span style={{ fontWeight: 400 }}>Tasks</span></h1>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+            <OrdumLogo height={42} mode={theme.scheme} />
+          </div>
           <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 4 }}>Faça login para continuar</p>
         </div>
 
@@ -342,13 +356,13 @@ function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) 
 
         <button onClick={handleLogin} style={{
           width: "100%", padding: "13px", borderRadius: 12, border: "none",
-          background: "linear-gradient(135deg, #7B61FF, #579BFC)", color: "#fff",
+          background: "var(--primary)", color: "#fff",
           fontSize: 14, fontWeight: 700, cursor: "pointer",
-          boxShadow: "0 4px 16px rgba(123,97,255,0.35)",
+          boxShadow: "0 4px 16px var(--primary-ring)",
           transition: "transform 0.15s, box-shadow 0.15s"
         }}
-          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = "translateY(-1px)"; (e.target as HTMLElement).style.boxShadow = "0 6px 20px rgba(123,97,255,0.45)"; }}
-          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = "translateY(0)"; (e.target as HTMLElement).style.boxShadow = "0 4px 16px rgba(123,97,255,0.35)"; }}>
+          onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = "translateY(-1px)"; (e.target as HTMLElement).style.background = "var(--primary-hover)"; }}
+          onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = "translateY(0)"; (e.target as HTMLElement).style.background = "var(--primary)"; }}>
           Entrar
         </button>
 
@@ -374,6 +388,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
   const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role }>({
     username: "", name: "", password: "", role: "editor",
   });
+  const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
 
   const addUser = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) return;
@@ -389,13 +404,20 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
     try { await api.resetPassword(userId, newPwd); } catch {}
   };
 
-  const deleteUser = async (userId: string) => {
+  const deleteUser = (userId: string) => {
     if (userId === currentUser.id) return;
-    if (!window.confirm("Deletar este usuário?")) return;
-    try {
-      await api.deleteUser(userId);
-      onUpdateUsers(users.filter((u) => u.id !== userId));
-    } catch {}
+    const target = users.find((u) => u.id === userId);
+    setConfirm({
+      title: `Remover ${target?.name ?? "usuário"}?`,
+      description: "O usuário será arquivado e perderá o acesso. Suas tarefas e projetos compartilhados continuam preservados.",
+      onConfirm: async () => {
+        try {
+          await api.deleteUser(userId);
+          onUpdateUsers(users.filter((u) => u.id !== userId));
+        } catch {}
+        setConfirm(null);
+      },
+    });
   };
 
   const changeRole = async (userId: string, newRole: Role) => {
@@ -423,7 +445,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label="Painel administrativo" style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: theme.overlay, backdropFilter: "blur(6px)" }} />
       <div onClick={(e) => e.stopPropagation()} style={{
         position: "relative", width: "min(720px, 94vw)", maxHeight: "85vh",
@@ -433,7 +455,9 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
       }}>
         <div style={{ padding: "24px 28px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: theme.text, margin: 0, letterSpacing: -0.3 }}>⚙️ Painel Admin</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: theme.text, margin: 0, letterSpacing: -0.3, display: "flex", alignItems: "center", gap: 10 }}>
+              <Settings size={20} aria-hidden /> Painel Admin
+            </h2>
             <p style={{ fontSize: 12, color: theme.textMuted, marginTop: 2 }}>Gerenciar usuários e permissões</p>
           </div>
           <button onClick={onClose} style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -442,8 +466,8 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
         <div style={{ display: "flex", gap: 4, padding: "16px 28px 0", borderBottom: `1px solid ${theme.border}` }}>
           {[{ key: "users", label: "👥 Usuários" }, { key: "permissions", label: "🔐 Permissões" }].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
-              padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid #7B61FF" : "2px solid transparent",
-              background: "transparent", color: tab === t.key ? "#7B61FF" : theme.textSecondary,
+              padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid var(--primary)" : "2px solid transparent",
+              background: "transparent", color: tab === t.key ? "var(--primary)" : theme.textSecondary,
               fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif",
               transition: "all 0.15s", marginBottom: -1
             }}>{t.label}</button>
@@ -475,7 +499,7 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
                     </select>
                   </div>
                   <button onClick={addUser} style={{
-                    background: "#7B61FF", border: "none", color: "#fff", borderRadius: 8,
+                    background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8,
                     padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap"
                   }}>+ Criar</button>
                 </div>
@@ -544,6 +568,16 @@ function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose,
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.title ?? ""}
+        description={confirm?.description}
+        confirmLabel="Remover"
+        destructive
+        onConfirm={() => confirm?.onConfirm()}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }
@@ -568,12 +602,12 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
     <div style={{
       display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
       borderRadius: 12, border: `1px solid ${theme.border}`, marginBottom: 6,
-      background: isMe ? theme.badgeBg("#7B61FF") : "transparent"
+      background: isMe ? theme.badgeBg("var(--primary)") : "transparent"
     }}>
       <span style={{ fontSize: 24 }}>{user.avatar}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: theme.text }}>
-          {user.name} {isMe && <span style={{ fontSize: 10, color: "#7B61FF" }}>(você)</span>}
+          {user.name} {isMe && <span style={{ fontSize: 10, color: "var(--primary)" }}>(você)</span>}
         </div>
         <div style={{ fontSize: 12, color: theme.textMuted }}>@{user.username}</div>
       </div>
@@ -654,7 +688,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
 
   const toolBtn = (label: string, action: () => void, title: string) => (
     <button onClick={action} title={title}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 14, fontWeight: label === "B" ? 700 : label === "I" ? 400 : 500, fontStyle: label === "I" ? "italic" : "normal", fontFamily: "'Figtree', Roboto, sans-serif", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 14, fontWeight: label === "B" ? 700 : label === "I" ? 400 : 500, fontStyle: label === "I" ? "italic" : "normal", fontFamily: "'Figtree', sans-serif", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
       onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = theme.textSecondary; }}>
       {label}
@@ -683,7 +717,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
         data-placeholder={placeholder}
         style={{
           padding: "14px 16px", minHeight: 120, outline: "none", color: theme.text,
-          fontSize: 14, lineHeight: 1.7, fontFamily: "'Figtree', Roboto, sans-serif",
+          fontSize: 14, lineHeight: 1.7, fontFamily: "'Figtree', sans-serif",
           overflowY: "auto", maxHeight: 400, cursor: readOnly ? "default" : "text",
         }}
       />
@@ -723,7 +757,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label={`Detalhes da tarefa: ${task.title}`} style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: theme.overlay, backdropFilter: "blur(4px)" }} />
       <div onClick={(e) => e.stopPropagation()} style={{
         position: "relative", width: "min(640px, 94vw)", height: "100%",
@@ -804,7 +838,7 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
                 <input ref={checkInputRef} value={newCheckItem} onChange={(e) => setNewCheckItem(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addCheckItem(); }}
                   placeholder="Adicionar item..."
-                  style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', Roboto, sans-serif", padding: 0 }} />
+                  style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif", padding: 0 }} />
               </div>
             )}
           </div>
@@ -1051,7 +1085,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpe
   return (
     <div>
       <div style={{ padding: "16px 24px", display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <StatCard label="Total" value={myTasks.length} color="#7B61FF" theme={theme} />
+        <StatCard label="Total" value={myTasks.length} color="var(--primary)" theme={theme} />
         <StatCard label="Concluídas" value={done} color="#00C875" theme={theme} />
         <StatCard label="Em progresso" value={doing} color="#FDAB3D" theme={theme} />
         <StatCard label="Atrasadas" value={overdue} color="#E2445C" theme={theme} />
@@ -1182,13 +1216,13 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
     <div>
       <div style={{ padding: "16px 24px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
-          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, fontSize: 14 }}>🔍</span>
+          <span aria-hidden style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, display: "flex" }}><Search size={16} /></span>
           <input value={searchNotes} onChange={(e) => setSearchNotes(e.target.value)} placeholder="Buscar anotações..."
             style={{ width: "100%", background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
         </div>
         <button onClick={createNote}
-          style={{ background: "linear-gradient(135deg, #7B61FF, #579BFC)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px rgba(123,97,255,0.3)", whiteSpace: "nowrap" }}>
-          + Nova Anotação
+          style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px var(--primary-ring)", whiteSpace: "nowrap" }}>
+          <Plus size={16} aria-hidden /> Nova Anotação
         </button>
       </div>
       {loading ? (
@@ -1275,9 +1309,9 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
     <div style={{ padding: 24 }}>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <div style={{ fontSize: 13, color: theme.textMuted, textTransform: "capitalize" }}>{todayFormatted}</div>
-        <div style={{ fontSize: 40, fontWeight: 800, color: pct === 100 ? "#00C875" : "#7B61FF", marginTop: 4 }}>{pct}%</div>
+        <div style={{ fontSize: 40, fontWeight: 800, color: pct === 100 ? "#00C875" : "var(--primary)", marginTop: 4 }}>{pct}%</div>
         <div style={{ maxWidth: 300, margin: "8px auto 0", height: 6, borderRadius: 6, background: theme.inputBg }}>
-          <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: pct === 100 ? "#00C875" : "#7B61FF", transition: "width 0.3s" }} />
+          <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: pct === 100 ? "#00C875" : "var(--primary)", transition: "width 0.3s" }} />
         </div>
         <div style={{ fontSize: 12, color: theme.textSecondary, marginTop: 4 }}>{completedToday} de {totalItems} concluídos</div>
       </div>
@@ -1314,7 +1348,7 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Adicionar item à rotina..."
             style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
-          <button onClick={addItem} style={{ background: "#7B61FF", border: "none", borderRadius: 8, color: "#fff", padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+</button>
+          <button onClick={addItem} style={{ background: "var(--primary)", border: "none", borderRadius: 8, color: "#fff", padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+</button>
         </div>
       </div>
 
@@ -1327,11 +1361,11 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
               const isToday = day.date === today;
               return (
                 <div key={day.date} style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 10, color: isToday ? "#7B61FF" : theme.textMuted, fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, color: isToday ? "var(--primary)" : theme.textMuted, fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
                     {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short" })}
                   </div>
                   <div style={{ height: 40, borderRadius: 6, background: theme.inputBg, position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${dayPct}%`, background: dayPct === 100 ? "#00C875" : "#7B61FF", borderRadius: 6, transition: "height 0.3s" }} />
+                    <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${dayPct}%`, background: dayPct === 100 ? "#00C875" : "var(--primary)", borderRadius: 6, transition: "height 0.3s" }} />
                   </div>
                   <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{dayPct}%</div>
                 </div>
@@ -1372,7 +1406,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab,
       <div style={{ display: "flex", gap: 0, padding: "0 24px", borderBottom: `1px solid ${theme.border}` }}>
         {tabs.map((t) => (
           <button key={t.key} onClick={() => onTabChange(t.key)}
-            style={{ padding: "12px 20px", border: "none", borderBottom: personalTab === t.key ? "2px solid #7B61FF" : "2px solid transparent", background: "transparent", color: personalTab === t.key ? "#7B61FF" : theme.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif", transition: "all 0.15s", marginBottom: -1 }}>
+            style={{ padding: "12px 20px", border: "none", borderBottom: personalTab === t.key ? "2px solid var(--primary)" : "2px solid transparent", background: "transparent", color: personalTab === t.key ? "var(--primary)" : theme.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Figtree', sans-serif", transition: "all 0.15s", marginBottom: -1 }}>
             {t.label}
           </button>
         ))}
@@ -1388,16 +1422,18 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab,
 
 // ——— Main App ———
 export default function TaskManager() {
-  const [mode, setMode] = useState(() => {
+  const [mode, setMode] = useState<"dark" | "light">(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("taskhub-theme") || "dark";
+      const saved = localStorage.getItem("ordum-theme");
+      return saved === "light" ? "light" : "dark";
     }
     return "dark";
   });
-  const theme = themes[mode];
+  const theme = useMemo(() => getTheme(mode), [mode]);
 
   useEffect(() => {
-    localStorage.setItem("taskhub-theme", mode);
+    localStorage.setItem("ordum-theme", mode);
+    document.documentElement.setAttribute("data-theme", mode);
   }, [mode]);
 
   const [users, setUsers] = useState<User[]>([]);
@@ -1423,6 +1459,7 @@ export default function TaskManager() {
     return [];
   });
   const [toasts, setToasts] = useState<{ id: string; message: string; type: "error" | "success" }[]>([]);
+  const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
 
   const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
     const id = Math.random().toString(36).slice(2);
@@ -1553,7 +1590,7 @@ export default function TaskManager() {
 
   const addProject = async () => {
     if (!newProjectName.trim() || !isAdmin || !currentUser) return;
-    const colors = ["#7B61FF", "#00C875", "#FF6B6B", "#FDAB3D", "#579BFC", "#FF78CB", "#9B59B6", "#1ABC9C"];
+    const colors = ["var(--primary)", "#00C875", "#FF6B6B", "#FDAB3D", "#579BFC", "#FF78CB", "#9B59B6", "#1ABC9C"];
     const icons = ["📌", "⚡", "💡", "🎯", "🔥", "🌟", "🚀", "🌐"];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const icon = icons[Math.floor(Math.random() * icons.length)];
@@ -1564,18 +1601,26 @@ export default function TaskManager() {
     setNewProjectName(""); setShowNewProject(false);
   };
 
-  const deleteProject = async (projId: string) => {
+  const deleteProject = (projId: string) => {
     if (!isAdmin) return;
     const proj = projects.find((p) => p.id === projId);
     const taskCount = tasks.filter((t) => t.projectId === projId).length;
-    if (!window.confirm(`Apagar "${proj?.name}"${taskCount > 0 ? ` e suas ${taskCount} tarefa${taskCount > 1 ? "s" : ""}` : ""}?`)) return;
-    try {
-      await api.deleteProject(projId);
-      setProjects((prev) => prev.filter((p) => p.id !== projId));
-      setTasks((prev) => prev.filter((t) => t.projectId !== projId));
-      if (activeProject === projId) setActiveProject("all");
-      showToast(`Projeto "${proj?.name}" apagado`, "success");
-    } catch { showToast("Erro ao apagar projeto"); }
+    setConfirm({
+      title: `Apagar projeto "${proj?.name}"?`,
+      description: taskCount > 0
+        ? `Esta ação também removerá ${taskCount} tarefa${taskCount > 1 ? "s" : ""} associada${taskCount > 1 ? "s" : ""}. Tudo fica recuperável via banco.`
+        : "O projeto será arquivado.",
+      onConfirm: async () => {
+        try {
+          await api.deleteProject(projId);
+          setProjects((prev) => prev.filter((p) => p.id !== projId));
+          setTasks((prev) => prev.filter((t) => t.projectId !== projId));
+          if (activeProject === projId) setActiveProject("all");
+          showToast(`Projeto "${proj?.name}" apagado`, "success");
+        } catch { showToast("Erro ao apagar projeto"); }
+        setConfirm(null);
+      },
+    });
   };
 
   const counts: Record<string, number> = { all: filteredTasks.length };
@@ -1599,64 +1644,56 @@ export default function TaskManager() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Figtree', Roboto, sans-serif", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Figtree', sans-serif", fontSize: 14, lineHeight: 1.43, background: theme.bg, color: theme.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300..900&family=Poppins:wght@600;700;800;900&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${theme.scrollThumb}; border-radius: 10px; }
-        .task-row:hover { background: ${theme.surfaceHover} !important; }
-        .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: 'Figtree', Roboto, sans-serif; }
-        .sidebar-item:hover { background: ${theme.surfaceHover} !important; }
+        ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
+        .task-row:hover { background: var(--surface-hover) !important; }
+        .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
+        .sidebar-item:hover { background: var(--surface-hover) !important; }
         .sidebar-item:hover .proj-menu-btn { opacity: 0.6 !important; }
         .sidebar-item:hover .proj-count { opacity: 0 !important; position: absolute !important; }
-        .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: #E2445C !important; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes shakeX { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
-        input::placeholder, textarea::placeholder { color: ${theme.textMuted}; }
+        .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: var(--status-review) !important; }
+        input::placeholder, textarea::placeholder { color: var(--text-muted); }
       `}</style>
 
       {/* Sidebar */}
       <div style={{ width: 260, background: theme.sidebar, borderRight: `1px solid ${theme.border}`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0 }}>
         <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${theme.border}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img src="/nexia-icon.svg" alt="NexIA Tasks" style={{ width: 34, height: 34, filter: mode === "dark" ? "invert(1) brightness(2)" : "none" }} />
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.5, fontFamily: "'Poppins', sans-serif" }}>NexIA <span style={{ fontWeight: 400 }}>Tasks</span></div>
-                <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 400 }}>Gestor de Tarefas</div>
-              </div>
-            </div>
+            <OrdumLogo height={28} mode={mode} />
             <button onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-              style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", color: theme.text }}>
-              {mode === "dark" ? "☀️" : "🌙"}
+              aria-label={mode === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+              style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: theme.text }}>
+              {mode === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: theme.inputBg }}>
-            <span style={{ fontSize: 20 }}>{currentUser.avatar}</span>
+            <span style={{ fontSize: 20 }} aria-hidden>{currentUser.avatar}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
               <div style={{ fontSize: 12, color: ROLES[currentUser.role].color, fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
             </div>
-            <button onClick={handleLogout} title="Sair"
-              style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14 }}>🚪</button>
+            <button onClick={handleLogout} aria-label="Sair"
+              style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 4, borderRadius: 6 }}>
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? theme.badgeBg("#7B61FF") : "transparent", color: activeView === "personal" ? "#7B61FF" : theme.textSecondary, width: "100%", border: "none", cursor: "pointer", fontFamily: "'Figtree', sans-serif", textAlign: "left" }}>
-            <span style={{ fontSize: 16 }}>👤</span><span style={{ flex: 1 }}>Minha Área</span>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? theme.badgeBg("var(--primary)") : "transparent", color: activeView === "personal" ? "var(--primary)" : theme.textSecondary, width: "100%", border: "none", cursor: "pointer", fontFamily: "'Figtree', sans-serif", textAlign: "left" }}>
+            <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
           </button>
 
           <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
 
           <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("#7B61FF") : "transparent", color: activeProject === "all" ? "#7B61FF" : theme.textSecondary }}>
-            <span style={{ fontSize: 16 }}>📊</span><span style={{ flex: 1 }}>Todos</span>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? theme.badgeBg("var(--primary)") : "transparent", color: activeProject === "all" ? "var(--primary)" : theme.textSecondary }}>
+            <LayoutGrid size={16} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
             <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
           </button>
 
@@ -1682,7 +1719,7 @@ export default function TaskManager() {
               <div style={{ display: "flex", gap: 4, marginTop: 8, padding: "0 4px" }}>
                 <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addProject()} placeholder="Nome do projeto"
                   style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 12, outline: "none", fontFamily: "'Figtree', sans-serif" }} />
-                <button onClick={addProject} style={{ background: "#7B61FF", border: "none", color: "#fff", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                <button onClick={addProject} style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
                 <button onClick={() => setShowNewProject(false)} style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
               </div>
             ) : (
@@ -1697,8 +1734,8 @@ export default function TaskManager() {
         <div style={{ padding: "12px 12px", borderTop: `1px solid ${theme.border}` }}>
           {isAdmin && (
             <button onClick={() => setShowAdmin(true)} className="sidebar-item"
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#E2445C", background: "transparent" }}>
-              ⚙️ Painel Admin
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#E2445C", background: "transparent" }}>
+              <Settings size={16} aria-hidden /> Painel Admin
             </button>
           )}
           <div style={{ padding: "8px 12px", marginTop: 4 }}>
@@ -1716,13 +1753,15 @@ export default function TaskManager() {
         {activeView === "tasks" ? (<>
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>
-              {activeProj ? `${activeProj.icon} ${activeProj.name}` : "📊 Todas as Tarefas"}
+            <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+              {activeProj
+                ? <><span aria-hidden>{activeProj.icon}</span>{activeProj.name}</>
+                : <><LayoutGrid size={22} aria-hidden /> Todas as Tarefas</>}
             </h1>
             <p style={{ fontSize: 14, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
           </div>
           <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, fontSize: 14 }}>🔍</span>
+            <span aria-hidden style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: theme.textMuted, display: "flex" }}><Search size={16} /></span>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar tarefas..."
               style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "8px 12px 8px 34px", color: theme.text, fontSize: 14, outline: "none", width: 200, fontFamily: "'Figtree', sans-serif" }} />
           </div>
@@ -1733,8 +1772,8 @@ export default function TaskManager() {
           </select>
           {canEdit && (
             <button onClick={addTask}
-              style={{ background: "linear-gradient(135deg, #7B61FF, #579BFC)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px rgba(123,97,255,0.3)" }}>
-              <span style={{ fontSize: 16 }}>+</span> Nova Tarefa
+              style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 10, padding: "9px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 16px var(--primary-ring)" }}>
+              <Plus size={16} aria-hidden /> Nova Tarefa
             </button>
           )}
         </div>
@@ -1806,18 +1845,29 @@ export default function TaskManager() {
       )}
 
       {/* Toast notifications */}
-      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div role="status" aria-live="polite" style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8 }}>
         {toasts.map((t) => (
           <div key={t.id} style={{
             padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
             background: t.type === "error" ? "rgba(226,68,92,0.95)" : "rgba(0,200,117,0.95)",
             color: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-            animation: "fadeUp 0.25s ease-out", fontFamily: "'Figtree', sans-serif"
+            animation: "fadeUp 0.25s ease-out",
           }}>
-            {t.type === "error" ? "⚠️" : "✓"} {t.message}
+            <span aria-hidden style={{ marginRight: 6 }}>{t.type === "error" ? "⚠" : "✓"}</span>
+            {t.message}
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!confirm}
+        title={confirm?.title ?? ""}
+        description={confirm?.description}
+        confirmLabel="Apagar"
+        destructive
+        onConfirm={() => confirm?.onConfirm()}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }
