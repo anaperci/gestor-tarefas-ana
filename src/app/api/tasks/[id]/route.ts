@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertEditorOrAdmin, AuthUser } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 import { genId } from "@/lib/utils";
 import {
   checklistItemSchema,
@@ -185,6 +186,15 @@ export const DELETE = withErrorHandling(
       console.error("[tasks.DELETE] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao remover tarefa");
     }
+
+    await audit({
+      action: "task.delete",
+      resource: "tasks",
+      resourceId: id,
+      actorId: user.id,
+      actorRole: user.role,
+      request,
+    });
     return NextResponse.json({ success: true });
   }
 );

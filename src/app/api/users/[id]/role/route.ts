@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 import { roleSchema } from "@/lib/validation";
 
 const roleUpdateSchema = z.object({ role: roleSchema });
@@ -31,6 +32,16 @@ export const PUT = withErrorHandling(
       console.error("[users.role.PUT] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar role");
     }
+
+    await audit({
+      action: "user.role.change",
+      resource: "users",
+      resourceId: id,
+      actorId: user.id,
+      actorRole: user.role,
+      metadata: { newRole: role },
+      request,
+    });
     return NextResponse.json({ success: true });
   }
 );

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertAdmin, hashPassword } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { audit } from "@/lib/audit";
 import { passwordSchema } from "@/lib/password-policy";
 
 const passwordChangeSchema = z.object({ password: passwordSchema });
@@ -24,6 +25,15 @@ export const PUT = withErrorHandling(
       console.error("[users.password.PUT] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar senha");
     }
+
+    await audit({
+      action: "user.password.change",
+      resource: "users",
+      resourceId: id,
+      actorId: user.id,
+      actorRole: user.role,
+      request,
+    });
     return NextResponse.json({ success: true });
   }
 );
