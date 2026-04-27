@@ -9,13 +9,14 @@ import {
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, Link2 } from "lucide-react";
-import type { Project, Task, TaskStatus, User } from "@/lib/types";
+import type { Project, Tag, Task, TaskStatus, User } from "@/lib/types";
 import { useState } from "react";
 
 interface KanbanBoardProps {
   tasks: Task[];
   projects: Project[];
   users: User[];
+  tags: Tag[];
   canEdit: boolean;
   defaultProjectId: string | null;
   onUpdate: (task: Task) => void;
@@ -39,7 +40,7 @@ const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export function KanbanBoard({
-  tasks, projects, users, canEdit, defaultProjectId,
+  tasks, projects, users, tags, canEdit, defaultProjectId,
   onUpdate, onOpen, onQuickAdd,
 }: KanbanBoardProps) {
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
@@ -106,6 +107,7 @@ export function KanbanBoard({
             tasks={tasksByStatus.get(col.value) ?? []}
             projects={projects}
             users={users}
+            tags={tags}
             canEdit={canEdit}
             onOpen={onOpen}
             onQuickAdd={defaultProjectId ? () => onQuickAdd(defaultProjectId, col.value) : undefined}
@@ -116,7 +118,7 @@ export function KanbanBoard({
       <DragOverlay>
         {draggingTask && (
           <div style={{ transform: "rotate(-2deg)", opacity: 0.95 }}>
-            <CardBody task={draggingTask} project={projects.find((p) => p.id === draggingTask.projectId)} assignee={users.find((u) => u.id === draggingTask.assignedTo)} dragging />
+            <CardBody task={draggingTask} project={projects.find((p) => p.id === draggingTask.projectId)} assignee={users.find((u) => u.id === draggingTask.assignedTo)} tagsById={new Map(tags.map((t) => [t.id, t]))} dragging />
           </div>
         )}
       </DragOverlay>
@@ -127,16 +129,18 @@ export function KanbanBoard({
 // ─── COLUMN ─────────────────────────────────────────────────────────────
 
 function KanbanColumn({
-  column, tasks, projects, users, canEdit, onOpen, onQuickAdd,
+  column, tasks, projects, users, tags, canEdit, onOpen, onQuickAdd,
 }: {
   column: typeof COLUMNS[number];
   tasks: Task[];
   projects: Project[];
   users: User[];
+  tags: Tag[];
   canEdit: boolean;
   onOpen: (task: Task) => void;
   onQuickAdd?: () => void;
 }) {
+  const tagsById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const { setNodeRef, isOver } = useDroppable({ id: `col:${column.value}` });
 
   return (
@@ -198,6 +202,7 @@ function KanbanColumn({
               task={task}
               project={projects.find((p) => p.id === task.projectId)}
               assignee={users.find((u) => u.id === task.assignedTo)}
+              tagsById={tagsById}
               onOpen={() => onOpen(task)}
             />
           ))}
@@ -215,11 +220,12 @@ function KanbanColumn({
 // ─── CARD ───────────────────────────────────────────────────────────────
 
 function KanbanCard({
-  task, project, assignee, onOpen,
+  task, project, assignee, tagsById, onOpen,
 }: {
   task: Task;
   project?: Project;
   assignee?: User;
+  tagsById: Map<string, Tag>;
   onOpen: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
@@ -232,20 +238,22 @@ function KanbanCard({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <CardBody task={task} project={project} assignee={assignee} onClick={onOpen} />
+      <CardBody task={task} project={project} assignee={assignee} tagsById={tagsById} onClick={onOpen} />
     </div>
   );
 }
 
 function CardBody({
-  task, project, assignee, onClick, dragging,
+  task, project, assignee, tagsById, onClick, dragging,
 }: {
   task: Task;
   project?: Project;
   assignee?: User;
+  tagsById: Map<string, Tag>;
   onClick?: () => void;
   dragging?: boolean;
 }) {
+  const taskTags = (task.tagIds || []).map((id) => tagsById.get(id)).filter((t): t is Tag => !!t);
   const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
   const priority = PRIORITY_LABELS[task.priority];
 
@@ -285,6 +293,21 @@ function CardBody({
       }}>
         {task.title}
       </h4>
+
+      {taskTags.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+          {taskTags.slice(0, 3).map((t) => (
+            <span key={t.id} style={{
+              fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 999,
+              background: `color-mix(in srgb, ${t.color} 18%, transparent)`,
+              color: t.color, whiteSpace: "nowrap",
+            }}>{t.name}</span>
+          ))}
+          {taskTags.length > 3 && (
+            <span style={{ fontSize: 10, color: "var(--text-muted)" }}>+{taskTags.length - 3}</span>
+          )}
+        </div>
+      )}
 
       {/* Meta row */}
       <footer style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>

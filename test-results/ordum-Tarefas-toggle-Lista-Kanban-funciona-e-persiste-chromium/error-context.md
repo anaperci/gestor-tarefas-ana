@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - complementary "Tarefas em ordem, times em movimento." [ref=e3]:
+      - img "Ordum" [ref=e5]
+      - heading "Tarefas em ordem, times em movimento." [level=1] [ref=e7]:
+        - generic [ref=e8]: Tarefas em ordem,
+        - generic [ref=e9]: times em movimento.
+      - paragraph [ref=e10]: A plataforma de gestão de tarefas da PERCI.
+      - generic [ref=e11]: © 2026 NexIA Lab
+    - generic [ref=e12]:
+      - button "Mudar para tema claro" [ref=e13] [cursor=pointer]:
+        - img [ref=e14]
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - heading "Bem-vinda de volta" [level=2] [ref=e22]
+          - paragraph [ref=e23]: Entre com seu usuário e senha.
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: Usuário
+            - generic [ref=e27]:
+              - generic:
+                - img
+              - textbox "Usuário" [ref=e28]:
+                - /placeholder: seu.usuario
+                - text: anapaula
+          - generic [ref=e29]:
+            - generic [ref=e30]: Senha
+            - generic [ref=e31]:
+              - generic:
+                - img
+              - textbox "Senha" [ref=e32]:
+                - /placeholder: ••••••••
+                - text: Anapaula@890
+              - button "Mostrar senha" [ref=e33] [cursor=pointer]:
+                - img [ref=e34]
+          - alert [ref=e37]:
+            - img [ref=e38]
+            - generic [ref=e40]: Muitas tentativas. Tente novamente em 793s.
+          - button "Entrar" [ref=e41] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e47] [cursor=pointer]:
+    - img [ref=e48]
+  - alert [ref=e51]
+```

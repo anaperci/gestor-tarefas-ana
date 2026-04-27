@@ -8,6 +8,7 @@ import type {
   RoutineCheck,
   RoutineHistoryDay,
   RoutineItem,
+  Tag,
   Task,
   UpdateTaskPayload,
   User,
@@ -139,6 +140,15 @@ export const api = {
     request<Note>(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteNote: (id: string) =>
     request<{ success: boolean }>(`/notes/${id}`, { method: "DELETE" }),
+
+  // Tags
+  getTags: () => request<Tag[]>("/tags"),
+  createTag: (data: { name: string; color?: string }) =>
+    request<Tag>("/tags", { method: "POST", body: JSON.stringify(data) }),
+  updateTag: (id: string, data: { name?: string; color?: string }) =>
+    request<{ success: boolean }>(`/tags/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteTag: (id: string) =>
+    request<{ success: boolean }>(`/tags/${id}`, { method: "DELETE" }),
 
   // Routines
   getRoutines: (date?: string) =>
