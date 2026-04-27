@@ -146,6 +146,30 @@ button { font-family: inherit; }
 }
 
 /* ============================================================
+   Shell — respiro entre sidebar e conteúdo principal em desktop
+   Em ≤1024px sidebar vira drawer (já tratado em task-manager.tsx)
+   ============================================================ */
+
+@media (min-width: 1025px) {
+  .app-shell {
+    padding: 16px;
+    gap: 20px;
+    background: var(--bg);
+  }
+  .app-shell .app-sidebar {
+    border-right: none !important;
+    border-radius: 16px;
+    height: calc(100vh - 32px) !important;
+  }
+  .app-shell .app-main {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+}
+
+/* ============================================================
    Animações reaproveitadas pelos modais
    ============================================================ */
 
