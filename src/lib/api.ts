@@ -1,3 +1,18 @@
+import type {
+  CreateProjectPayload,
+  CreateTaskPayload,
+  CreateUserPayload,
+  Note,
+  Project,
+  Role,
+  RoutineCheck,
+  RoutineHistoryDay,
+  RoutineItem,
+  Task,
+  UpdateTaskPayload,
+  User,
+} from "./types";
+
 const API_BASE = "/api";
 
 function getToken(): string | null {
@@ -13,11 +28,11 @@ function clearToken() {
   localStorage.removeItem("taskhub-token");
 }
 
-async function request(path: string, options: RequestInit = {}) {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -27,13 +42,22 @@ async function request(path: string, options: RequestInit = {}) {
     const data = await res.json().catch(() => ({ error: "Erro desconhecido" }));
     throw new Error(data.error || `HTTP ${res.status}`);
   }
-  return res.json();
+  return res.json() as Promise<T>;
+}
+
+interface LoginResponse {
+  token: string;
+  user: User;
+}
+
+interface MeResponse {
+  user: User;
 }
 
 export const api = {
   // Auth
-  async login(username: string, password: string) {
-    const data = await request("/auth/login", {
+  async login(username: string, password: string): Promise<User> {
+    const data = await request<LoginResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
@@ -41,8 +65,8 @@ export const api = {
     return data.user;
   },
 
-  async me() {
-    const data = await request("/auth/me");
+  async me(): Promise<User> {
+    const data = await request<MeResponse>("/auth/me");
     return data.user;
   },
 
@@ -55,44 +79,70 @@ export const api = {
   },
 
   // Users
-  getUsers: () => request("/users"),
-  createUser: (data: any) => request("/users", { method: "POST", body: JSON.stringify(data) }),
+  getUsers: () => request<User[]>("/users"),
+  createUser: (data: CreateUserPayload) =>
+    request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   resetPassword: (id: string, password: string) =>
-    request(`/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
-  changeRole: (id: string, role: string) =>
-    request(`/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
-  deleteUser: (id: string) => request(`/users/${id}`, { method: "DELETE" }),
+    request<{ success: boolean }>(`/users/${id}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    }),
+  changeRole: (id: string, role: Role) =>
+    request<{ success: boolean }>(`/users/${id}/role`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    }),
+  deleteUser: (id: string) =>
+    request<{ success: boolean }>(`/users/${id}`, { method: "DELETE" }),
 
   // Projects
-  getProjects: () => request("/projects"),
-  createProject: (data: any) => request("/projects", { method: "POST", body: JSON.stringify(data) }),
-  deleteProject: (id: string) => request(`/projects/${id}`, { method: "DELETE" }),
+  getProjects: () => request<Project[]>("/projects"),
+  createProject: (data: CreateProjectPayload) =>
+    request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
+  deleteProject: (id: string) =>
+    request<{ success: boolean }>(`/projects/${id}`, { method: "DELETE" }),
   updateShares: (id: string, sharedWith: string[]) =>
-    request(`/projects/${id}/share`, { method: "PUT", body: JSON.stringify({ sharedWith }) }),
+    request<{ success: boolean; sharedWith: string[] }>(`/projects/${id}/share`, {
+      method: "PUT",
+      body: JSON.stringify({ sharedWith }),
+    }),
 
   // Tasks
-  getTasks: () => request("/tasks"),
-  createTask: (data: any) => request("/tasks", { method: "POST", body: JSON.stringify(data) }),
-  updateTask: (id: string, data: any) =>
-    request(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteTask: (id: string) => request(`/tasks/${id}`, { method: "DELETE" }),
+  getTasks: () => request<Task[]>("/tasks"),
+  createTask: (data: CreateTaskPayload) =>
+    request<Task>("/tasks", { method: "POST", body: JSON.stringify(data) }),
+  updateTask: (id: string, data: UpdateTaskPayload) =>
+    request<Task>(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteTask: (id: string) =>
+    request<{ success: boolean }>(`/tasks/${id}`, { method: "DELETE" }),
 
   // Notes
-  getNotes: () => request("/notes"),
+  getNotes: () => request<Note[]>("/notes"),
   createNote: (data: { title?: string; content?: string }) =>
-    request("/notes", { method: "POST", body: JSON.stringify(data) }),
+    request<Note>("/notes", { method: "POST", body: JSON.stringify(data) }),
   updateNote: (id: string, data: { title?: string; content?: string; pinned?: boolean }) =>
-    request(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteNote: (id: string) => request(`/notes/${id}`, { method: "DELETE" }),
+    request<Note>(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteNote: (id: string) =>
+    request<{ success: boolean }>(`/notes/${id}`, { method: "DELETE" }),
 
   // Routines
-  getRoutines: (date?: string) => request(`/routines${date ? `?date=${date}` : ""}`),
+  getRoutines: (date?: string) =>
+    request<{ items: RoutineItem[]; checks: RoutineCheck[]; date: string }>(
+      `/routines${date ? `?date=${date}` : ""}`
+    ),
   createRoutineItem: (data: { title: string }) =>
-    request("/routines", { method: "POST", body: JSON.stringify(data) }),
-  updateRoutineItem: (id: string, data: { title?: string; sort_order?: number; active?: boolean }) =>
-    request(`/routines/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteRoutineItem: (id: string) => request(`/routines/${id}`, { method: "DELETE" }),
+    request<RoutineItem>("/routines", { method: "POST", body: JSON.stringify(data) }),
+  updateRoutineItem: (
+    id: string,
+    data: { title?: string; sort_order?: number; active?: boolean }
+  ) => request<RoutineItem>(`/routines/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteRoutineItem: (id: string) =>
+    request<{ success: boolean }>(`/routines/${id}`, { method: "DELETE" }),
   toggleRoutineCheck: (id: string, date?: string) =>
-    request(`/routines/${id}/check`, { method: "POST", body: JSON.stringify({ date }) }),
-  getRoutineHistory: (days: number = 7) => request(`/routines/history?days=${days}`),
+    request<{ checked: boolean; date: string }>(`/routines/${id}/check`, {
+      method: "POST",
+      body: JSON.stringify({ date }),
+    }),
+  getRoutineHistory: (days: number = 7) =>
+    request<{ history: RoutineHistoryDay[] }>(`/routines/history?days=${days}`),
 };

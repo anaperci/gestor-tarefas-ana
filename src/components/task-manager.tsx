@@ -5,52 +5,18 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { api } from "@/lib/api";
-
-interface User {
-  id: string;
-  username: string;
-  name: string;
-  role: "admin" | "editor" | "viewer";
-  avatar: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  color: string;
-  icon: string;
-  ownerId: string;
-  sharedWith: string[];
-}
-
-interface ChecklistItem {
-  id: string;
-  text: string;
-  done: boolean;
-}
-
-interface Subtask {
-  id: string;
-  title: string;
-  status: string;
-  checked: boolean;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  deadline: string;
-  projectId: string;
-  link: string;
-  checked: boolean;
-  description: string;
-  assignedTo: string;
-  createdBy: string;
-  checklist: ChecklistItem[];
-  subtasks: Subtask[];
-}
+import type {
+  ChecklistItem,
+  Note,
+  Project,
+  Role,
+  RoutineCheck,
+  RoutineHistoryDay,
+  RoutineItem,
+  Subtask,
+  Task,
+  User,
+} from "@/lib/types";
 
 interface Group {
   id: string;
@@ -122,10 +88,29 @@ const themes: Record<string, Theme> = {
 };
 
 // ——— Dropdown ———
-function Dropdown({ options, value, onChange, renderOption, theme, disabled }: any) {
+interface DropdownOption {
+  value: string;
+  label: string;
+  color?: string;
+  bg?: string;
+  icon?: string;
+  name?: string;
+  avatar?: string;
+}
+
+interface DropdownProps {
+  options: DropdownOption[];
+  value: string;
+  onChange: (value: string) => void;
+  renderOption?: (option: DropdownOption, isSelected: boolean) => ReactNode;
+  theme: Theme;
+  disabled?: boolean;
+}
+
+function Dropdown({ options, value, onChange, renderOption, theme, disabled }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selected = options.find((o: any) => o.value === value) || options[0];
+  const selected = options.find((o) => o.value === value) || options[0];
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -145,7 +130,7 @@ function Dropdown({ options, value, onChange, renderOption, theme, disabled }: a
           background: theme.dropdownBg, borderRadius: 10, padding: 4, minWidth: 155,
           boxShadow: "0 8px 32px rgba(0,0,0,0.18)", border: `1px solid ${theme.border}`
         }}>
-          {options.map((opt: any) => (
+          {options.map((opt) => (
             <button key={opt.value} onClick={(e) => { e.stopPropagation(); onChange(opt.value); setOpen(false); }}
               style={{
                 display: "block", width: "100%", padding: "8px 12px", border: "none",
@@ -164,15 +149,23 @@ function Dropdown({ options, value, onChange, renderOption, theme, disabled }: a
   );
 }
 
-function StatusBadge({ value, onChange, compact, theme, disabled }: any) {
+interface StatusBadgeProps {
+  value: string;
+  onChange: (value: string) => void;
+  theme: Theme;
+  disabled?: boolean;
+  compact?: boolean;
+}
+
+function StatusBadge({ value, onChange, compact, theme, disabled }: StatusBadgeProps) {
   return (
     <Dropdown options={STATUS_OPTIONS} value={value} onChange={onChange} theme={theme} disabled={disabled}
-      renderOption={(o: any) => (
+      renderOption={(o) => (
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 6,
-          background: theme.badgeBg(o.color), color: o.color, borderRadius: 20,
+          background: theme.badgeBg(o.color || "#999"), color: o.color, borderRadius: 20,
           padding: compact ? "3px 10px" : "4px 14px", fontSize: compact ? 12 : 13,
-          fontWeight: 600, border: `1px solid ${theme.badgeBorder(o.color)}`, whiteSpace: "nowrap"
+          fontWeight: 600, border: `1px solid ${theme.badgeBorder(o.color || "#999")}`, whiteSpace: "nowrap"
         }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: o.color }} />
           {o.label}
@@ -182,15 +175,22 @@ function StatusBadge({ value, onChange, compact, theme, disabled }: any) {
   );
 }
 
-function PriorityBadge({ value, onChange, theme, disabled }: any) {
+interface PriorityBadgeProps {
+  value: string;
+  onChange: (value: string) => void;
+  theme: Theme;
+  disabled?: boolean;
+}
+
+function PriorityBadge({ value, onChange, theme, disabled }: PriorityBadgeProps) {
   return (
     <Dropdown options={PRIORITY_OPTIONS} value={value} onChange={onChange} theme={theme} disabled={disabled}
-      renderOption={(o: any) => (
+      renderOption={(o) => (
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 6,
-          background: theme.badgeBg(o.bg), color: o.bg, borderRadius: 20,
+          background: theme.badgeBg(o.bg || "#999"), color: o.bg, borderRadius: 20,
           padding: "4px 14px", fontSize: 13, fontWeight: 600,
-          border: `1px solid ${theme.badgeBorder(o.bg)}`, whiteSpace: "nowrap"
+          border: `1px solid ${theme.badgeBorder(o.bg || "#999")}`, whiteSpace: "nowrap"
         }}>{o.label}</span>
       )}
     />
@@ -198,12 +198,19 @@ function PriorityBadge({ value, onChange, theme, disabled }: any) {
 }
 
 // ——— Checklist ———
-function Checklist({ items, onChange, theme, disabled }: any) {
+interface ChecklistComponentProps {
+  items: ChecklistItem[];
+  onChange: (items: ChecklistItem[]) => void;
+  theme: Theme;
+  disabled?: boolean;
+}
+
+function Checklist({ items, onChange, theme, disabled }: ChecklistComponentProps) {
   const [newItem, setNewItem] = useState("");
-  const done = items.filter((i: ChecklistItem) => i.done).length;
+  const done = items.filter((i) => i.done).length;
   const pct = items.length ? Math.round((done / items.length) * 100) : 0;
-  const toggle = (id: string) => { if (!disabled) onChange(items.map((i: ChecklistItem) => (i.id === id ? { ...i, done: !i.done } : i))); };
-  const remove = (id: string) => { if (!disabled) onChange(items.filter((i: ChecklistItem) => i.id !== id)); };
+  const toggle = (id: string) => { if (!disabled) onChange(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i))); };
+  const remove = (id: string) => { if (!disabled) onChange(items.filter((i) => i.id !== id)); };
   const add = () => { if (!newItem.trim() || disabled) return; onChange([...items, { id: genId(), text: newItem.trim(), done: false }]); setNewItem(""); };
 
   return (
@@ -215,7 +222,7 @@ function Checklist({ items, onChange, theme, disabled }: any) {
           <div style={{ width: pct + "%", height: "100%", borderRadius: 4, background: "#00C875", transition: "width 0.3s" }} />
         </div>
       </div>
-      {items.map((item: ChecklistItem) => (
+      {items.map((item) => (
         <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${theme.border}` }}>
           <button onClick={() => toggle(item.id)} style={{
             width: 18, height: 18, borderRadius: 4, border: `2px solid ${item.done ? "#00C875" : theme.textMuted}`,
@@ -248,7 +255,7 @@ function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) 
     try {
       const user = await api.login(username.toLowerCase().trim(), password);
       onLogin(user);
-    } catch (e: any) { triggerError(e.message || "Erro no login"); }
+    } catch (e) { triggerError(e instanceof Error ? e.message : "Erro no login"); }
   };
 
   const triggerError = (msg: string) => {
@@ -351,13 +358,26 @@ function LoginScreen({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) 
 }
 
 // ——— Admin Panel ———
-function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, onClose, theme, currentUser }: any) {
+interface AdminPanelProps {
+  users: User[];
+  projects: Project[];
+  tasks: Task[];
+  onUpdateUsers: (users: User[]) => void;
+  onUpdateProjects: (projects: Project[]) => void;
+  onClose: () => void;
+  theme: Theme;
+  currentUser: User;
+}
+
+function AdminPanel({ users, projects, onUpdateUsers, onUpdateProjects, onClose, theme, currentUser }: AdminPanelProps) {
   const [tab, setTab] = useState("users");
-  const [newUser, setNewUser] = useState({ username: "", name: "", password: "", role: "editor" });
+  const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role }>({
+    username: "", name: "", password: "", role: "editor",
+  });
 
   const addUser = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) return;
-    if (users.find((u: User) => u.username === newUser.username.toLowerCase().trim())) return;
+    if (users.find((u) => u.username === newUser.username.toLowerCase().trim())) return;
     try {
       const created = await api.createUser({ username: newUser.username, name: newUser.name || newUser.username, password: newUser.password, role: newUser.role });
       onUpdateUsers([...users, { ...created }]);
@@ -374,26 +394,26 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
     if (!window.confirm("Deletar este usuário?")) return;
     try {
       await api.deleteUser(userId);
-      onUpdateUsers(users.filter((u: User) => u.id !== userId));
+      onUpdateUsers(users.filter((u) => u.id !== userId));
     } catch {}
   };
 
-  const changeRole = async (userId: string, newRole: string) => {
+  const changeRole = async (userId: string, newRole: Role) => {
     const avatars: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
     try {
       await api.changeRole(userId, newRole);
-      onUpdateUsers(users.map((u: User) => u.id === userId ? { ...u, role: newRole as User["role"], avatar: avatars[newRole] } : u));
+      onUpdateUsers(users.map((u) => u.id === userId ? { ...u, role: newRole, avatar: avatars[newRole] } : u));
     } catch {}
   };
 
   const toggleShare = async (projId: string, userId: string) => {
-    const proj = projects.find((p: Project) => p.id === projId);
+    const proj = projects.find((p) => p.id === projId);
     if (!proj) return;
     const shared = proj.sharedWith || [];
-    const newShared = shared.includes(userId) ? shared.filter((id: string) => id !== userId) : [...shared, userId];
+    const newShared = shared.includes(userId) ? shared.filter((id) => id !== userId) : [...shared, userId];
     try {
       await api.updateShares(projId, newShared);
-      onUpdateProjects(projects.map((p: Project) => p.id === projId ? { ...p, sharedWith: newShared } : p));
+      onUpdateProjects(projects.map((p) => p.id === projId ? { ...p, sharedWith: newShared } : p));
     } catch {}
   };
 
@@ -449,7 +469,7 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
                     <input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="senha123" style={{ ...inputStyle, width: "100%" }} />
                   </div>
                   <div>
-                    <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })}
                       style={{ ...inputStyle, cursor: "pointer", colorScheme: theme.scheme, padding: "8px 8px" }}>
                       {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
                     </select>
@@ -461,10 +481,10 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
                 </div>
               </div>
 
-              {users.map((user: User) => (
+              {users.map((user) => (
                 <UserRow key={user.id} user={user} currentUser={currentUser} theme={theme}
                   onResetPassword={(pwd: string) => resetPassword(user.id, pwd)}
-                  onChangeRole={(r: string) => changeRole(user.id, r)}
+                  onChangeRole={(r: Role) => changeRole(user.id, r)}
                   onDelete={() => deleteUser(user.id)} />
               ))}
             </>
@@ -475,7 +495,7 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
               <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
                 Marque os usuários que terão acesso a cada projeto. Admins sempre têm acesso total.
               </div>
-              {projects.map((proj: Project) => (
+              {projects.map((proj) => (
                 <div key={proj.id} style={{
                   padding: 16, borderRadius: 12, border: `1px solid ${theme.border}`,
                   marginBottom: 10, background: theme.inputBg
@@ -485,7 +505,7 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
                     <span style={{ fontWeight: 700, color: proj.color, fontSize: 15 }}>{proj.name}</span>
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {users.filter((u: User) => u.role !== "admin").map((user: User) => {
+                    {users.filter((u) => u.role !== "admin").map((user) => {
                       const isShared = (proj.sharedWith || []).includes(user.id);
                       return (
                         <button key={user.id} onClick={() => toggleShare(proj.id, user.id)}
@@ -529,7 +549,16 @@ function AdminPanel({ users, projects, tasks, onUpdateUsers, onUpdateProjects, o
 }
 
 // ——— User Row in Admin ———
-function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDelete }: any) {
+interface UserRowProps {
+  user: User;
+  currentUser: User;
+  theme: Theme;
+  onResetPassword: (password: string) => void;
+  onChangeRole: (role: Role) => void;
+  onDelete: () => void;
+}
+
+function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDelete }: UserRowProps) {
   const [showReset, setShowReset] = useState(false);
   const [newPwd, setNewPwd] = useState("");
   const isMe = user.id === currentUser.id;
@@ -549,7 +578,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onDe
         <div style={{ fontSize: 12, color: theme.textMuted }}>@{user.username}</div>
       </div>
 
-      <select value={user.role} onChange={(e) => onChangeRole(e.target.value)} disabled={isMe}
+      <select value={user.role} onChange={(e) => onChangeRole(e.target.value as Role)} disabled={isMe}
         style={{
           background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8,
           padding: "5px 8px", color: role.color, fontSize: 12, fontWeight: 600, outline: "none",
@@ -667,12 +696,22 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
 }
 
 // ——— Task Detail (Monday.com style — tela única) ———
-function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }: any) {
+interface TaskDetailProps {
+  task: Task;
+  projects: Project[];
+  users: User[];
+  onUpdate: (task: Task) => void;
+  onClose: () => void;
+  theme: Theme;
+  canEdit: boolean;
+}
+
+function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }: TaskDetailProps) {
   const [newCheckItem, setNewCheckItem] = useState("");
   const checkInputRef = useRef<HTMLInputElement>(null);
-  const assignee = users?.find((u: User) => u.id === task.assignedTo);
-  const project = projects.find((p: Project) => p.id === task.projectId);
-  const checkDone = (task.checklist || []).filter((i: ChecklistItem) => i.done).length;
+  const assignee = users?.find((u) => u.id === task.assignedTo);
+  const project = projects.find((p) => p.id === task.projectId);
+  const checkDone = (task.checklist || []).filter((i) => i.done).length;
   const checkTotal = (task.checklist || []).length;
   const checkPct = checkTotal ? Math.round((checkDone / checkTotal) * 100) : 0;
 
@@ -745,14 +784,14 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
               )}
             </div>
 
-            {(task.checklist || []).map((item: ChecklistItem) => (
+            {(task.checklist || []).map((item) => (
               <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${theme.border}` }}>
-                <button onClick={() => canEdit && onUpdate({ ...task, checklist: task.checklist.map((i: ChecklistItem) => i.id === item.id ? { ...i, done: !i.done } : i) })}
+                <button onClick={() => canEdit && onUpdate({ ...task, checklist: task.checklist.map((i) => i.id === item.id ? { ...i, done: !i.done } : i) })}
                   style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${item.done ? "#00C875" : theme.textMuted}`, background: item.done ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0, transition: "all 0.15s" }}>
                   {item.done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
                 </button>
                 <span style={{ flex: 1, fontSize: 14, color: item.done ? theme.textMuted : theme.text, textDecoration: item.done ? "line-through" : "none", transition: "all 0.15s" }}>{item.text}</span>
-                {canEdit && <button onClick={() => onUpdate({ ...task, checklist: task.checklist.filter((i: ChecklistItem) => i.id !== item.id) })}
+                {canEdit && <button onClick={() => onUpdate({ ...task, checklist: task.checklist.filter((i) => i.id !== item.id) })}
                   style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, padding: "0 4px", opacity: 0.4, transition: "opacity 0.15s" }}
                   onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
                   onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>×</button>}
@@ -776,11 +815,24 @@ function TaskDetail({ task, projects, users, onUpdate, onClose, theme, canEdit }
 }
 
 // ——— Task Row ———
-function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand }: any) {
+interface TaskRowProps {
+  task: Task;
+  projects: Project[];
+  users: User[];
+  onUpdate: (task: Task) => void;
+  onOpen: (task: Task) => void;
+  isSubtask?: boolean;
+  theme: Theme;
+  canEdit: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: (id: string) => void;
+}
+
+function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand }: TaskRowProps) {
   const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
-  const stDone = (task.subtasks || []).filter((s: Subtask) => s.checked).length;
+  const stDone = (task.subtasks || []).filter((s) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
-  const assignee = users?.find((u: User) => u.id === task.assignedTo);
+  const assignee = users?.find((u) => u.id === task.assignedTo);
 
   return (
     <div onClick={() => onOpen(task)} className="task-row"
@@ -817,8 +869,8 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
 
       {!isSubtask && (
         <div onClick={(e) => e.stopPropagation()}>
-          <Dropdown options={projects.map((p: Project) => ({ value: p.id, label: p.name, ...p }))} value={task.projectId} onChange={(v: string) => onUpdate({ ...task, projectId: v })} theme={theme} disabled={!canEdit}
-            renderOption={(o: any) => <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: o.color || theme.textSecondary }}>{o.icon} {o.label || o.name}</span>} />
+          <Dropdown options={projects.map((p) => ({ value: p.id, label: p.name, color: p.color, icon: p.icon, name: p.name }))} value={task.projectId} onChange={(v: string) => onUpdate({ ...task, projectId: v })} theme={theme} disabled={!canEdit}
+            renderOption={(o) => <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: o.color || theme.textSecondary }}>{o.icon} {o.label || o.name}</span>} />
         </div>
       )}
 
@@ -836,12 +888,12 @@ function TaskRow({ task, projects, users, onUpdate, onOpen, isSubtask, theme, ca
       {!isSubtask && (
         <div onClick={(e) => e.stopPropagation()}>
           <Dropdown
-            options={[{ value: "", label: "Ninguém", avatar: "—" }, ...(users || []).map((u: User) => ({ value: u.id, label: u.name, avatar: u.avatar }))]}
+            options={[{ value: "", label: "Ninguém", avatar: "—" }, ...(users || []).map((u) => ({ value: u.id, label: u.name, avatar: u.avatar }))]}
             value={task.assignedTo || ""}
             onChange={(v: string) => canEdit && onUpdate({ ...task, assignedTo: v || null })}
             theme={theme}
             disabled={!canEdit}
-            renderOption={(o: any, isSelected: boolean) => (
+            renderOption={(o, isSelected) => (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <span style={{ flexShrink: 0 }}>{o.avatar}</span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{isSelected ? (o.label === "Ninguém" ? "—" : o.label) : o.label}</span>
@@ -965,15 +1017,26 @@ function StatCard({ label, value, color, theme }: { label: string; value: number
   );
 }
 
-function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpenTask, onUpdateTask }: any) {
-  const myTasks = tasks.filter((t: Task) => t.assignedTo === currentUser.id);
+interface MyTasksTabProps {
+  theme: Theme;
+  currentUser: User;
+  tasks: Task[];
+  projects: Project[];
+  users: User[];
+  canEdit: boolean;
+  onOpenTask: (task: Task) => void;
+  onUpdateTask: (task: Task) => void;
+}
+
+function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpenTask, onUpdateTask }: MyTasksTabProps) {
+  const myTasks = tasks.filter((t) => t.assignedTo === currentUser.id);
   const [myCollapsed, setMyCollapsed] = useState<Set<string>>(new Set());
   const [myExpanded, setMyExpanded] = useState<Set<string>>(new Set());
 
   const myGroups: Group[] = useMemo(() => {
     const map = new Map<string, Group>();
-    myTasks.forEach((t: Task) => {
-      const proj = projects.find((p: Project) => p.id === t.projectId);
+    myTasks.forEach((t) => {
+      const proj = projects.find((p) => p.id === t.projectId);
       if (!proj) return;
       if (!map.has(proj.id)) map.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [] });
       map.get(proj.id)!.tasks.push(t);
@@ -981,9 +1044,9 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, canEdit, onOpe
     return Array.from(map.values());
   }, [myTasks, projects]);
 
-  const done = myTasks.filter((t: Task) => t.status === "done").length;
-  const overdue = myTasks.filter((t: Task) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length;
-  const doing = myTasks.filter((t: Task) => t.status === "doing").length;
+  const done = myTasks.filter((t) => t.status === "done").length;
+  const overdue = myTasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length;
+  const doing = myTasks.filter((t) => t.status === "doing").length;
 
   return (
     <div>
@@ -1041,9 +1104,9 @@ function RichTextToolbar({ theme }: { theme: Theme }) {
   );
 }
 
-function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
-  const [notes, setNotes] = useState<any[]>([]);
-  const [selectedNote, setSelectedNote] = useState<any | null>(null);
+function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchNotes, setSearchNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1062,7 +1125,7 @@ function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
     } catch {}
   };
 
-  const saveNote = async (note: any) => {
+  const saveNote = async (note: Note | null) => {
     if (!note || !isDirtyRef.current) return;
     isDirtyRef.current = false;
     try {
@@ -1071,7 +1134,7 @@ function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
     } catch {}
   };
 
-  const scheduleAutosave = (note: any) => {
+  const scheduleAutosave = (note: Note) => {
     isDirtyRef.current = true;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => saveNote(note), 1500);
@@ -1081,7 +1144,7 @@ function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
     try { await api.deleteNote(id); setNotes((prev) => prev.filter((n) => n.id !== id)); } catch {}
   };
 
-  const togglePin = async (note: any) => {
+  const togglePin = async (note: Note) => {
     const newPinned = !note.pinned;
     try {
       const updated = await api.updateNote(note.id, { pinned: newPinned });
@@ -1148,7 +1211,7 @@ function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
               <div style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 1.5, maxHeight: 60, overflow: "hidden" }}>
                 {(note.content || "").replace(/<[^>]*>/g, "").slice(0, 120) || "Nota vazia..."}
               </div>
-              <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 8 }}>{new Date(note.updatedAt || note.updated_at).toLocaleDateString("pt-BR")}</div>
+              <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 8 }}>{new Date(note.updatedAt).toLocaleDateString("pt-BR")}</div>
             </div>
           ))}
         </div>
@@ -1157,10 +1220,10 @@ function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
   );
 }
 
-function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
-  const [items, setItems] = useState<any[]>([]);
-  const [checks, setChecks] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
+function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
+  const [items, setItems] = useState<RoutineItem[]>([]);
+  const [checks, setChecks] = useState<Pick<RoutineCheck, "routineItemId" | "checkDate">[]>([]);
+  const [history, setHistory] = useState<RoutineHistoryDay[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1174,14 +1237,14 @@ function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User })
   const loadRoutines = async () => { setLoading(true); try { const data = await api.getRoutines(today); setItems(data.items); setChecks(data.checks); } catch {} finally { setLoading(false); } };
   const loadHistory = async () => { try { const data = await api.getRoutineHistory(7); setHistory(data.history); } catch {} };
 
-  const isChecked = (itemId: string) => checks.some((c: any) => (c.routineItemId || c.routine_item_id) === itemId);
+  const isChecked = (itemId: string) => checks.some((c) => c.routineItemId === itemId);
 
   const toggleCheck = async (itemId: string) => {
     const wasChecked = isChecked(itemId);
     if (wasChecked) {
-      setChecks(checks.filter((c: any) => (c.routineItemId || c.routine_item_id) !== itemId));
+      setChecks(checks.filter((c) => c.routineItemId !== itemId));
     } else {
-      setChecks([...checks, { routine_item_id: itemId, routineItemId: itemId, check_date: today }]);
+      setChecks([...checks, { routineItemId: itemId, checkDate: today }]);
     }
     await api.toggleRoutineCheck(itemId, today);
     loadHistory();
@@ -1193,12 +1256,12 @@ function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User })
   };
 
   const deleteItem = async (id: string) => {
-    try { await api.deleteRoutineItem(id); setItems(items.filter((i: any) => i.id !== id)); setChecks(checks.filter((c: any) => (c.routineItemId || c.routine_item_id) !== id)); loadHistory(); } catch {}
+    try { await api.deleteRoutineItem(id); setItems(items.filter((i) => i.id !== id)); setChecks(checks.filter((c) => c.routineItemId !== id)); loadHistory(); } catch {}
   };
 
   const saveEdit = async (id: string) => {
     if (!editTitle.trim()) { setEditingId(null); return; }
-    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim() }); setItems(items.map((i: any) => (i.id === updated.id ? updated : i))); } catch {}
+    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim() }); setItems(items.map((i) => (i.id === updated.id ? updated : i))); } catch {}
     setEditingId(null);
   };
 
@@ -1227,7 +1290,7 @@ function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User })
             <div style={{ fontSize: 12, marginTop: 4 }}>Adicione itens abaixo para começar</div>
           </div>
         )}
-        {items.map((item: any) => {
+        {items.map((item) => {
           const checked = isChecked(item.id);
           return (
             <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, border: `1px solid ${theme.border}`, marginBottom: 6, background: checked ? theme.badgeBg("#00C875") : "transparent", transition: "all 0.15s" }}>
@@ -1259,7 +1322,7 @@ function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User })
         <div style={{ maxWidth: 500, margin: "24px auto 0" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: theme.textSecondary, marginBottom: 10 }}>Últimos 7 dias</div>
           <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
-            {history.map((day: any) => {
+            {history.map((day) => {
               const dayPct = day.total > 0 ? Math.round((day.completed / day.total) * 100) : 0;
               const isToday = day.date === today;
               return (
@@ -1281,8 +1344,21 @@ function RoutineTab({ theme, currentUser }: { theme: Theme; currentUser: User })
   );
 }
 
-function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: any) {
-  const tabs = [
+interface PersonalAreaProps {
+  theme: Theme;
+  currentUser: User;
+  tasks: Task[];
+  projects: Project[];
+  users: User[];
+  personalTab: "minhas-tarefas" | "anotacoes" | "rotina";
+  onTabChange: (tab: "minhas-tarefas" | "anotacoes" | "rotina") => void;
+  canEdit: boolean;
+  onOpenTask: (task: Task) => void;
+  onUpdateTask: (task: Task) => void;
+}
+
+function PersonalArea({ theme, currentUser, tasks, projects, users, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: PersonalAreaProps) {
+  const tabs: { key: PersonalAreaProps["personalTab"]; label: string }[] = [
     { key: "minhas-tarefas", label: "📋 Minhas Tarefas" },
     { key: "anotacoes", label: "📝 Anotações" },
     { key: "rotina", label: "🔄 Rotina" },
@@ -1433,8 +1509,8 @@ export default function TaskManager() {
   const loadData = useCallback(async () => {
     try {
       const [u, p, t] = await Promise.all([api.getUsers(), api.getProjects(), api.getTasks()]);
-      setUsers(u.map((x: any) => ({ ...x })));
-      setProjects(p.map((x: any) => ({ ...x, ownerId: x.owner_id || x.ownerId, sharedWith: x.sharedWith || [] })));
+      setUsers(u);
+      setProjects(p.map((x) => ({ ...x, sharedWith: x.sharedWith || [] })));
       setTasks(t);
     } catch { showToast("Erro ao carregar dados"); }
   }, []);
@@ -1443,7 +1519,7 @@ export default function TaskManager() {
   useEffect(() => {
     if (currentUser) return;
     if (api.hasToken()) {
-      api.me().then((u: any) => { setCurrentUser(u); }).catch(() => api.logout());
+      api.me().then((u) => { setCurrentUser(u); }).catch(() => api.logout());
     }
   }, [currentUser]);
 
@@ -1686,11 +1762,20 @@ export default function TaskManager() {
                           {group.tasks.map((task) => (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
                               <TaskRow task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
-                              {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => (
-                                <TaskRow key={st.id} task={st} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
-                                  onUpdate={(updated: any) => { const n = task.subtasks.map((s) => (s.id === updated.id ? updated : s)); updateTask({ ...task, subtasks: n }); }}
-                                  onOpen={() => setDetailTask(task)} theme={theme} />
-                              ))}
+                              {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => {
+                                // Adapta Subtask para o shape de Task (TaskRow só mostra title/status/checked quando isSubtask)
+                                const stAsTask: Task = { ...task, id: st.id, title: st.title, status: st.status, checked: st.checked, subtasks: [], checklist: [] };
+                                return (
+                                  <TaskRow key={st.id} task={stAsTask} projects={visibleProjects} users={users} isSubtask canEdit={canEdit}
+                                    onUpdate={(updated) => {
+                                      const n: Subtask[] = task.subtasks.map((s) =>
+                                        s.id === updated.id ? { id: s.id, title: updated.title, status: updated.status, checked: updated.checked } : s
+                                      );
+                                      updateTask({ ...task, subtasks: n });
+                                    }}
+                                    onOpen={() => setDetailTask(task)} theme={theme} />
+                                );
+                              })}
                             </div>
                           ))}
                           {canEdit && <div style={{ borderLeft: `4px solid ${group.color}`, borderRadius: "0 0 12px 0" }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}

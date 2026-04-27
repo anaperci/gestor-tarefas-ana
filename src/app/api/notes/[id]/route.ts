@@ -20,6 +20,7 @@ export const PUT = withErrorHandling(
       .from("notes")
       .select("*")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (!note) throw new ApiError("NOT_FOUND", "Nota não encontrada");
@@ -62,11 +63,16 @@ export const DELETE = withErrorHandling(
       .from("notes")
       .select("user_id")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
     if (!note) throw new ApiError("NOT_FOUND", "Nota não encontrada");
     if (note.user_id !== user.id) throw new ApiError("FORBIDDEN", "Sem acesso");
 
-    const { error } = await supabase.from("notes").delete().eq("id", id);
+    // Soft delete: preserva auditoria
+    const { error } = await supabase
+      .from("notes")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) {
       console.error("[notes.DELETE] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao remover nota");

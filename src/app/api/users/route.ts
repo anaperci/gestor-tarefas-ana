@@ -20,7 +20,8 @@ export const GET = withErrorHandling(async (request) => {
   await requireAuth(request);
   const { data: users } = await supabase
     .from("users")
-    .select("id, username, name, role, avatar, created_at");
+    .select("id, username, name, role, avatar, created_at")
+    .is("deleted_at", null);
   return NextResponse.json(users ?? []);
 });
 
@@ -35,6 +36,7 @@ export const POST = withErrorHandling(async (request) => {
     .from("users")
     .select("id")
     .eq("username", usernameLower)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (exists) throw new ApiError("CONFLICT", "Username já existe");

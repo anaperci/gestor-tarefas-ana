@@ -17,20 +17,22 @@ export const PUT = withErrorHandling(
 
     const { sharedWith } = await parseJson(request, shareSchema);
 
-    // Garante que projeto existe
+    // Garante que projeto existe (e não está soft-deleted)
     const { data: project } = await supabase
       .from("projects")
       .select("id")
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
     if (!project) throw new ApiError("NOT_FOUND", "Projeto não encontrado");
 
-    // Valida que todos os user IDs existem (evita FK error vazar)
+    // Valida que todos os user IDs existem e estão ativos
     if (sharedWith.length > 0) {
       const { data: validUsers } = await supabase
         .from("users")
         .select("id")
-        .in("id", sharedWith);
+        .in("id", sharedWith)
+        .is("deleted_at", null);
       const validIds = new Set((validUsers ?? []).map((u) => u.id));
       const invalid = sharedWith.filter((uid) => !validIds.has(uid));
       if (invalid.length > 0) {
