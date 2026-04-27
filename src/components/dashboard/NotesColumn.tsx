@@ -61,7 +61,7 @@ export function NotesColumn({ notes: initialNotes, onMutate, onCollapse }: Notes
       style={{
         width: 300,
         background: "var(--primary-soft)",
-        borderLeft: "1px solid var(--border)",
+        borderLeft: "1px solid var(--card-border)",
         padding: 20,
         display: "flex",
         flexDirection: "column",

@@ -68,11 +68,12 @@ export function ProjectsGrid({ projects, isAdmin, onOpenProject, onSeeAll, onNew
                 transition={{ duration: 0.18 }}
                 style={{
                   textAlign: "left", padding: 16, borderRadius: 12,
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--card-border)",
                   background: "var(--surface)",
                   cursor: "pointer", height: 140,
                   display: "flex", flexDirection: "column",
                   fontFamily: "inherit",
+                  boxShadow: "var(--card-shadow)",
                 }}
                 custom={i}
               >
