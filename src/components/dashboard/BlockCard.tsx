@@ -28,13 +28,14 @@ export function BlockCard({
       transition={{ duration: 0.4, delay, ease: "easeOut" }}
       style={{
         background: "var(--surface)",
-        border: "1px solid var(--border)",
+        border: "1px solid var(--card-border)",
         borderLeft: borderLeft ? `3px solid ${borderLeft}` : undefined,
         borderRadius: 16,
         padding: 20,
         display: "flex",
         flexDirection: "column",
         minWidth: 0,
+        boxShadow: "var(--card-shadow)",
       }}
     >
       <header style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>

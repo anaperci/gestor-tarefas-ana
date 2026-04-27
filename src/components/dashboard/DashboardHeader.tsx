@@ -36,7 +36,7 @@ export function DashboardHeader({ data, onNewTask, canEdit }: DashboardHeaderPro
       transition={{ duration: 0.4, ease: "easeOut" }}
       style={{
         background: "var(--primary-soft)",
-        border: "1px solid var(--border)",
+        border: "1px solid var(--card-border)",
         borderRadius: 16,
         padding: 24,
         display: "flex",
