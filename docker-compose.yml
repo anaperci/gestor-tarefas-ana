@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    container_name: ordum-app
+    restart: unless-stopped
+    expose:
+      - "3000"
+    env_file:
+      - .env.production
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: ordum-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - web
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:
