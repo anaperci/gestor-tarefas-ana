@@ -1,4 +1,7 @@
 export type Role = "admin" | "editor" | "viewer";
+export type ContentFormat = "post" | "carousel" | "video_short" | "video_long" | "script_class" | "email" | "thread" | "other";
+export type ContentStatus = "idea" | "in_production" | "published" | "archived";
+export type ContentPlatform = "instagram" | "linkedin" | "youtube" | "tiktok" | "newsletter" | "multiple" | "other";
 export type TaskStatus = "backlog" | "todo" | "doing" | "review" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "critical";
 export type SubtaskStatus = "todo" | "doing" | "done";
@@ -9,6 +12,7 @@ export interface User {
   name: string;
   role: Role;
   avatar: string;
+  canAccessContent?: boolean;
 }
 
 export interface Project {
@@ -144,6 +148,88 @@ export interface CreateTaskPayload {
   projectId: string;
   assignedTo?: string;
   link?: string;
+}
+
+// ─── Content Hub ─────────────────────────────────────────────────────
+
+export interface ContentItem {
+  id: string;
+  title: string;
+  body: string;
+  format: ContentFormat;
+  status: ContentStatus;
+  platform: ContentPlatform | null;
+  targetAudience: string;
+  hook: string;
+  cta: string;
+  subjectLine: string;
+  previewText: string;
+  durationSeconds: number | null;
+  tags: string[];
+  linkedProjectId: string | null;
+  linkedTaskId: string | null;
+  scheduledFor: string | null;
+  publishedAt: string | null;
+  publishedUrl: string;
+  createdBy: string;
+  assignedTo: string | null;
+  lastEditedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentSlide {
+  id: string;
+  contentItemId: string;
+  slideNumber: number;
+  title: string;
+  body: string;
+  notes: string;
+  sortOrder: number;
+}
+
+export interface ContentComment {
+  id: string;
+  contentItemId: string;
+  userId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContentStatusEvent {
+  id: string;
+  contentItemId: string;
+  changedBy: string;
+  fromStatus: ContentStatus | null;
+  toStatus: ContentStatus;
+  createdAt: string;
+}
+
+export interface CreateContentItemPayload {
+  title?: string;
+  body?: string;
+  format?: ContentFormat;
+}
+
+export interface UpdateContentItemPayload {
+  title?: string;
+  body?: string;
+  format?: ContentFormat;
+  status?: ContentStatus;
+  platform?: ContentPlatform | null;
+  targetAudience?: string;
+  hook?: string;
+  cta?: string;
+  subjectLine?: string;
+  previewText?: string;
+  durationSeconds?: number | null;
+  tags?: string[];
+  linkedProjectId?: string | null;
+  linkedTaskId?: string | null;
+  assignedTo?: string | null;
+  scheduledFor?: string | null;
+  publishedUrl?: string;
 }
 
 export interface UpdateTaskPayload {

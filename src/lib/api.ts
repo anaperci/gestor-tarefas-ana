@@ -1,4 +1,8 @@
 import type {
+  ContentComment,
+  ContentItem,
+  ContentSlide,
+  CreateContentItemPayload,
   CreateProjectPayload,
   CreateTaskPayload,
   CreateUserPayload,
@@ -10,6 +14,7 @@ import type {
   RoutineItem,
   Tag,
   Task,
+  UpdateContentItemPayload,
   UpdateTaskPayload,
   User,
 } from "./types";
@@ -140,6 +145,61 @@ export const api = {
     request<Note>(`/notes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteNote: (id: string) =>
     request<{ success: boolean }>(`/notes/${id}`, { method: "DELETE" }),
+
+  // Content
+  getContentItems: (params: {
+    status?: string[];
+    format?: string[];
+    platform?: string;
+    assignedTo?: string;
+    search?: string;
+  } = {}) => {
+    const search = new URLSearchParams();
+    (params.status ?? []).forEach((s) => search.append("status", s));
+    (params.format ?? []).forEach((f) => search.append("format", f));
+    if (params.platform) search.set("platform", params.platform);
+    if (params.assignedTo) search.set("assignedTo", params.assignedTo);
+    if (params.search) search.set("search", params.search);
+    const qs = search.toString();
+    return request<ContentItem[]>(`/content${qs ? `?${qs}` : ""}`);
+  },
+  createContentItem: (data: CreateContentItemPayload = {}) =>
+    request<ContentItem>("/content", { method: "POST", body: JSON.stringify(data) }),
+  getContentItem: (id: string) => request<ContentItem>(`/content/${id}`),
+  updateContentItem: (id: string, data: UpdateContentItemPayload) =>
+    request<ContentItem>(`/content/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteContentItem: (id: string) =>
+    request<{ success: boolean }>(`/content/${id}`, { method: "DELETE" }),
+
+  getContentSlides: (id: string) => request<ContentSlide[]>(`/content/${id}/slides`),
+  createContentSlide: (id: string, data: { title?: string; body?: string; notes?: string } = {}) =>
+    request<ContentSlide>(`/content/${id}/slides`, { method: "POST", body: JSON.stringify(data) }),
+  updateContentSlide: (slideId: string, data: { title?: string; body?: string; notes?: string }) =>
+    request<{ success: boolean }>(`/content/slides/${slideId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteContentSlide: (slideId: string) =>
+    request<{ success: boolean }>(`/content/slides/${slideId}`, { method: "DELETE" }),
+  reorderContentSlides: (ids: string[]) =>
+    request<{ success: boolean }>(`/content/slides/reorder`, { method: "POST", body: JSON.stringify({ ids }) }),
+
+  getContentComments: (id: string) => request<ContentComment[]>(`/content/${id}/comments`),
+  createContentComment: (id: string, body: string) =>
+    request<ContentComment>(`/content/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
+  updateContentComment: (commentId: string, body: string) =>
+    request<{ success: boolean }>(`/content/comments/${commentId}`, { method: "PUT", body: JSON.stringify({ body }) }),
+  deleteContentComment: (commentId: string) =>
+    request<{ success: boolean }>(`/content/comments/${commentId}`, { method: "DELETE" }),
+
+  transformContentToTask: (id: string, projectId?: string) =>
+    request<{ taskId: string; alreadyLinked: boolean }>(`/content/${id}/transform-to-task`, {
+      method: "POST",
+      body: JSON.stringify(projectId ? { projectId } : {}),
+    }),
+
+  setUserContentAccess: (userId: string, canAccessContent: boolean) =>
+    request<{ success: boolean; canAccessContent: boolean }>(`/users/${userId}/content-access`, {
+      method: "PUT",
+      body: JSON.stringify({ canAccessContent }),
+    }),
 
   // Tags
   getTags: () => request<Tag[]>("/tags"),

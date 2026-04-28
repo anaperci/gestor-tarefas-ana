@@ -12,6 +12,7 @@ import { ReviewBlock } from "./ReviewBlock";
 import { DelegatedBlock } from "./DelegatedBlock";
 import { ProjectsGrid } from "./ProjectsGrid";
 import { RoutinesBlock } from "./RoutinesBlock";
+import { ContentInProductionBlock } from "./ContentInProductionBlock";
 import { NotesColumn } from "./NotesColumn";
 import { QuickTaskPopover } from "./QuickTaskPopover";
 import { DashboardSkeleton } from "./DashboardSkeleton";
@@ -188,6 +189,13 @@ export function DashboardView({
               onToggleCheck={handleToggleRoutine}
               delay={0.3}
             />
+
+            {currentUser.canAccessContent && (
+              <ContentInProductionBlock
+                currentUserId={currentUser.id}
+                delay={0.35}
+              />
+            )}
 
             <footer style={{ marginTop: 24, fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
               <kbd style={kbdStyle}>N</kbd> nova tarefa · <kbd style={kbdStyle}>]</kbd> notas · <kbd style={kbdStyle}>?</kbd> mais atalhos

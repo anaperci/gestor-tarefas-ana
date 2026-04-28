@@ -18,6 +18,7 @@ export interface AuthUser {
   name: string;
   role: "admin" | "editor" | "viewer";
   avatar: string;
+  canAccessContent: boolean;
 }
 
 // Legacy hash — kept ONLY to migrate old passwords on first successful login.
@@ -76,13 +77,20 @@ export async function requireAuth(request: Request | NextRequest): Promise<AuthU
 
   const { data: user } = await supabase
     .from("users")
-    .select("id, username, name, role, avatar")
+    .select("id, username, name, role, avatar, can_access_content")
     .eq("id", decoded.id)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (!user) throw new ApiError("AUTH_REQUIRED", "Usuário não encontrado");
-  return user as AuthUser;
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    avatar: user.avatar,
+    canAccessContent: !!user.can_access_content,
+  } as AuthUser;
 }
 
 export function assertAdmin(user: AuthUser): void {
@@ -94,5 +102,11 @@ export function assertAdmin(user: AuthUser): void {
 export function assertEditorOrAdmin(user: AuthUser): void {
   if (user.role === "viewer") {
     throw new ApiError("FORBIDDEN", "Acesso negado. Viewers não podem editar.");
+  }
+}
+
+export function assertContentAccess(user: AuthUser): void {
+  if (!user.canAccessContent) {
+    throw new ApiError("FORBIDDEN", "Você não tem acesso ao Hub de Conteúdo.");
   }
 }
