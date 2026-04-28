@@ -27,14 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('ordum-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(_){document.documentElement.setAttribute('data-theme','dark');}})();`,
-          }}
-        />
-      </head>
+    <html lang="pt-BR">
       <body className={`${figtree.variable} ${poppins.variable}`}>
         {children}
       </body>
