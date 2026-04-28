@@ -1,10 +1,9 @@
 /* ============================================================
-   Ordum — Design tokens
-   Identidade NexIA: primary #46347F, dark bg #0f0d1a, light bg #f4f3f8
+   Ordum — Design tokens (light only)
+   Identidade NexIA: primary #46347F, bg #f4f3f8, sidebar roxa
    ============================================================ */
 
-:root,
-[data-theme="light"] {
+:root {
   /* Brand */
   --primary:        #46347F;
   --primary-hover:  #5b4699;
@@ -17,7 +16,7 @@
   --surface-2:      #fafafa;
   --surface-hover:  rgba(70, 52, 127, 0.04);
 
-  /* Sidebar (light = roxa, branco no texto) */
+  /* Sidebar — roxa, texto branco */
   --sidebar:               #46347F;
   --sidebar-text:          #ffffff;
   --sidebar-text-secondary: rgba(255, 255, 255, 0.78);
@@ -29,9 +28,8 @@
   --sidebar-active-text:   #ffffff;
 
   /* Borders */
-  --border:         rgba(0, 0, 0, 0.06);
-  --border-strong:  rgba(0, 0, 0, 0.09);
-  /* Card border — roxo claro derivado do primary, dá personalidade sem peso */
+  --border:             rgba(0, 0, 0, 0.06);
+  --border-strong:      rgba(0, 0, 0, 0.09);
   --card-border:        rgba(70, 52, 127, 0.16);
   --card-border-strong: rgba(70, 52, 127, 0.28);
   --card-shadow:        0 1px 2px rgba(70, 52, 127, 0.06), 0 4px 14px rgba(70, 52, 127, 0.05);
@@ -52,7 +50,7 @@
   --scroll-thumb:   rgba(0, 0, 0, 0.12);
   --color-scheme:   light;
 
-  /* Status — uniformes nos dois temas */
+  /* Status */
   --status-backlog: #A0A0A0;
   --status-todo:    #579BFC;
   --status-doing:   #FDAB3D;
@@ -64,48 +62,6 @@
   --priority-high:     #FDAB3D;
   --priority-medium:   #579BFC;
   --priority-low:      #A0A0A0;
-}
-
-[data-theme="dark"] {
-  --primary:        #7c5fcc;
-  --primary-hover:  #8e74d6;
-  --primary-soft:   #7c5fcc20;
-  --primary-ring:   #7c5fcc55;
-
-  --bg:             #0f0d1a;
-  --surface:        #16142a;
-  --surface-2:      #1c1a32;
-  --surface-hover:  rgba(255, 255, 255, 0.04);
-
-  /* Sidebar (dark = mantém o tom escuro atual com texto claro) */
-  --sidebar:               #13112a;
-  --sidebar-text:          #edf2f4;
-  --sidebar-text-secondary: #9ba3b9;
-  --sidebar-text-muted:    #6b7290;
-  --sidebar-border:        rgba(255, 255, 255, 0.06);
-  --sidebar-input-bg:      rgba(255, 255, 255, 0.04);
-  --sidebar-hover:         rgba(255, 255, 255, 0.06);
-  --sidebar-active-bg:     rgba(124, 95, 204, 0.18);
-  --sidebar-active-text:   #b9a4ed;
-
-  --border:         rgba(255, 255, 255, 0.06);
-  --border-strong:  rgba(255, 255, 255, 0.1);
-  --card-border:        rgba(124, 95, 204, 0.22);
-  --card-border-strong: rgba(124, 95, 204, 0.35);
-  --card-shadow:        0 1px 2px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(124, 95, 204, 0.08);
-
-  --text:           #edf2f4;
-  --text-secondary: #9ba3b9;
-  --text-muted:     #6b7290;
-
-  --input-bg:       rgba(255, 255, 255, 0.04);
-  --input-border:   rgba(255, 255, 255, 0.08);
-  --dropdown-bg:    #1f1c38;
-  --dropdown-hover: rgba(255, 255, 255, 0.08);
-
-  --overlay:        rgba(0, 0, 0, 0.55);
-  --scroll-thumb:   rgba(255, 255, 255, 0.1);
-  --color-scheme:   dark;
 }
 
 /* ============================================================
@@ -120,7 +76,7 @@
 
 html, body {
   background: var(--bg);
-  color-scheme: var(--color-scheme);
+  color-scheme: light;
 }
 
 body {
@@ -146,15 +102,14 @@ a:focus-visible,
 
 button { font-family: inherit; }
 
-/* Sidebar focus ring específico (fundo roxo no light) */
-[data-theme="light"] .app-sidebar button:focus-visible,
-[data-theme="light"] .app-sidebar input:focus-visible {
+/* Sidebar (roxa) precisa de ring branco pra contraste */
+.app-sidebar button:focus-visible,
+.app-sidebar input:focus-visible {
   outline-color: rgba(255, 255, 255, 0.7);
 }
 
 /* ============================================================
    Shell — respiro entre sidebar e conteúdo principal em desktop
-   Em ≤1024px sidebar vira drawer (já tratado em task-manager.tsx)
    ============================================================ */
 
 @media (min-width: 1025px) {

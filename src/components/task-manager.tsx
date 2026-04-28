@@ -6,7 +6,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  LogOut, Moon, Plus, Search, Settings, Sun, User as UserIcon,
+  LogOut, Plus, Search, Settings, User as UserIcon,
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
   Link2, LayoutDashboard, List, KanbanSquare,
@@ -39,10 +39,9 @@ import type {
   User,
 } from "@/lib/types";
 
-/** Ícone wordmark — branco serve no dark, mix-blend pra ficar visível no light. */
-function OrdumLogo({ height = 28, mode, forceWhite }: { height?: number; mode: "dark" | "light"; forceWhite?: boolean }) {
-  // forceWhite: usado na sidebar (que é roxa nos dois temas) → sempre logo branco
-  const src = forceWhite || mode === "dark"
+/** Ícone wordmark. forceWhite=true pra contextos com fundo roxo (sidebar, hero). */
+function OrdumLogo({ height = 28, forceWhite }: { height?: number; forceWhite?: boolean }) {
+  const src = forceWhite
     ? "/logos/ordum-wordmark-branco.svg"
     : "/logos/ordum-wordmark-roxo.svg";
   return <img src={src} alt="Ordum" style={{ height, width: "auto", display: "block" }} />;
@@ -85,22 +84,19 @@ const GRID_COLUMNS = "36px minmax(220px, 380px) 120px 120px 110px 100px 140px 13
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
 // ——— Theme ———
-// Após a Leva C, todos os valores apontam para CSS custom properties em
-// globals.css. O `mode` ("dark"|"light") só afeta `scheme` (e o atributo
-// data-theme no <html>) — o restante muda automaticamente via CSS.
+// Sistema é light-only. Os valores apontam pra CSS custom properties em
+// globals.css; getTheme() devolve sempre o mesmo shape (compat com props).
 interface Theme {
   bg: string; sidebar: string; surface: string; surfaceHover: string;
   border: string; borderStrong: string; text: string; textSecondary: string; textMuted: string;
   inputBg: string; inputBorder: string; dropdownBg: string; dropdownHover: string;
   badgeBg: (c: string) => string; badgeBorder: (c: string) => string;
-  scrollThumb: string; overlay: string; scheme: "dark" | "light";
+  scrollThumb: string; overlay: string; scheme: "light";
   loginBg: string; cardBg: string; cardBorder: string;
 }
 
-function getTheme(mode: "dark" | "light"): Theme {
-  // Opacidade do badge varia entre temas (mais claro no dark, mais sutil no light)
-  const badgeAlpha = mode === "dark" ? "22" : "15";
-  const badgeBorderAlpha = mode === "dark" ? "44" : "30";
+/** Sistema é light-only. `mode` só existe pra compat — qualquer valor vira light. */
+function getTheme(_mode?: unknown): Theme {
   return {
     bg: "var(--bg)",
     sidebar: "var(--sidebar)",
@@ -115,11 +111,11 @@ function getTheme(mode: "dark" | "light"): Theme {
     inputBorder: "var(--input-border)",
     dropdownBg: "var(--dropdown-bg)",
     dropdownHover: "var(--dropdown-hover)",
-    badgeBg: (c: string) => c + badgeAlpha,
-    badgeBorder: (c: string) => c + badgeBorderAlpha,
+    badgeBg: (c: string) => c + "15",
+    badgeBorder: (c: string) => c + "30",
     scrollThumb: "var(--scroll-thumb)",
     overlay: "var(--overlay)",
-    scheme: mode,
+    scheme: "light",
     loginBg: "var(--bg)",
     cardBg: "var(--surface)",
     cardBorder: "var(--border)",
@@ -1881,19 +1877,8 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
 
 // ——— Main App ———
 export default function TaskManager() {
-  const [mode, setMode] = useState<"dark" | "light">(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ordum-theme");
-      return saved === "light" ? "light" : "dark";
-    }
-    return "dark";
-  });
-  const theme = useMemo(() => getTheme(mode), [mode]);
-
-  useEffect(() => {
-    localStorage.setItem("ordum-theme", mode);
-    document.documentElement.setAttribute("data-theme", mode);
-  }, [mode]);
+  // Sistema é light-only — sem mode toggle
+  const theme = useMemo(() => getTheme("light"), []);
 
   const [users, setUsers] = useState<User[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -2160,7 +2145,7 @@ export default function TaskManager() {
   useKeyboardShortcuts(shortcuts, !!currentUser);
 
   if (!currentUser) {
-    return <LoginScreen onLogin={handleLogin} mode={mode} onToggleTheme={() => setMode(mode === "dark" ? "light" : "dark")} />;
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return (
@@ -2210,15 +2195,8 @@ export default function TaskManager() {
       {/* Sidebar */}
       <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"}
         style={{ width: 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
-        <div style={{ padding: "0 20px 20px", borderBottom: `1px solid var(--sidebar-border)` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <OrdumLogo height={28} mode={mode} forceWhite />
-            <button onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-              aria-label={mode === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-              style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid var(--sidebar-border)`, background: "var(--sidebar-input-bg)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sidebar-text)" }}>
-              {mode === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          </div>
+        <div style={{ padding: "20px 20px 16px" }}>
+          <OrdumLogo height={28} forceWhite />
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>

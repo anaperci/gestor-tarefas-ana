@@ -2,17 +2,15 @@
 
 import { CSSProperties, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Moon, Sun, User as UserIcon } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, User as UserIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 interface LoginFormProps {
   onLogin: (user: User) => void;
-  mode: "dark" | "light";
-  onToggleTheme: () => void;
 }
 
-export function LoginForm({ onLogin, mode, onToggleTheme }: LoginFormProps) {
+export function LoginForm({ onLogin }: LoginFormProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,29 +49,6 @@ export function LoginForm({ onLogin, mode, onToggleTheme }: LoginFormProps) {
         padding: "48px",
       }}
     >
-      {/* Toggle tema top-right */}
-      <button
-        onClick={onToggleTheme}
-        aria-label={mode === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-        style={{
-          position: "absolute",
-          top: 24,
-          right: 24,
-          width: 40,
-          height: 40,
-          borderRadius: 10,
-          border: "1px solid var(--border)",
-          background: "transparent",
-          color: "var(--text)",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
-
       <form onSubmit={submit} style={{ width: "100%", maxWidth: 400 }}>
         <header style={{ marginBottom: 32 }}>
           <h2
