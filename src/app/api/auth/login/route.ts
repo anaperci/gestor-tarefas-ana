@@ -41,6 +41,13 @@ export const POST = withErrorHandling(async (request) => {
   const token = generateToken(user);
   return NextResponse.json({
     token,
-    user: { id: user.id, username: user.username, name: user.name, role: user.role, avatar: user.avatar },
+    user: {
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      canAccessContent: !!user.can_access_content,
+    },
   });
 });

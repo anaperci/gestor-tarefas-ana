@@ -21,9 +21,17 @@ export const GET = withErrorHandling(async (request) => {
   await requireAuth(request);
   const { data: users } = await supabase
     .from("users")
-    .select("id, username, name, role, avatar, created_at")
+    .select("id, username, name, role, avatar, can_access_content, created_at")
     .is("deleted_at", null);
-  return NextResponse.json(users ?? []);
+  const mapped = (users ?? []).map((u) => ({
+    id: u.id,
+    username: u.username,
+    name: u.name,
+    role: u.role,
+    avatar: u.avatar,
+    canAccessContent: !!u.can_access_content,
+  }));
+  return NextResponse.json(mapped);
 });
 
 export const POST = withErrorHandling(async (request) => {

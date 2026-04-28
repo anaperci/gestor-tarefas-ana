@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -401,6 +402,13 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
     } catch {}
   };
 
+  const toggleContentAccess = async (userId: string, next: boolean) => {
+    try {
+      await api.setUserContentAccess(userId, next);
+      onUpdateUsers(users.map((u) => u.id === userId ? { ...u, canAccessContent: next } : u));
+    } catch {}
+  };
+
   const toggleShare = async (projId: string, userId: string) => {
     const proj = projects.find((p) => p.id === projId);
     if (!proj) return;
@@ -483,6 +491,7 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
                   onResetPassword={(pwd: string) => resetPassword(user.id, pwd)}
                   onChangeRole={(r: Role) => changeRole(user.id, r)}
                   onChangeAvatar={(seed: string) => changeAvatar(user.id, seed)}
+                  onToggleContentAccess={(next: boolean) => toggleContentAccess(user.id, next)}
                   onDelete={() => deleteUser(user.id)} />
               ))}
             </>
@@ -704,15 +713,17 @@ interface UserRowProps {
   onResetPassword: (password: string) => void;
   onChangeRole: (role: Role) => void;
   onChangeAvatar: (avatar: string) => void;
+  onToggleContentAccess: (next: boolean) => void;
   onDelete: () => void;
 }
 
-function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onDelete }: UserRowProps) {
+function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onToggleContentAccess, onDelete }: UserRowProps) {
   const [showReset, setShowReset] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [newPwd, setNewPwd] = useState("");
   const isMe = user.id === currentUser.id;
   const role = ROLES[user.role];
+  const hasContent = !!user.canAccessContent;
 
   return (
     <div style={{
@@ -743,6 +754,21 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onCh
         }}>
         {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
       </select>
+
+      <button
+        onClick={() => onToggleContentAccess(!hasContent)}
+        title={hasContent ? "Remover acesso ao Hub de Conteúdo" : "Liberar acesso ao Hub de Conteúdo"}
+        aria-pressed={hasContent}
+        style={{
+          background: hasContent ? "rgba(123,97,255,0.12)" : theme.inputBg,
+          border: `1px solid ${hasContent ? "var(--primary)" : theme.border}`,
+          borderRadius: 8, padding: "5px 10px",
+          color: hasContent ? "var(--primary)" : theme.textSecondary,
+          cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+          display: "inline-flex", alignItems: "center", gap: 5,
+        }}>
+        <FileText size={11} aria-hidden /> Conteúdo {hasContent ? "✓" : "○"}
+      </button>
 
       {showReset ? (
         <div style={{ display: "flex", gap: 4 }}>
@@ -1879,6 +1905,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
 export default function TaskManager() {
   // Sistema é light-only — sem mode toggle
   const theme = useMemo(() => getTheme("light"), []);
+  const router = useRouter();
 
   const [users, setUsers] = useState<User[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -2206,9 +2233,16 @@ export default function TaskManager() {
           </button>
 
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
           </button>
+
+          {currentUser.canAccessContent && (
+            <button className="sidebar-item" onClick={() => router.push("/content")}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+              <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
+            </button>
+          )}
 
           <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
 
