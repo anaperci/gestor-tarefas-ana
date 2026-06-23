@@ -13,20 +13,23 @@ const ROLE_AVATARS: Record<string, string> = { admin: "👑", editor: "✏️", 
 const createUserSchema = z.object({
   username: usernameSchema,
   name: nameSchema.optional(),
+  email: z.string().email().max(120).optional().or(z.literal("")),
   password: passwordSchema,
   role: roleSchema,
+  sendAccessEmail: z.boolean().optional(),
 });
 
 export const GET = withErrorHandling(async (request) => {
   await requireAuth(request);
   const { data: users } = await supabase
     .from("users")
-    .select("id, username, name, role, avatar, can_access_content, created_at")
+    .select("id, username, name, email, role, avatar, can_access_content, created_at")
     .is("deleted_at", null);
   const mapped = (users ?? []).map((u) => ({
     id: u.id,
     username: u.username,
     name: u.name,
+    email: u.email ?? "",
     role: u.role,
     avatar: u.avatar,
     canAccessContent: !!u.can_access_content,
@@ -38,8 +41,10 @@ export const POST = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
   assertAdmin(user);
 
-  const { username, name, password, role } = await parseJson(request, createUserSchema);
+  const { username, name, email, password, role, sendAccessEmail: shouldSendEmail } =
+    await parseJson(request, createUserSchema);
   const usernameLower = username.toLowerCase().trim();
+  const emailLower = (email || "").toLowerCase().trim();
 
   const { data: exists } = await supabase
     .from("users")
@@ -50,6 +55,16 @@ export const POST = withErrorHandling(async (request) => {
 
   if (exists) throw new ApiError("CONFLICT", "Username já existe");
 
+  if (emailLower) {
+    const { data: emailExists } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", emailLower)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (emailExists) throw new ApiError("CONFLICT", "Email já cadastrado");
+  }
+
   const id = "user-" + genId();
   const finalName = name?.trim() || usernameLower;
   const avatar = ROLE_AVATARS[role] ?? "👤";
@@ -58,6 +73,7 @@ export const POST = withErrorHandling(async (request) => {
     id,
     username: usernameLower,
     name: finalName,
+    email: emailLower || null,
     password_hash: await hashPassword(password),
     role,
     avatar,
@@ -74,12 +90,23 @@ export const POST = withErrorHandling(async (request) => {
     resourceId: id,
     actorId: user.id,
     actorRole: user.role,
-    metadata: { username: usernameLower, role },
+    metadata: { username: usernameLower, role, email: emailLower || null },
     request,
   });
 
+  // Email de acesso (boas-vindas) — só se houver email e for solicitado
+  let accessEmailSent = false;
+  if (emailLower && shouldSendEmail !== false) {
+    try {
+      await sendAccessEmail({ id, name: finalName, email: emailLower }, "welcome");
+      accessEmailSent = true;
+    } catch (err) {
+      console.error("[users.POST] welcome email failed:", err);
+    }
+  }
+
   return NextResponse.json(
-    { id, username: usernameLower, name: finalName, role, avatar },
+    { id, username: usernameLower, name: finalName, email: emailLower, role, avatar, accessEmailSent },
     { status: 201 }
   );
 });
