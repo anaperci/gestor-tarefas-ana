@@ -28,9 +28,18 @@ export function ProfilePanel({ open, user, onClose, onUserUpdated }: ProfilePane
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [email, setEmailValue] = useState(user.email ?? "");
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => { if (open) { setName(user.name); setEditingName(false); setShowPasswordForm(false); setNameError(null); } }, [open, user.name]);
+  useEffect(() => {
+    if (open) {
+      setName(user.name); setEditingName(false); setShowPasswordForm(false); setNameError(null);
+      setEmailValue(user.email ?? ""); setEditingEmail(false); setEmailError(null);
+    }
+  }, [open, user.name, user.email]);
 
   useEffect(() => {
     if (!open) return;
@@ -59,6 +68,24 @@ export function ProfilePanel({ open, user, onClose, onUserUpdated }: ProfilePane
       setNameError(e instanceof Error ? e.message : "Erro ao salvar");
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const saveEmail = async () => {
+    const trimmed = email.trim();
+    if (trimmed === (user.email ?? "")) { setEditingEmail(false); return; }
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setEmailError("Email inválido"); return; }
+    setSavingEmail(true);
+    setEmailError(null);
+    try {
+      await api.updateProfile(user.id, { email: trimmed });
+      onUserUpdated({ ...user, email: trimmed || null });
+      setEditingEmail(false);
+      showFlash(trimmed ? "Email atualizado" : "Email removido");
+    } catch (e) {
+      setEmailError(e instanceof Error ? e.message : "Erro ao salvar");
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -185,6 +212,42 @@ export function ProfilePanel({ open, user, onClose, onUserUpdated }: ProfilePane
             {nameError && (
               <div role="alert" style={{ marginTop: 6, fontSize: 12, color: "var(--status-review)", display: "flex", alignItems: "center", gap: 6 }}>
                 <AlertCircle size={13} aria-hidden /> {nameError}
+              </div>
+            )}
+          </Field>
+
+          {/* Email */}
+          <Field label="Email" hint="Usado para redefinir a senha por email">
+            {editingEmail ? (
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  autoFocus
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmailValue(e.target.value); setEmailError(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") saveEmail(); if (e.key === "Escape") { setEmailValue(user.email ?? ""); setEditingEmail(false); } }}
+                  placeholder="voce@empresa.com"
+                  aria-invalid={!!emailError}
+                  style={inputStyle}
+                />
+                <button onClick={saveEmail} disabled={savingEmail} aria-label="Salvar email" style={iconBtn("var(--status-done)")}>
+                  <Check size={16} />
+                </button>
+                <button onClick={() => { setEmailValue(user.email ?? ""); setEditingEmail(false); setEmailError(null); }} aria-label="Cancelar" style={iconBtn("var(--text-muted)")}>
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ fontSize: 15, color: user.email ? "var(--text)" : "var(--text-muted)" }}>{user.email || "Nenhum email cadastrado"}</span>
+                <button onClick={() => setEditingEmail(true)} aria-label="Editar email" style={subtleBtn}>
+                  <Pencil size={13} aria-hidden /> {user.email ? "Editar" : "Adicionar"}
+                </button>
+              </div>
+            )}
+            {emailError && (
+              <div role="alert" style={{ marginTop: 6, fontSize: 12, color: "var(--status-review)", display: "flex", alignItems: "center", gap: 6 }}>
+                <AlertCircle size={13} aria-hidden /> {emailError}
               </div>
             )}
           </Field>

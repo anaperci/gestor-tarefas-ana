@@ -7,6 +7,7 @@ export const usernameSchema = z
   .max(40)
   .regex(/^[a-z0-9_.-]+$/i, "Username só pode conter letras, números, _ . -");
 export const nameSchema = z.string().min(1).max(100);
+export const emailSchema = z.string().email("Email inválido").max(255);
 export const emojiSchema = z.string().max(8);
 export const colorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Cor deve estar em hex (#RRGGBB)");
 export const titleSchema = z.string().min(1).max(255);

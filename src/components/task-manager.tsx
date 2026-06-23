@@ -10,7 +10,7 @@ import {
   LogOut, Plus, Search, Settings, User as UserIcon,
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
-  Link2, LayoutDashboard, List, KanbanSquare,
+  Link2, LayoutDashboard, List, KanbanSquare, Mail,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -347,8 +347,8 @@ interface AdminPanelProps {
 
 function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, onUpdateTags, onClose, theme, currentUser }: AdminPanelProps) {
   const [tab, setTab] = useState("users");
-  const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role }>({
-    username: "", name: "", password: "", role: "editor",
+  const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role; email: string }>({
+    username: "", name: "", password: "", role: "editor", email: "",
   });
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
 
@@ -356,10 +356,23 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
     if (!newUser.username.trim() || !newUser.password.trim()) return;
     if (users.find((u) => u.username === newUser.username.toLowerCase().trim())) return;
     try {
-      const created = await api.createUser({ username: newUser.username, name: newUser.name || newUser.username, password: newUser.password, role: newUser.role });
+      const created = await api.createUser({
+        username: newUser.username,
+        name: newUser.name || newUser.username,
+        password: newUser.password,
+        role: newUser.role,
+        email: newUser.email.trim() || undefined,
+      });
       onUpdateUsers([...users, { ...created }]);
     } catch {}
-    setNewUser({ username: "", name: "", password: "", role: "editor" });
+    setNewUser({ username: "", name: "", password: "", role: "editor", email: "" });
+  };
+
+  const setEmail = async (userId: string, email: string) => {
+    try {
+      await api.updateProfile(userId, { email: email.trim() });
+      onUpdateUsers(users.map((u) => u.id === userId ? { ...u, email: email.trim() || null } : u));
+    } catch {}
   };
 
   const resetPassword = async (userId: string, newPwd: string) => {
@@ -460,29 +473,37 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
             <>
               <div style={{ padding: 16, borderRadius: 12, background: theme.inputBg, border: `1px solid ${theme.border}`, marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 12 }}>Criar novo usuário</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto auto", gap: 8, alignItems: "end" }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Usuário</div>
-                    <input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} placeholder="usuario" style={{ ...inputStyle, width: "100%" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Usuário</div>
+                      <input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} placeholder="usuario" style={{ ...inputStyle, width: "100%" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Nome</div>
+                      <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome Completo" style={{ ...inputStyle, width: "100%" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>
+                        Email <span style={{ textTransform: "none", fontWeight: 400 }}>(p/ redefinir senha)</span>
+                      </div>
+                      <input type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="email@empresa.com" style={{ ...inputStyle, width: "100%" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Senha</div>
+                      <input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="senha123" style={{ ...inputStyle, width: "100%" }} />
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Nome</div>
-                    <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome Completo" style={{ ...inputStyle, width: "100%" }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Senha</div>
-                    <input value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="senha123" style={{ ...inputStyle, width: "100%" }} />
-                  </div>
-                  <div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
                     <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })}
                       style={{ ...inputStyle, cursor: "pointer", colorScheme: theme.scheme, padding: "8px 8px" }}>
                       {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
                     </select>
+                    <button onClick={addUser} style={{
+                      background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8,
+                      padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap"
+                    }}>+ Criar</button>
                   </div>
-                  <button onClick={addUser} style={{
-                    background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8,
-                    padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap"
-                  }}>+ Criar</button>
                 </div>
               </div>
 
@@ -492,6 +513,7 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
                   onChangeRole={(r: Role) => changeRole(user.id, r)}
                   onChangeAvatar={(seed: string) => changeAvatar(user.id, seed)}
                   onToggleContentAccess={(next: boolean) => toggleContentAccess(user.id, next)}
+                  onSetEmail={(email: string) => setEmail(user.id, email)}
                   onDelete={() => deleteUser(user.id)} />
               ))}
             </>
@@ -714,12 +736,15 @@ interface UserRowProps {
   onChangeRole: (role: Role) => void;
   onChangeAvatar: (avatar: string) => void;
   onToggleContentAccess: (next: boolean) => void;
+  onSetEmail: (email: string) => void;
   onDelete: () => void;
 }
 
-function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onToggleContentAccess, onDelete }: UserRowProps) {
+function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onToggleContentAccess, onSetEmail, onDelete }: UserRowProps) {
   const [showReset, setShowReset] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showEmailEdit, setShowEmailEdit] = useState(false);
+  const [emailDraft, setEmailDraft] = useState(user.email ?? "");
   const [newPwd, setNewPwd] = useState("");
   const isMe = user.id === currentUser.id;
   const role = ROLES[user.role];
@@ -744,6 +769,37 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onCh
           {user.name} {isMe && <span style={{ fontSize: 10, color: "var(--primary)" }}>(você)</span>}
         </div>
         <div style={{ fontSize: 12, color: theme.textMuted }}>@{user.username}</div>
+        {showEmailEdit ? (
+          <div style={{ display: "flex", gap: 4, marginTop: 4, alignItems: "center" }}>
+            <input
+              type="email"
+              value={emailDraft}
+              onChange={(e) => setEmailDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { onSetEmail(emailDraft); setShowEmailEdit(false); }
+                if (e.key === "Escape") { setEmailDraft(user.email ?? ""); setShowEmailEdit(false); }
+              }}
+              placeholder="email@empresa.com"
+              autoFocus
+              style={{ background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "4px 8px", color: theme.text, fontSize: 12, outline: "none", width: 180, fontFamily: "inherit" }}
+            />
+            <button onClick={() => { onSetEmail(emailDraft); setShowEmailEdit(false); }}
+              title="Salvar email"
+              style={{ background: "#00C875", border: "none", color: "#fff", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>✓</button>
+            <button onClick={() => { setEmailDraft(user.email ?? ""); setShowEmailEdit(false); }}
+              style={{ background: theme.inputBg, border: "none", color: theme.textMuted, borderRadius: 6, padding: "4px 7px", cursor: "pointer", fontSize: 11 }}>✕</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setEmailDraft(user.email ?? ""); setShowEmailEdit(true); }}
+            title="Editar email (usado na redefinição de senha)"
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, maxWidth: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", fontSize: 11, color: user.email ? theme.textSecondary : "#E2445C", fontFamily: "inherit" }}
+          >
+            <Mail size={11} aria-hidden />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email || "sem email — clique para adicionar"}</span>
+            <Pencil size={10} aria-hidden style={{ opacity: 0.6, flexShrink: 0 }} />
+          </button>
+        )}
       </div>
 
       <select value={user.role} onChange={(e) => onChangeRole(e.target.value as Role)} disabled={isMe}

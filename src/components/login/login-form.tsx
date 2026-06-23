@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, User as UserIcon } from "lucide-react";
 import { api } from "@/lib/api";
@@ -122,6 +123,16 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               </button>
             </div>
           </Field>
+
+          {/* Esqueci minha senha */}
+          <div style={{ marginTop: -6, textAlign: "right" }}>
+            <Link
+              href="/forgot-password"
+              style={{ fontSize: 13, fontWeight: 600, color: "var(--primary)", textDecoration: "none" }}
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
 
           {/* Erro */}
           {error && (

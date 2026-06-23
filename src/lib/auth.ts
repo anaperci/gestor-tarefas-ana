@@ -68,21 +68,32 @@ export async function requireAuth(request: Request | NextRequest): Promise<AuthU
     throw new ApiError("AUTH_REQUIRED", "Token não fornecido");
   }
 
-  let decoded: { id: string };
+  let decoded: { id: string; iat?: number };
   try {
-    decoded = jwt.verify(header.split(" ")[1], getJwtSecret()) as { id: string };
+    decoded = jwt.verify(header.split(" ")[1], getJwtSecret()) as { id: string; iat?: number };
   } catch {
     throw new ApiError("AUTH_REQUIRED", "Token inválido");
   }
 
   const { data: user } = await supabase
     .from("users")
-    .select("id, username, name, role, avatar, can_access_content")
+    .select("id, username, name, role, avatar, can_access_content, password_changed_at")
     .eq("id", decoded.id)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (!user) throw new ApiError("AUTH_REQUIRED", "Usuário não encontrado");
+
+  // Revoga sessões emitidas ANTES da última troca de senha (ex.: após
+  // "esqueci minha senha", o token roubado deixa de valer). Tolerância de 5s
+  // pra evitar corrida de relógio entre emissão e carimbo.
+  if (user.password_changed_at && decoded.iat) {
+    const changedMs = new Date(user.password_changed_at).getTime();
+    if (decoded.iat * 1000 < changedMs - 5000) {
+      throw new ApiError("AUTH_REQUIRED", "Sessão expirada. Faça login novamente.");
+    }
+  }
+
   return {
     id: user.id,
     username: user.username,

@@ -84,6 +84,20 @@ export const api = {
     return !!getToken();
   },
 
+  // Password reset (público — sem token de auth)
+  requestPasswordReset: (email: string) =>
+    request<{ success: boolean; message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  validateResetToken: (token: string) =>
+    request<{ valid: boolean }>(`/auth/reset-password?token=${encodeURIComponent(token)}`),
+  confirmPasswordReset: (token: string, password: string) =>
+    request<{ success: boolean }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
+
   // Users
   getUsers: () => request<User[]>("/users"),
   createUser: (data: CreateUserPayload) =>
@@ -98,7 +112,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ password, currentPassword }),
     }),
-  updateProfile: (id: string, data: { name?: string }) =>
+  updateProfile: (id: string, data: { name?: string; email?: string }) =>
     request<{ success: boolean }>(`/users/${id}/profile`, {
       method: "PUT",
       body: JSON.stringify(data),

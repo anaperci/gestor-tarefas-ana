@@ -4,13 +4,15 @@ import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { audit } from "@/lib/audit";
-import { nameSchema } from "@/lib/validation";
+import { emailSchema, nameSchema } from "@/lib/validation";
 
 const profileSchema = z.object({
   name: nameSchema.optional(),
+  // "" limpa o email; ausente = não mexe
+  email: z.union([emailSchema, z.literal("")]).optional(),
 });
 
-/** Atualiza dados editáveis do próprio user (nome). Avatar tem rota própria. */
+/** Atualiza dados editáveis do user (nome, email). Avatar tem rota própria. */
 export const PUT = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
@@ -23,6 +25,21 @@ export const PUT = withErrorHandling(
     const body = await parseJson(request, profileSchema);
     const updates: Record<string, unknown> = {};
     if (body.name !== undefined) updates.name = body.name.trim();
+
+    if (body.email !== undefined) {
+      const emailLower = body.email.toLowerCase().trim() || null;
+      if (emailLower) {
+        const { data: clash } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", emailLower)
+          .neq("id", id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (clash) throw new ApiError("CONFLICT", "Email já está em uso por outro usuário");
+      }
+      updates.email = emailLower;
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ success: true, noop: true });

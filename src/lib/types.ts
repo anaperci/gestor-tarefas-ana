@@ -12,6 +12,7 @@ export interface User {
   name: string;
   role: Role;
   avatar: string;
+  email?: string | null;
   canAccessContent?: boolean;
 }
 
@@ -131,6 +132,7 @@ export interface CreateUserPayload {
   name?: string;
   password: string;
   role: Role;
+  email?: string;
 }
 
 export interface CreateProjectPayload {
