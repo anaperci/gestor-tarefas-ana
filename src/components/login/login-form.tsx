@@ -16,6 +16,9 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [forgotId, setForgotId] = useState("");
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -30,6 +33,95 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       setSubmitting(false);
     }
   };
+
+  const submitForgot = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (submitting || !forgotId.trim()) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await api.forgotPassword(forgotId.trim());
+      setForgotMsg(res.message || "Se houver uma conta com esse email, você receberá um link.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao solicitar redefinição");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Modo "esqueci minha senha" ──────────────────────────────────
+  if (mode === "forgot") {
+    return (
+      <motion.section
+        className="login-form-panel"
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        style={{
+          flex: 1, minHeight: "100vh", background: "var(--bg)", color: "var(--text)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 48,
+        }}
+      >
+        <form onSubmit={submitForgot} style={{ width: "100%", maxWidth: 400 }}>
+          <header style={{ marginBottom: 28 }}>
+            <h2 style={{ fontFamily: "var(--font-marcellus), Georgia, serif", fontSize: 24, margin: 0, color: "var(--text)" }}>
+              Recuperar acesso
+            </h2>
+            <p style={{ fontSize: 15, color: "var(--text-secondary)", marginTop: 6 }}>
+              Informe seu email e enviaremos um link para redefinir a senha.
+            </p>
+          </header>
+
+          {forgotMsg ? (
+            <div style={{
+              fontSize: 14, color: "var(--primary)", padding: "12px 14px", borderRadius: 10,
+              background: "var(--primary-soft)", border: "1px solid var(--card-border)", lineHeight: 1.5,
+            }}>
+              {forgotMsg}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Field id="forgot-id" label="Email ou usuário">
+                <input
+                  id="forgot-id"
+                  type="text"
+                  value={forgotId}
+                  onChange={(e) => { setForgotId(e.target.value); setError(null); }}
+                  placeholder="seu@email.com"
+                  autoFocus
+                  style={inputStyle}
+                />
+              </Field>
+              {error && (
+                <div role="alert" style={{
+                  display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#E2445C",
+                  padding: "8px 12px", borderRadius: 8, background: "rgba(226,68,92,0.08)",
+                  border: "1px solid rgba(226,68,92,0.2)",
+                }}>
+                  <AlertCircle size={16} aria-hidden /><span>{error}</span>
+                </div>
+              )}
+              <button type="submit" disabled={submitting || !forgotId.trim()} style={{
+                marginTop: 4, height: 48, borderRadius: 10, border: "none", background: "var(--primary)",
+                color: "#fff", fontWeight: 600, fontSize: 15, fontFamily: "inherit",
+                cursor: submitting ? "wait" : "pointer", opacity: submitting || !forgotId.trim() ? 0.6 : 1,
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
+                boxShadow: "0 8px 16px rgba(15, 76, 92, 0.28)",
+              }}>
+                {submitting ? <><Loader2 size={18} style={{ animation: "spin 0.9s linear infinite" }} /> Enviando…</> : "Enviar link"}
+              </button>
+            </div>
+          )}
+
+          <button type="button" onClick={() => { setMode("login"); setError(null); setForgotMsg(null); }} style={linkBtn}>
+            ← Voltar para o login
+          </button>
+
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </form>
+      </motion.section>
+    );
+  }
 
   return (
     <motion.section
@@ -186,6 +278,10 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               "Entrar"
             )}
           </motion.button>
+
+          <button type="button" onClick={() => { setMode("forgot"); setError(null); }} style={linkBtn}>
+            Esqueci minha senha
+          </button>
         </div>
       </form>
 
@@ -235,6 +331,19 @@ const inputStyle: CSSProperties = {
   outline: "none",
   fontFamily: "inherit",
   transition: "border-color 0.2s",
+};
+
+const linkBtn: CSSProperties = {
+  display: "block",
+  margin: "16px auto 0",
+  background: "none",
+  border: "none",
+  color: "var(--primary-hover)",
+  fontSize: 13,
+  fontWeight: 600,
+  fontFamily: "inherit",
+  cursor: "pointer",
+  textAlign: "center",
 };
 
 const iconLeftStyle: CSSProperties = {

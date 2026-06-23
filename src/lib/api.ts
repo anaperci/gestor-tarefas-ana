@@ -6,9 +6,11 @@ import type {
   CreateProjectPayload,
   CreateTaskPayload,
   CreateUserPayload,
+  CreateWorkspacePayload,
   Note,
   Project,
   Role,
+  Workspace,
   RoutineCheck,
   RoutineHistoryDay,
   RoutineItem,
@@ -84,6 +86,20 @@ export const api = {
     return !!getToken();
   },
 
+  // Reset de senha
+  forgotPassword: (identifier: string) =>
+    request<{ success: boolean; message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ identifier }),
+    }),
+  resetPasswordWithToken: (token: string, password: string) =>
+    request<{ success: boolean }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
+  sendResetEmail: (id: string) =>
+    request<{ success: boolean }>(`/users/${id}/reset-email`, { method: "POST" }),
+
   // Users
   getUsers: () => request<User[]>("/users"),
   createUser: (data: CreateUserPayload) =>
@@ -126,6 +142,25 @@ export const api = {
     request<{ success: boolean; sharedWith: string[] }>(`/projects/${id}/share`, {
       method: "PUT",
       body: JSON.stringify({ sharedWith }),
+    }),
+  moveProject: (id: string, workspaceId: string) =>
+    request<{ success: boolean; workspaceId: string }>(`/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ workspaceId }),
+    }),
+
+  // Workspaces
+  getWorkspaces: () => request<Workspace[]>("/workspaces"),
+  createWorkspace: (data: CreateWorkspacePayload) =>
+    request<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(data) }),
+  updateWorkspace: (id: string, data: { name?: string; color?: string; icon?: string }) =>
+    request<{ success: boolean }>(`/workspaces/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteWorkspace: (id: string) =>
+    request<{ success: boolean }>(`/workspaces/${id}`, { method: "DELETE" }),
+  setWorkspaceMembers: (id: string, members: string[]) =>
+    request<{ success: boolean; members: string[] }>(`/workspaces/${id}/members`, {
+      method: "PUT",
+      body: JSON.stringify({ members }),
     }),
 
   // Tasks
