@@ -167,7 +167,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               fontSize: 15,
               cursor: submitting ? "wait" : "pointer",
               opacity: submitting || !username.trim() || !password ? 0.6 : 1,
-              boxShadow: "0 8px 16px rgba(70, 52, 127, 0.3)",
+              boxShadow: "0 8px 16px rgba(15, 76, 92, 0.28)",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",

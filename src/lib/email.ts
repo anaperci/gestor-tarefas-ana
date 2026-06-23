@@ -4,7 +4,7 @@
  * Env vars (Vercel / .env.local):
  *   BREVO_API_KEY        — chave da API Brevo (obrigatória para enviar)
  *   BREVO_SENDER_EMAIL   — email remetente verificado na Brevo
- *   BREVO_SENDER_NAME    — nome do remetente (default "Ordum")
+ *   BREVO_SENDER_NAME    — nome do remetente (default "Clareza")
  *   NEXT_PUBLIC_APP_URL  — base da app, p/ montar links (ex: https://gestor-tarefas-ana.vercel.app)
  *
  * Se BREVO_API_KEY não estiver configurada, os envios são apenas logados
@@ -48,7 +48,7 @@ export async function sendEmail({ to, toName, subject, html }: SendEmailParams):
     body: JSON.stringify({
       sender: {
         email: process.env.BREVO_SENDER_EMAIL,
-        name: process.env.BREVO_SENDER_NAME || "Ordum",
+        name: process.env.BREVO_SENDER_NAME || "Clareza",
       },
       to: [{ email: to, name: toName || to }],
       subject,
@@ -65,14 +65,14 @@ export async function sendEmail({ to, toName, subject, html }: SendEmailParams):
 
 // ── Templates ────────────────────────────────────────────────────────
 
-const BRAND = "#46347F";
+const BRAND = "#0F4C5C";
 
 function layout(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string): string {
   return `
   <div style="background:#f4f6fb;padding:32px 0;font-family:Helvetica,Arial,sans-serif;">
     <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #ece9f5;">
       <div style="background:${BRAND};padding:24px 32px;">
-        <span style="color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.02em;">Ordum</span>
+        <span style="color:#F4EFE2;font-family:'Marcellus',Georgia,serif;font-size:24px;letter-spacing:3px;">CLAREZA</span>
       </div>
       <div style="padding:32px;">
         <h1 style="margin:0 0 12px;font-size:20px;color:#1a1430;">${title}</h1>
@@ -84,7 +84,7 @@ function layout(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: strin
         </p>
       </div>
       <div style="padding:16px 32px;border-top:1px solid #ece9f5;font-size:12px;color:#a8a3b5;">
-        Ordum · Gestão de tarefas
+        Clareza · Gestão de tarefas
       </div>
     </div>
   </div>`;
@@ -92,7 +92,7 @@ function layout(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: strin
 
 export function passwordResetEmail(name: string, link: string): { subject: string; html: string } {
   return {
-    subject: "Redefinição de senha — Ordum",
+    subject: "Redefinição de senha — Clareza",
     html: layout(
       "Redefinir sua senha",
       `Olá, ${name}.<br><br>Recebemos um pedido para redefinir sua senha. Clique no botão abaixo para escolher uma nova. <strong>O link expira em 1 hora.</strong><br><br>Se não foi você, ignore este email — sua senha continua a mesma.`,
@@ -104,10 +104,10 @@ export function passwordResetEmail(name: string, link: string): { subject: strin
 
 export function welcomeAccessEmail(name: string, link: string): { subject: string; html: string } {
   return {
-    subject: "Seu acesso ao Ordum",
+    subject: "Seu acesso ao Clareza",
     html: layout(
-      "Bem-vindo(a) ao Ordum",
-      `Olá, ${name}.<br><br>Foi criado um acesso para você no Ordum. Clique no botão abaixo para definir sua senha e entrar. <strong>O link expira em 48 horas.</strong>`,
+      "Bem-vindo(a) ao Clareza",
+      `Olá, ${name}.<br><br>Foi criado um acesso para você no Clareza. Clique no botão abaixo para definir sua senha e entrar. <strong>O link expira em 48 horas.</strong>`,
       "Definir minha senha",
       link
     ),

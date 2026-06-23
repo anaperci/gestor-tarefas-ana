@@ -15,7 +15,7 @@ export function LoginHeroPanel() {
         flex: 1,
         minHeight: "100vh",
         background:
-          "linear-gradient(135deg, #46347F 0%, #36286a 50%, #2d1f5c 100%)",
+          "linear-gradient(135deg, #15708C 0%, #0F4C5C 55%, #0a3744 100%)",
         color: "#fff",
         overflow: "hidden",
         display: "flex",
@@ -26,9 +26,9 @@ export function LoginHeroPanel() {
       {/* Logo top-left */}
       <div style={{ position: "relative", zIndex: 2 }}>
         <img
-          src="/logos/ordum-wordmark-branco.svg"
-          alt="Ordum"
-          style={{ height: 40, width: "auto", display: "block" }}
+          src="/logos/clareza-lockup-cream.svg"
+          alt="Clareza"
+          style={{ height: 44, width: "auto", display: "block" }}
         />
       </div>
 

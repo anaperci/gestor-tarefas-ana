@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { genId } from "@/lib/utils";
 import { nameSchema, roleSchema, usernameSchema } from "@/lib/validation";
 import { passwordSchema } from "@/lib/password-policy";
+import { sendAccessEmail } from "@/lib/reset-token";
 
 const ROLE_AVATARS: Record<string, string> = { admin: "👑", editor: "✏️", viewer: "👁️" };
 

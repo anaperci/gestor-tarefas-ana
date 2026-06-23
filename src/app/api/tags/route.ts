@@ -33,7 +33,7 @@ export const POST = withErrorHandling(async (request) => {
   const { error } = await supabase.from("tags").insert({
     id,
     name: name.trim(),
-    color: color ?? "#7B61FF",
+    color: color ?? "#15708C",
   });
 
   if (error) {
@@ -41,5 +41,5 @@ export const POST = withErrorHandling(async (request) => {
     throw new ApiError("INTERNAL_ERROR", "Falha ao criar etiqueta");
   }
 
-  return NextResponse.json({ id, name: name.trim(), color: color ?? "#7B61FF", createdAt: new Date().toISOString() }, { status: 201 });
+  return NextResponse.json({ id, name: name.trim(), color: color ?? "#15708C", createdAt: new Date().toISOString() }, { status: 201 });
 });

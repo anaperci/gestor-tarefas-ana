@@ -53,7 +53,7 @@ export const GET = withErrorHandling(async (request) => {
       : supabase.rpc("get_user_tasks", { p_user_id: user.id }),
     // projects visíveis
     user.role === "admin"
-      ? supabase.from("projects").select("id, name, color, icon, owner_id").is("deleted_at", null)
+      ? supabase.from("projects").select("id, name, color, icon, owner_id, workspace_id").is("deleted_at", null)
       : supabase.rpc("get_user_projects", { p_user_id: user.id }),
     // todos os shares (pra mapear)
     supabase.from("project_shares").select("project_id, user_id"),
@@ -100,7 +100,7 @@ export const GET = withErrorHandling(async (request) => {
   }
 
   const projectsRaw = (projectsRes.data ?? []) as Array<{
-    id: string; name: string; color: string; icon: string; owner_id: string;
+    id: string; name: string; color: string; icon: string; owner_id: string; workspace_id?: string | null;
   }>;
 
   // Today: minhas atribuídas com deadline hoje OU status=doing
@@ -155,6 +155,7 @@ export const GET = withErrorHandling(async (request) => {
         color: p.color,
         icon: p.icon,
         ownerId: p.owner_id,
+        workspaceId: p.workspace_id ?? null,
         sharedWith: sharesByProject.get(p.id) ?? [],
       };
       return { ...proj, open_count: s.open, done_count: s.done, total_count: s.total, last_activity: s.last || null };

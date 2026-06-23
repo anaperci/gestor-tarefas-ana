@@ -90,7 +90,7 @@ export default function SetupPage() {
             <ShieldCheck size={22} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: -0.2 }}>Configurar Ordum</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, letterSpacing: -0.2 }}>Configurar Clareza</h1>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "2px 0 0" }}>Crie o primeiro administrador</p>
           </div>
         </div>

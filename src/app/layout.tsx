@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import { Figtree, Poppins } from "next/font/google";
+import { Hanken_Grotesk, Marcellus } from "next/font/google";
 import "./globals.css";
 
-const figtree = Figtree({
+// Design System "Clareza": Hanken Grotesk (interface) + Marcellus (display/marca)
+const hanken = Hanken_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-figtree",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-hanken",
   display: "swap",
 });
 
-const poppins = Poppins({
+const marcellus = Marcellus({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-poppins",
+  weight: ["400"],
+  variable: "--font-marcellus",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Ordum — Gestor de Tarefas",
-  description: "Plataforma colaborativa de gestão de projetos e tarefas",
+  title: "Clareza — Gestor de Tarefas",
+  description: "Foco com clareza. Plataforma colaborativa de gestão de projetos e tarefas.",
 };
 
 export default function RootLayout({
@@ -28,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${figtree.variable} ${poppins.variable}`}>
+      <body className={`${hanken.variable} ${marcellus.variable}`}>
         {children}
       </body>
     </html>

@@ -7,7 +7,7 @@ export const PLATFORM_META: Record<ContentPlatform, { label: string; color: stri
   linkedin:   { label: "LinkedIn",   color: "#0A66C2" },
   youtube:    { label: "YouTube",    color: "#FF0000" },
   tiktok:     { label: "TikTok",     color: "#25F4EE" },
-  newsletter: { label: "Newsletter", color: "#46347F" },
+  newsletter: { label: "Newsletter", color: "#15708C" },
   multiple:   { label: "Múltiplas",  color: "#9B59B6" },
   other:      { label: "Outras",     color: "#A0A0A0" },
 };

@@ -40,12 +40,12 @@ import type {
   User,
 } from "@/lib/types";
 
-/** Ícone wordmark. forceWhite=true pra contextos com fundo roxo (sidebar, hero). */
-function OrdumLogo({ height = 28, forceWhite }: { height?: number; forceWhite?: boolean }) {
+/** Lockup Clareza. forceWhite=true (creme) pra fundos petróleo (sidebar, hero); senão azul Egeu. */
+function ClarezaLogo({ height = 28, forceWhite }: { height?: number; forceWhite?: boolean }) {
   const src = forceWhite
-    ? "/logos/ordum-wordmark-branco.svg"
-    : "/logos/ordum-wordmark-roxo.svg";
-  return <img src={src} alt="Ordum" style={{ height, width: "auto", display: "block" }} />;
+    ? "/logos/clareza-lockup-cream.svg"
+    : "/logos/clareza-lockup-egeu.svg";
+  return <img src={src} alt="Clareza" style={{ height, width: "auto", display: "block" }} />;
 }
 
 interface Group {
@@ -571,8 +571,8 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
 
 // ——— Tags Management ———
 const TAG_COLOR_PALETTE = [
-  "#7B61FF", "#46347F", "#579BFC", "#00C875", "#FDAB3D",
-  "#E2445C", "#FF78CB", "#9B59B6", "#1ABC9C", "#A0A0A0",
+  "#0F4C5C", "#15708C", "#E07A52", "#579BFC", "#00C875",
+  "#FDAB3D", "#E2445C", "#FF78CB", "#1ABC9C", "#A0A0A0",
 ];
 
 function TagsManagement({ tags, onUpdate, theme }: { tags: Tag[]; onUpdate: (tags: Tag[]) => void; theme: Theme }) {
@@ -2223,7 +2223,7 @@ export default function TaskManager() {
       <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"}
         style={{ width: 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
         <div style={{ padding: "20px 20px 16px" }}>
-          <OrdumLogo height={28} forceWhite />
+          <ClarezaLogo height={28} forceWhite />
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>

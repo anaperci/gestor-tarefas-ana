@@ -9,7 +9,7 @@ interface LoginScreenProps {
 }
 
 /**
- * Tela de login do Ordum — split screen 50/50 em desktop, empilha no mobile.
+ * Tela de login do Clareza — split screen 50/50 em desktop, empilha no mobile.
  * Sistema é light-only.
  */
 export function LoginScreen({ onLogin }: LoginScreenProps) {

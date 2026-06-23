@@ -1,53 +1,59 @@
 /* ============================================================
-   Ordum — Design tokens (light only)
-   Identidade NexIA: primary #46347F, bg #f4f3f8, sidebar roxa
+   Clareza — Design System (light only)
+   Petróleo #0F4C5C · Azul Egeu #15708C · Terracota #E07A52 · Creme #F4EFE2
+   Fontes: Hanken Grotesk (interface) + Marcellus (display/marca)
    ============================================================ */
 
 :root {
   /* Brand */
-  --primary:        #46347F;
-  --primary-hover:  #5b4699;
-  --primary-soft:   #46347F15;
-  --primary-ring:   #46347F40;
+  --primary:        #0F4C5C;
+  --primary-hover:  #15708C;
+  --primary-soft:   #0F4C5C12;
+  --primary-ring:   #15708C40;
+
+  /* Accent — terracota */
+  --accent:         #E07A52;
+  --accent-hover:   #cf6a43;
+  --accent-soft:    #E07A5218;
 
   /* Surfaces */
-  --bg:             #f4f3f8;
-  --surface:        #ffffff;
-  --surface-2:      #fafafa;
-  --surface-hover:  rgba(70, 52, 127, 0.04);
+  --bg:             #F4EFE2;
+  --surface:        #FFFFFF;
+  --surface-2:      #FBF7EC;
+  --surface-hover:  rgba(15, 76, 92, 0.04);
 
-  /* Sidebar — roxa, texto branco */
-  --sidebar:               #46347F;
-  --sidebar-text:          #ffffff;
-  --sidebar-text-secondary: rgba(255, 255, 255, 0.78);
-  --sidebar-text-muted:    rgba(255, 255, 255, 0.55);
+  /* Sidebar — petróleo, texto creme */
+  --sidebar:               #0F4C5C;
+  --sidebar-text:          #FBF7EC;
+  --sidebar-text-secondary: rgba(251, 247, 236, 0.78);
+  --sidebar-text-muted:    rgba(251, 247, 236, 0.55);
   --sidebar-border:        rgba(255, 255, 255, 0.12);
   --sidebar-input-bg:      rgba(255, 255, 255, 0.10);
   --sidebar-hover:         rgba(255, 255, 255, 0.10);
-  --sidebar-active-bg:     rgba(255, 255, 255, 0.18);
-  --sidebar-active-text:   #ffffff;
+  --sidebar-active-bg:     rgba(224, 122, 82, 0.22);
+  --sidebar-active-text:   #FFFFFF;
 
   /* Borders */
-  --border:             rgba(0, 0, 0, 0.06);
-  --border-strong:      rgba(0, 0, 0, 0.09);
-  --card-border:        rgba(70, 52, 127, 0.16);
-  --card-border-strong: rgba(70, 52, 127, 0.28);
-  --card-shadow:        0 1px 2px rgba(70, 52, 127, 0.06), 0 4px 14px rgba(70, 52, 127, 0.05);
+  --border:             rgba(15, 76, 92, 0.10);
+  --border-strong:      rgba(15, 76, 92, 0.16);
+  --card-border:        rgba(15, 76, 92, 0.14);
+  --card-border-strong: rgba(15, 76, 92, 0.26);
+  --card-shadow:        0 1px 2px rgba(15, 76, 92, 0.06), 0 4px 14px rgba(15, 76, 92, 0.06);
 
   /* Text */
-  --text:           #1a1d2e;
-  --text-secondary: #5a6178;
-  --text-muted:     #9ca3b8;
+  --text:           #18313A;
+  --text-secondary: #4D6670;
+  --text-muted:     #8AA0A8;
 
   /* Inputs */
-  --input-bg:       rgba(0, 0, 0, 0.03);
-  --input-border:   rgba(0, 0, 0, 0.1);
-  --dropdown-bg:    #ffffff;
-  --dropdown-hover: rgba(70, 52, 127, 0.06);
+  --input-bg:       rgba(15, 76, 92, 0.04);
+  --input-border:   rgba(15, 76, 92, 0.16);
+  --dropdown-bg:    #FFFFFF;
+  --dropdown-hover: rgba(15, 76, 92, 0.06);
 
   /* Overlay */
-  --overlay:        rgba(15, 13, 26, 0.25);
-  --scroll-thumb:   rgba(0, 0, 0, 0.12);
+  --overlay:        rgba(15, 49, 58, 0.30);
+  --scroll-thumb:   rgba(15, 76, 92, 0.18);
   --color-scheme:   light;
 
   /* Status */
@@ -80,7 +86,11 @@ html, body {
 }
 
 body {
-  font-family: var(--font-figtree), 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Aliases p/ compatibilidade: componentes que usam --font-figtree/-poppins
+     continuam funcionando, agora apontando para Hanken Grotesk / Marcellus. */
+  --font-figtree: var(--font-hanken);
+  --font-poppins: var(--font-marcellus);
+  font-family: var(--font-hanken), 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -102,7 +112,7 @@ a:focus-visible,
 
 button { font-family: inherit; }
 
-/* Sidebar (roxa) precisa de ring branco pra contraste */
+/* Sidebar (petróleo) precisa de ring claro pra contraste */
 .app-sidebar button:focus-visible,
 .app-sidebar input:focus-visible {
   outline-color: rgba(255, 255, 255, 0.7);

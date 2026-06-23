@@ -83,7 +83,7 @@ export const POST = withErrorHandling(async (request) => {
   const { name, color, icon } = await parseJson(request, createWorkspaceSchema);
 
   const id = "ws-" + genId();
-  const finalColor = color || "#7B61FF";
+  const finalColor = color || "#15708C";
   const finalIcon = icon || "🗂️";
 
   const { error } = await supabase.from("workspaces").insert({

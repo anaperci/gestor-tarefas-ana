@@ -104,7 +104,7 @@ export const POST = withErrorHandling(async (request) => {
   }
 
   const id = "proj-" + genId();
-  const finalColor = color || "#7B61FF";
+  const finalColor = color || "#15708C";
   const finalIcon = icon || "📌";
 
   const { error } = await supabase.from("projects").insert({
