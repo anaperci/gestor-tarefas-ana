@@ -38,6 +38,7 @@ import type {
   Subtask,
   Task,
   User,
+  Workspace,
 } from "@/lib/types";
 
 /** Lockup Clareza. forceWhite=true (creme) pra fundos petróleo (sidebar, hero); senão azul Egeu. */
@@ -337,33 +338,87 @@ interface AdminPanelProps {
   projects: Project[];
   tasks: Task[];
   tags: Tag[];
+  workspaces: Workspace[];
   onUpdateUsers: (users: User[]) => void;
   onUpdateProjects: (projects: Project[]) => void;
   onUpdateTags: (tags: Tag[]) => void;
+  onUpdateWorkspaces: (workspaces: Workspace[]) => void;
   onClose: () => void;
   theme: Theme;
   currentUser: User;
 }
 
-function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, onUpdateTags, onClose, theme, currentUser }: AdminPanelProps) {
+function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdateProjects, onUpdateTags, onUpdateWorkspaces, onClose, theme, currentUser }: AdminPanelProps) {
   const [tab, setTab] = useState("users");
-  const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role }>({
-    username: "", name: "", password: "", role: "editor",
+  const [newUser, setNewUser] = useState<{ username: string; name: string; email: string; password: string; role: Role }>({
+    username: "", name: "", email: "", password: "", role: "editor",
   });
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [newWsName, setNewWsName] = useState("");
 
   const addUser = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) return;
     if (users.find((u) => u.username === newUser.username.toLowerCase().trim())) return;
     try {
-      const created = await api.createUser({ username: newUser.username, name: newUser.name || newUser.username, password: newUser.password, role: newUser.role });
+      const created = await api.createUser({
+        username: newUser.username,
+        name: newUser.name || newUser.username,
+        email: newUser.email.trim() || undefined,
+        password: newUser.password,
+        role: newUser.role,
+      });
       onUpdateUsers([...users, { ...created }]);
+      if (newUser.email.trim()) setFeedback(`Usuário criado. Email de acesso enviado para ${newUser.email.trim()}.`);
     } catch {}
-    setNewUser({ username: "", name: "", password: "", role: "editor" });
+    setNewUser({ username: "", name: "", email: "", password: "", role: "editor" });
   };
 
   const resetPassword = async (userId: string, newPwd: string) => {
     try { await api.resetPassword(userId, newPwd); } catch {}
+  };
+
+  const sendResetEmail = async (userId: string) => {
+    try {
+      await api.sendResetEmail(userId);
+      setFeedback("Email de redefinição enviado.");
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : "Falha ao enviar email.");
+    }
+  };
+
+  // ── Workspaces ──────────────────────────────────────────────────
+  const addWorkspace = async () => {
+    if (!newWsName.trim()) return;
+    try {
+      const ws = await api.createWorkspace({ name: newWsName.trim() });
+      onUpdateWorkspaces([...workspaces, ws]);
+      setNewWsName("");
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : "Falha ao criar workspace.");
+    }
+  };
+
+  const toggleWorkspaceMember = async (wsId: string, userId: string) => {
+    const ws = workspaces.find((w) => w.id === wsId);
+    if (!ws) return;
+    const members = ws.members || [];
+    const next = members.includes(userId) ? members.filter((id) => id !== userId) : [...members, userId];
+    try {
+      const res = await api.setWorkspaceMembers(wsId, next);
+      onUpdateWorkspaces(workspaces.map((w) => w.id === wsId ? { ...w, members: res.members } : w));
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : "Falha ao salvar membros.");
+    }
+  };
+
+  const moveProjectToWorkspace = async (projId: string, wsId: string) => {
+    try {
+      await api.moveProject(projId, wsId);
+      onUpdateProjects(projects.map((p) => p.id === projId ? { ...p, workspaceId: wsId } : p));
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : "Falha ao mover projeto.");
+    }
   };
 
   const deleteUser = (userId: string) => {
@@ -445,7 +500,7 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
         </div>
 
         <div style={{ display: "flex", gap: 4, padding: "16px 28px 0", borderBottom: `1px solid ${theme.border}` }}>
-          {[{ key: "users", label: "👥 Usuários" }, { key: "permissions", label: "🔐 Permissões" }, { key: "tags", label: "🏷️ Etiquetas" }].map((t) => (
+          {[{ key: "users", label: "👥 Usuários" }, { key: "workspaces", label: "🗂️ Workspaces" }, { key: "permissions", label: "🔐 Permissões" }, { key: "tags", label: "🏷️ Etiquetas" }].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid var(--primary)" : "2px solid transparent",
               background: "transparent", color: tab === t.key ? "var(--primary)" : theme.textSecondary,
@@ -456,11 +511,22 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
         </div>
 
         <div style={{ padding: "20px 28px 28px", overflowY: "auto", flex: 1 }}>
+          {feedback && (
+            <div style={{
+              fontSize: 13, color: "var(--primary)", padding: "10px 14px", borderRadius: 10, marginBottom: 16,
+              background: "var(--primary-soft)", border: `1px solid ${theme.cardBorder}`,
+              display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
+            }}>
+              <span>{feedback}</span>
+              <button onClick={() => setFeedback(null)} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
+          )}
           {tab === "users" && (
             <>
               <div style={{ padding: 16, borderRadius: 12, background: theme.inputBg, border: `1px solid ${theme.border}`, marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 12 }}>Criar novo usuário</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto auto", gap: 8, alignItems: "end" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 4 }}>Criar novo usuário</div>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 12 }}>Com email preenchido, enviamos um link de acesso para o usuário definir a senha.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto auto", gap: 8, alignItems: "end" }}>
                   <div>
                     <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Usuário</div>
                     <input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} placeholder="usuario" style={{ ...inputStyle, width: "100%" }} />
@@ -468,6 +534,10 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
                   <div>
                     <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Nome</div>
                     <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome Completo" style={{ ...inputStyle, width: "100%" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Email</div>
+                    <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="email@exemplo.com" type="email" style={{ ...inputStyle, width: "100%" }} />
                   </div>
                   <div>
                     <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Senha</div>
@@ -489,11 +559,81 @@ function AdminPanel({ users, projects, tags, onUpdateUsers, onUpdateProjects, on
               {users.map((user) => (
                 <UserRow key={user.id} user={user} currentUser={currentUser} theme={theme}
                   onResetPassword={(pwd: string) => resetPassword(user.id, pwd)}
+                  onSendReset={() => sendResetEmail(user.id)}
                   onChangeRole={(r: Role) => changeRole(user.id, r)}
                   onChangeAvatar={(seed: string) => changeAvatar(user.id, seed)}
                   onToggleContentAccess={(next: boolean) => toggleContentAccess(user.id, next)}
                   onDelete={() => deleteUser(user.id)} />
               ))}
+            </>
+          )}
+
+          {tab === "workspaces" && (
+            <>
+              <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+                Membros do workspace veem todos os projetos dele. Restrinja projetos específicos na aba Permissões. Admins têm acesso total.
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                <input value={newWsName} onChange={(e) => setNewWsName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addWorkspace()}
+                  placeholder="Nome do novo workspace" style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={addWorkspace} style={{
+                  background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8,
+                  padding: "8px 16px", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap"
+                }}>+ Criar workspace</button>
+              </div>
+
+              {workspaces.map((ws) => {
+                const wsProjects = projects.filter((p) => p.workspaceId === ws.id);
+                return (
+                  <div key={ws.id} style={{ padding: 16, borderRadius: 12, border: `1px solid ${theme.border}`, marginBottom: 12, background: theme.inputBg }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <span style={{ fontSize: 18 }}>{ws.icon}</span>
+                      <span style={{ fontWeight: 700, color: ws.color, fontSize: 15 }}>{ws.name}</span>
+                      <span style={{ fontSize: 11, color: theme.textMuted }}>· {wsProjects.length} projeto(s)</span>
+                    </div>
+
+                    <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Membros</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                      {users.filter((u) => u.role !== "admin").map((user) => {
+                        const isMember = (ws.members || []).includes(user.id);
+                        return (
+                          <button key={user.id} onClick={() => toggleWorkspaceMember(ws.id, user.id)}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
+                              borderRadius: 20, border: `1.5px solid ${isMember ? "var(--primary)" : theme.border}`,
+                              background: isMember ? "var(--primary-soft)" : "transparent",
+                              color: isMember ? "var(--primary)" : theme.textMuted,
+                              cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit",
+                            }}>
+                            <span style={{ fontSize: 14 }}>{isMember ? "✓" : "+"}</span>
+                            {user.avatar} {user.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {wsProjects.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Projetos</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {wsProjects.map((proj) => (
+                            <div key={proj.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 14 }}>{proj.icon}</span>
+                              <span style={{ flex: 1, fontSize: 13, color: theme.text }}>{proj.name}</span>
+                              <select value={ws.id} onChange={(e) => moveProjectToWorkspace(proj.id, e.target.value)}
+                                title="Mover para outro workspace"
+                                style={{ ...inputStyle, cursor: "pointer", colorScheme: theme.scheme, padding: "6px 8px", fontSize: 12, width: "auto" }}>
+                                {workspaces.map((w) => <option key={w.id} value={w.id}>{w.icon} {w.name}</option>)}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
             </>
           )}
 
@@ -711,13 +851,14 @@ interface UserRowProps {
   currentUser: User;
   theme: Theme;
   onResetPassword: (password: string) => void;
+  onSendReset: () => void;
   onChangeRole: (role: Role) => void;
   onChangeAvatar: (avatar: string) => void;
   onToggleContentAccess: (next: boolean) => void;
   onDelete: () => void;
 }
 
-function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onToggleContentAccess, onDelete }: UserRowProps) {
+function UserRow({ user, currentUser, theme, onResetPassword, onSendReset, onChangeRole, onChangeAvatar, onToggleContentAccess, onDelete }: UserRowProps) {
   const [showReset, setShowReset] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [newPwd, setNewPwd] = useState("");
@@ -760,7 +901,7 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onCh
         title={hasContent ? "Remover acesso ao Hub de Conteúdo" : "Liberar acesso ao Hub de Conteúdo"}
         aria-pressed={hasContent}
         style={{
-          background: hasContent ? "rgba(123,97,255,0.12)" : theme.inputBg,
+          background: hasContent ? "var(--primary-soft)" : theme.inputBg,
           border: `1px solid ${hasContent ? "var(--primary)" : theme.border}`,
           borderRadius: 8, padding: "5px 10px",
           color: hasContent ? "var(--primary)" : theme.textSecondary,
@@ -783,6 +924,14 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onCh
         <button onClick={() => setShowReset(true)}
           style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>
           🔑 Reset
+        </button>
+      )}
+
+      {user.email && (
+        <button onClick={onSendReset}
+          title={`Enviar email de redefinição para ${user.email}`}
+          style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>
+          ✉️ Email
         </button>
       )}
 
@@ -1911,6 +2060,8 @@ export default function TaskManager() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState("all");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeProject, setActiveProject] = useState("all");
   const [detailTask, setDetailTask] = useState<Task | null>(null);
@@ -1957,15 +2108,17 @@ export default function TaskManager() {
   const isEditor = currentUser?.role === "editor";
   const canEdit = isAdmin || isEditor;
 
+  // A API já devolve só projetos/tarefas acessíveis (admin vê tudo via RPC/select).
+  // Aqui aplicamos apenas o filtro do workspace ativo.
   const visibleProjects = projects.filter((p) => {
-    if (isAdmin) return true;
-    return p.ownerId === currentUser?.id || (p.sharedWith || []).includes(currentUser?.id || "");
+    if (activeWorkspace !== "all" && p.workspaceId !== activeWorkspace) return false;
+    return true;
   });
 
   const filteredTasks = tasks.filter((t) => {
     const proj = projects.find((p) => p.id === t.projectId);
     if (!proj) return false;
-    if (!isAdmin && proj.ownerId !== currentUser?.id && !(proj.sharedWith || []).includes(currentUser?.id || "")) return false;
+    if (activeWorkspace !== "all" && proj.workspaceId !== activeWorkspace) return false;
     if (activeProject !== "all" && t.projectId !== activeProject) return false;
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -2029,16 +2182,18 @@ export default function TaskManager() {
 
   const loadData = useCallback(async () => {
     try {
-      const [u, p, t, tg] = await Promise.all([
+      const [u, p, t, tg, ws] = await Promise.all([
         api.getUsers(),
         api.getProjects(),
         api.getTasks(),
         api.getTags(),
+        api.getWorkspaces(),
       ]);
       setUsers(u);
       setProjects(p.map((x) => ({ ...x, sharedWith: x.sharedWith || [] })));
       setTasks(t);
       setTags(tg);
+      setWorkspaces(ws);
     } catch { showToast("Erro ao carregar dados"); }
   }, []);
 
@@ -2113,12 +2268,17 @@ export default function TaskManager() {
 
   const addProject = async () => {
     if (!newProjectName.trim() || !isAdmin || !currentUser) return;
-    const colors = ["var(--primary)", "#00C875", "#FF6B6B", "#FDAB3D", "#579BFC", "#FF78CB", "#9B59B6", "#1ABC9C"];
+    const colors = ["#0F4C5C", "#15708C", "#E07A52", "#00C875", "#FDAB3D", "#579BFC", "#FF78CB", "#1ABC9C"];
     const icons = ["📌", "⚡", "💡", "🎯", "🔥", "🌟", "🚀", "🌐"];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const icon = icons[Math.floor(Math.random() * icons.length)];
     try {
-      const np = await api.createProject({ name: newProjectName.trim(), color, icon });
+      const np = await api.createProject({
+        name: newProjectName.trim(),
+        color,
+        icon,
+        workspaceId: activeWorkspace !== "all" ? activeWorkspace : undefined,
+      });
       setProjects((prev) => [...prev, { ...np, ownerId: np.ownerId || currentUser.id, sharedWith: np.sharedWith || [] }]);
     } catch { showToast("Erro ao criar projeto"); }
     setNewProjectName(""); setShowNewProject(false);
@@ -2242,6 +2402,30 @@ export default function TaskManager() {
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
               <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
             </button>
+          )}
+
+          {workspaces.length > 0 && (
+            <div style={{ padding: "0 8px", marginBottom: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspace</div>
+              <select
+                value={activeWorkspace}
+                onChange={(e) => { setActiveWorkspace(e.target.value); setActiveProject("all"); }}
+                aria-label="Selecionar workspace"
+                style={{
+                  width: "100%", padding: "9px 10px", borderRadius: 8,
+                  background: "var(--sidebar-input-bg)", border: "1px solid var(--sidebar-border)",
+                  color: "var(--sidebar-text)", fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+                  cursor: "pointer", outline: "none",
+                }}
+              >
+                <option value="all" style={{ color: "#18313A" }}>Todos os workspaces</option>
+                {workspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id} style={{ color: "#18313A" }}>
+                    {ws.icon} {ws.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
           <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
@@ -2526,7 +2710,9 @@ export default function TaskManager() {
 
       {showAdmin && isAdmin && (
         <AdminPanel users={users} projects={projects} tasks={tasks} tags={tags}
+          workspaces={workspaces}
           onUpdateUsers={setUsers} onUpdateProjects={setProjects} onUpdateTags={setTags}
+          onUpdateWorkspaces={setWorkspaces}
           onClose={() => setShowAdmin(false)} theme={theme} currentUser={currentUser} />
       )}
 
