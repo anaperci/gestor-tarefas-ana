@@ -15,12 +15,22 @@ export interface User {
   canAccessContent?: boolean;
 }
 
+export interface Workspace {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  ownerId: string;
+  members: string[];
+}
+
 export interface Project {
   id: string;
   name: string;
   color: string;
   icon: string;
   ownerId: string;
+  workspaceId: string | null;
   sharedWith: string[];
 }
 
@@ -134,6 +144,13 @@ export interface CreateUserPayload {
 }
 
 export interface CreateProjectPayload {
+  name: string;
+  color?: string;
+  icon?: string;
+  workspaceId?: string;
+}
+
+export interface CreateWorkspacePayload {
   name: string;
   color?: string;
   icon?: string;

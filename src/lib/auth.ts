@@ -105,6 +105,14 @@ export function assertEditorOrAdmin(user: AuthUser): void {
   }
 }
 
+/** Admin sempre pode; senão precisa ser o dono (gestor) do workspace. */
+export function assertCanManageWorkspace(user: AuthUser, workspaceOwnerId: string): void {
+  if (user.role === "admin") return;
+  if (user.id !== workspaceOwnerId) {
+    throw new ApiError("FORBIDDEN", "Apenas o admin ou o gestor do workspace.");
+  }
+}
+
 export function assertContentAccess(user: AuthUser): void {
   if (!user.canAccessContent) {
     throw new ApiError("FORBIDDEN", "Você não tem acesso ao Hub de Conteúdo.");

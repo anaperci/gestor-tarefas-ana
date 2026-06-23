@@ -12,6 +12,11 @@ export type AuditAction =
   | "project.create"
   | "project.delete"
   | "project.share"
+  | "project.move"
+  | "workspace.create"
+  | "workspace.update"
+  | "workspace.delete"
+  | "workspace.members"
   | "task.delete";
 
 interface AuditEntry {

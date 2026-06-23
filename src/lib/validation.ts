@@ -38,3 +38,4 @@ export const subtaskSchema = z.object({
 export const MAX_CHECKLIST_ITEMS = 50;
 export const MAX_SUBTASKS = 50;
 export const MAX_PROJECT_SHARES = 100;
+export const MAX_WORKSPACE_MEMBERS = 200;
