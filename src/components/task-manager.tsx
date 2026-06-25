@@ -101,6 +101,11 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 const GRID_COLUMNS = "30px minmax(130px, 1fr) 104px 108px 112px 90px 112px 92px 52px 32px";
 const GRID_COLUMNS_SUBTASK = "30px 1fr 118px 108px 56px";
 
+/** Estilo dos botões de ícone na régua (sidebar recolhida). */
+function railBtnStyle(active: boolean): CSSProperties {
+  return { width: 40, height: 40, borderRadius: 10, border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontFamily: "inherit", background: active ? "var(--sidebar-active-bg)" : "transparent", color: active ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" };
+}
+
 /** Detecta viewport mobile (≤768px) reativo a resize/rotação. */
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
@@ -2512,23 +2517,82 @@ interface PersonalAreaProps {
   projects: Project[];
   users: User[];
   tags: Tag[];
-  personalTab: "minhas-tarefas" | "anotacoes" | "rotina";
-  onTabChange: (tab: "minhas-tarefas" | "anotacoes" | "rotina") => void;
+  personalTab: "minhas-tarefas" | "agenda";
+  onTabChange: (tab: "minhas-tarefas" | "agenda") => void;
   canEdit: boolean;
   onOpenTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
 }
 
+// ——— Agenda (embed do Google Calendar — só ver) ———
+function AgendaTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
+  const storageKey = `clareza-agenda-url:${currentUser.id}`;
+  const [saved, setSaved] = useState("");
+  const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    const v = localStorage.getItem(storageKey) || "";
+    setSaved(v); setDraft(v); setEditing(!v);
+  }, [storageKey]);
+
+  // Aceita tanto a URL crua quanto o <iframe ... src="..."> que o Google dá
+  const srcFrom = (raw: string) => {
+    const m = raw.match(/src=["']([^"']+)["']/i);
+    return (m ? m[1] : raw).trim();
+  };
+  const src = srcFrom(saved);
+
+  const save = () => {
+    const clean = draft.trim();
+    localStorage.setItem(storageKey, clean);
+    setSaved(clean); setEditing(false);
+  };
+
+  return (
+    <div style={{ padding: 24, height: "100%", display: "flex", flexDirection: "column" }}>
+      {editing || !src ? (
+        <div style={{ maxWidth: 620 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: theme.text }}>Conectar sua agenda</h2>
+          <p style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
+            No Google Calendar: <b>Configurações → Configurações do calendário → Incorporar código</b>.
+            Cole aqui o código <code>&lt;iframe&gt;</code> (ou só o link <code>src</code>).
+          </p>
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={4}
+            placeholder='<iframe src="https://calendar.google.com/calendar/embed?src=..."></iframe>'
+            style={{ width: "100%", padding: "10px 12px", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, color: theme.text, fontSize: 13, fontFamily: "ui-monospace, monospace", outline: "none", resize: "vertical" }} />
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button onClick={save} disabled={!draft.trim()}
+              style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: draft.trim() ? "pointer" : "default", opacity: draft.trim() ? 1 : 0.5, fontFamily: "inherit" }}>
+              Salvar agenda
+            </button>
+            {saved && <button onClick={() => { setDraft(saved); setEditing(false); }} style={{ background: theme.inputBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "9px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+            <button onClick={() => { setDraft(saved); setEditing(true); }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "7px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <Pencil size={13} aria-hidden /> Trocar agenda
+            </button>
+          </div>
+          <iframe src={src} title="Agenda" style={{ flex: 1, width: "100%", border: `1px solid ${theme.border}`, borderRadius: 12, minHeight: 480 }} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function PersonalArea({ theme, currentUser, tasks, projects, users, tags, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: PersonalAreaProps) {
   const tabs: { key: PersonalAreaProps["personalTab"]; label: string }[] = [
-    { key: "minhas-tarefas", label: "📋 Minhas Tarefas" },
-    { key: "anotacoes", label: "📝 Anotações" },
-    { key: "rotina", label: "🔄 Rotina" },
+    { key: "minhas-tarefas", label: "Tarefas" },
+    { key: "agenda", label: "Agenda" },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>👤 Minha Área</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Minha Área</h1>
         <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{currentUser.name}</p>
       </div>
       <div style={{ display: "flex", gap: 0, padding: "0 24px", borderBottom: `1px solid ${theme.border}` }}>
@@ -2541,8 +2605,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} tags={tags} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
-        {personalTab === "anotacoes" && <NotesTab theme={theme} currentUser={currentUser} />}
-        {personalTab === "rotina" && <RoutineTab theme={theme} currentUser={currentUser} />}
+        {personalTab === "agenda" && <AgendaTab theme={theme} currentUser={currentUser} />}
       </div>
     </div>
   );
@@ -2570,8 +2633,8 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content">("dashboard");
-  const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "anotacoes" | "rotina">("minhas-tarefas");
+  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine">("dashboard");
+  const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("nexia-group-order");
@@ -2881,7 +2944,26 @@ export default function TaskManager() {
 
       {/* Sidebar */}
       <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"} data-collapsed={sidebarCollapsed ? "true" : "false"}
-        style={{ width: sidebarCollapsed ? 0 : 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: sidebarCollapsed ? "none" : `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? 0 : "20px 0", flexShrink: 0, height: "100%", overflow: "hidden", transition: "width 0.2s ease" }}>
+        style={{ width: sidebarCollapsed ? 68 : 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "16px 0" : "20px 0", flexShrink: 0, height: "100%", overflow: "hidden", transition: "width 0.2s ease" }}>
+        {sidebarCollapsed ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1, overflowY: "auto", width: "100%" }}>
+            <button onClick={() => setSidebarCollapsed(false)} title="Expandir menu" aria-label="Expandir menu" style={railBtnStyle(false)}><PanelLeftOpen size={18} /></button>
+            <div style={{ height: 6 }} />
+            <button onClick={() => setActiveView("dashboard")} title="Dashboard" aria-label="Dashboard" style={railBtnStyle(activeView === "dashboard")}><LayoutDashboard size={18} /></button>
+            <button onClick={() => setActiveView("personal")} title="Minha Área" aria-label="Minha Área" style={railBtnStyle(activeView === "personal")}><UserIcon size={18} /></button>
+            <button onClick={() => setActiveView("notes")} title="Anotações" aria-label="Anotações" style={railBtnStyle(activeView === "notes")}><Pencil size={18} /></button>
+            <button onClick={() => setActiveView("routine")} title="Rotina" aria-label="Rotina" style={railBtnStyle(activeView === "routine")}><Repeat size={18} /></button>
+            {workspaces.length > 0 && <div style={{ width: 24, height: 1, background: "var(--sidebar-border)", margin: "6px 0" }} />}
+            {workspaces.map((ws) => (
+              <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }} title={ws.name} aria-label={ws.name} style={railBtnStyle(activeWorkspace === ws.id)}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: ws.color }} />
+              </button>
+            ))}
+            <div style={{ flex: 1 }} />
+            {isAdmin && <button onClick={() => setShowAdmin(true)} title="Painel Admin" aria-label="Painel Admin" style={{ ...railBtnStyle(false), color: "#FFB4BD" }}><Settings size={18} /></button>}
+          </div>
+        ) : (
+        <>
         <div style={{ padding: "20px 20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <ClarezaLogo height={28} forceWhite />
           <button onClick={() => setSidebarCollapsed(true)} aria-label="Recolher menu" title="Recolher menu"
@@ -2900,6 +2982,16 @@ export default function TaskManager() {
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
+          </button>
+
+          <button className="sidebar-item" onClick={() => { setActiveView("notes"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "notes" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "notes" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            <Pencil size={16} aria-hidden /><span style={{ flex: 1 }}>Anotações</span>
+          </button>
+
+          <button className="sidebar-item" onClick={() => { setActiveView("routine"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "routine" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "routine" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            <Repeat size={16} aria-hidden /><span style={{ flex: 1 }}>Rotina</span>
           </button>
 
           {activeWorkspace === "all" ? (
@@ -2991,6 +3083,8 @@ export default function TaskManager() {
             <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
           </div>
         </div>
+        </>
+        )}
       </aside>
 
       {/* Main */}
@@ -3227,6 +3321,24 @@ export default function TaskManager() {
               workspaceId={activeWorkspace !== "all" ? activeWorkspace : undefined}
               workspaceName={activeWorkspace !== "all" ? activeWs?.name : undefined}
             />
+          </motion.div>
+        ) : activeView === "notes" ? (
+          <motion.div key="view-notes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Anotações</h1>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              <NotesTab theme={theme} currentUser={currentUser} />
+            </div>
+          </motion.div>
+        ) : activeView === "routine" ? (
+          <motion.div key="view-routine" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Rotina</h1>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              <RoutineTab theme={theme} currentUser={currentUser} />
+            </div>
           </motion.div>
         ) : (
           <motion.div
