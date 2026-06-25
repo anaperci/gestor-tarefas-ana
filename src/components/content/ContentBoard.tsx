@@ -269,7 +269,7 @@ function ContentTopBar({
       )}
 
       <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>Conteúdo</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", fontFamily: "var(--font-sans), Poppins, sans-serif" }}>Conteúdo</span>
         {workspaceName && (
           <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>{workspaceName}</span>
         )}
@@ -505,7 +505,7 @@ function ContentEditor({
         style={{
           width: "100%", padding: "8px 0", marginBottom: 12,
           background: "transparent", border: "none",
-          fontFamily: "var(--font-poppins), Poppins, sans-serif",
+          fontFamily: "var(--font-sans), Poppins, sans-serif",
           fontSize: 30, fontWeight: 600, color: "var(--text)",
           outline: "none", letterSpacing: "-0.02em",
         }}

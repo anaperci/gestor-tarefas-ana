@@ -1342,7 +1342,7 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
               )}
               {project && (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: project.color, fontWeight: 600, background: theme.badgeBg(project.color), padding: "3px 10px", borderRadius: 12 }}>
-                  {project.icon} {project.name}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: project.color, flexShrink: 0 }} />{project.name}</span>
                 </span>
               )}
             </div>
@@ -1831,7 +1831,7 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
       {!isSubtask && (
         <div onClick={(e) => e.stopPropagation()}>
           <Dropdown options={projects.map((p) => ({ value: p.id, label: p.name, color: p.color, icon: p.icon, name: p.name }))} value={task.projectId} onChange={(v: string) => onUpdate({ ...task, projectId: v })} theme={theme} disabled={!canEdit}
-            renderOption={(o) => <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, color: o.color || theme.textSecondary }}>{o.icon} {o.label || o.name}</span>} />
+            renderOption={(o) => <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: o.color || theme.textSecondary }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color || theme.textMuted, flexShrink: 0 }} />{o.label || o.name}</span>} />
         </div>
       )}
 
@@ -1928,7 +1928,7 @@ function MobileTaskCard({ task, projects, users, onUpdate, onOpen, theme, canEdi
         </div>
         {project && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: project.color || theme.textSecondary, fontWeight: 600, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            <span aria-hidden>{project.icon}</span>{project.name}
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: project.color, flexShrink: 0 }} />{project.name}
           </span>
         )}
         {task.deadline && (
@@ -2057,7 +2057,7 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleP
         </span>
       )}
       <span style={{ fontSize: 10, color: group.color, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", fontWeight: 700 }}>▶</span>
-      <span style={{ fontSize: 16 }}>{group.icon}</span>
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: group.color, flexShrink: 0 }} />
       <span style={{ fontSize: 15, fontWeight: 700, color: group.color }}>{group.name}</span>
       <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
 
@@ -2205,6 +2205,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
         <StatCard label="Em progresso" value={doing} color="#FDAB3D" theme={theme} />
         <StatCard label="Atrasadas" value={overdue} color="#E2445C" theme={theme} />
       </div>
+      <div style={{ padding: "0 24px 24px" }}>
       {myTasks.length === 0 && (
         <EmptyState
           icon={Inbox}
@@ -2227,6 +2228,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
           </>)}
         </div>
       ))}
+      </div>
     </div>
   );
 }
@@ -2900,13 +2902,6 @@ export default function TaskManager() {
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
           </button>
 
-          {currentUser.canAccessContent && activeWorkspace === "all" && (
-            <button className="sidebar-item" onClick={() => { setActiveView("content"); }}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "content" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "content" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-              <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
-            </button>
-          )}
-
           {activeWorkspace === "all" ? (
             workspaces.length > 0 && (
               <div style={{ padding: "0 8px", marginTop: 4 }}>
@@ -2949,7 +2944,7 @@ export default function TaskManager() {
               {visibleProjects.filter((proj) => proj.workspaceId === activeWorkspace).map((proj) => (
                 <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
                   onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
-                  <span style={{ fontSize: 16 }}>{proj.icon}</span>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
                   <span className="proj-count" style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
                   {isAdmin && (
@@ -3077,7 +3072,7 @@ export default function TaskManager() {
           <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
               {activeProj
-                ? <><span aria-hidden>{activeProj.icon}</span>{activeProj.name}</>
+                ? <><span style={{ width: 12, height: 12, borderRadius: "50%", background: activeProj.color, flexShrink: 0 }} />{activeProj.name}</>
                 : <><LayoutGrid size={22} aria-hidden /> Todas as Tarefas</>}
             </h1>
             <p style={{ fontSize: 14, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
@@ -3154,7 +3149,7 @@ export default function TaskManager() {
             }}
           />
         ) : (
-        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "16px 0", WebkitOverflowScrolling: "touch" }}>
+        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "16px 24px", WebkitOverflowScrolling: "touch" }}>
           {filteredTasks.length === 0 && (
             <EmptyState
               icon={ListChecks}

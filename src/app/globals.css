@@ -184,7 +184,7 @@ button { font-family: inherit; }
 @media (max-width: 768px) {
   /* No mobile a board vira cards empilhados — preenche a largura, sem scroll-x */
   .board-group { min-width: 0; width: 100%; }
-  .board-list-scroll { overflow-x: hidden !important; }
+  .board-list-scroll { overflow-x: hidden !important; padding: 12px 12px !important; }
 
   /* Menos respiro lateral no shell mobile */
   .app-shell { padding: 0 !important; gap: 0 !important; }
