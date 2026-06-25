@@ -12,6 +12,7 @@ import {
   Link2, LayoutDashboard, List, KanbanSquare,
   ChevronLeft, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
+  ChevronDown, Calendar, Check,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -2826,7 +2827,6 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
   const tabs: { key: PersonalAreaProps["personalTab"]; label: string }[] = [
     { key: "minhas-tarefas", label: "Tarefas" },
     { key: "transcricoes", label: "Transcrições" },
-    { key: "agenda", label: "Agenda" },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
@@ -2845,7 +2845,6 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
       <div style={{ flex: 1, overflowY: "auto" }}>
         {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} tags={tags} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
         {personalTab === "transcricoes" && <TranscriptionsTab theme={theme} />}
-        {personalTab === "agenda" && <AgendaTab theme={theme} currentUser={currentUser} />}
       </div>
     </div>
   );
@@ -2873,7 +2872,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine" | "assets">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine" | "assets" | "agenda">("dashboard");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "transcricoes" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -2886,6 +2885,14 @@ export default function TaskManager() {
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // recolher (desktop)
+  const [wsSwitcherOpen, setWsSwitcherOpen] = useState(false);
+  const wsSwitcherRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!wsSwitcherOpen) return;
+    const onDoc = (e: MouseEvent) => { if (wsSwitcherRef.current && !wsSwitcherRef.current.contains(e.target as Node)) setWsSwitcherOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [wsSwitcherOpen]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [tasksViewMode, setTasksViewMode] = useState<"list" | "kanban">(() => {
@@ -3192,6 +3199,7 @@ export default function TaskManager() {
             <button onClick={() => setActiveView("dashboard")} title="Dashboard" aria-label="Dashboard" style={railBtnStyle(activeView === "dashboard")}><LayoutDashboard size={18} /></button>
             <button onClick={() => setActiveView("personal")} title="Minha Área" aria-label="Minha Área" style={railBtnStyle(activeView === "personal")}><UserIcon size={18} /></button>
             <button onClick={() => setActiveView("notes")} title="Anotações" aria-label="Anotações" style={railBtnStyle(activeView === "notes")}><Pencil size={18} /></button>
+            <button onClick={() => setActiveView("agenda")} title="Agenda" aria-label="Agenda" style={railBtnStyle(activeView === "agenda")}><Calendar size={18} /></button>
             <button onClick={() => setActiveView("routine")} title="Rotina" aria-label="Rotina" style={railBtnStyle(activeView === "routine")}><Repeat size={18} /></button>
             {workspaces.length > 0 && <div style={{ width: 24, height: 1, background: "var(--sidebar-border)", margin: "6px 0" }} />}
             {workspaces.map((ws) => (
@@ -3204,11 +3212,11 @@ export default function TaskManager() {
           </div>
         ) : (
         <>
-        <div style={{ padding: "20px 20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <ClarezaLogo height={28} forceWhite />
+        <div style={{ padding: "22px 16px 18px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+          <ClarezaLogo height={38} forceWhite />
           <button onClick={() => setSidebarCollapsed(true)} aria-label="Recolher menu" title="Recolher menu"
             className="sidebar-collapse-btn"
-            style={{ background: "transparent", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", padding: 4, borderRadius: 6 }}>
+            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", padding: 4, borderRadius: 6 }}>
             <PanelLeftClose size={18} />
           </button>
         </div>
@@ -3227,6 +3235,11 @@ export default function TaskManager() {
           <button className="sidebar-item" onClick={() => { setActiveView("notes"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "notes" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "notes" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <Pencil size={16} aria-hidden /><span style={{ flex: 1 }}>Anotações</span>
+          </button>
+
+          <button className="sidebar-item" onClick={() => { setActiveView("agenda"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "agenda" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "agenda" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            <Calendar size={16} aria-hidden /><span style={{ flex: 1 }}>Agenda</span>
           </button>
 
           <button className="sidebar-item" onClick={() => { setActiveView("routine"); }}
@@ -3250,14 +3263,32 @@ export default function TaskManager() {
             )
           ) : (
             <div style={{ padding: "0 8px", marginTop: 4 }}>
-              <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); }}
-                className="sidebar-item"
-                style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", border: "none", textAlign: "left", padding: "6px 8px", borderRadius: 8, marginBottom: 8, fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--sidebar-text-muted)", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}>
-                <ChevronLeft size={14} aria-hidden /> Workspaces
-              </button>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px 10px" }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: activeWs?.color || "var(--sidebar-text-muted)", flexShrink: 0 }} />
-                <span style={{ fontSize: 15, fontWeight: 700, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeWs?.name || "Workspace"}</span>
+              {/* Seletor de workspace (estilo Monday) */}
+              <div ref={wsSwitcherRef} style={{ position: "relative", marginBottom: 10 }}>
+                <button onClick={() => setWsSwitcherOpen((s) => !s)} aria-haspopup="listbox" aria-expanded={wsSwitcherOpen}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: `1px solid var(--sidebar-border)`, textAlign: "left", padding: "10px 12px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", background: "var(--sidebar-input-bg)", color: "var(--sidebar-text)" }}>
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: activeWs?.color || "var(--sidebar-text-muted)", flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeWs?.name || "Workspace"}</span>
+                  <ChevronDown size={16} aria-hidden style={{ transform: wsSwitcherOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0, color: "var(--sidebar-text-muted)" }} />
+                </button>
+                {wsSwitcherOpen && (
+                  <div role="listbox" style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "var(--sidebar)", border: `1px solid var(--sidebar-border)`, borderRadius: 10, padding: 6, boxShadow: "0 12px 32px rgba(0,0,0,0.32)", maxHeight: 320, overflowY: "auto" }}>
+                    {workspaces.map((ws) => (
+                      <button key={ws.id} role="option" aria-selected={ws.id === activeWorkspace}
+                        onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); setWsSwitcherOpen(false); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", textAlign: "left", padding: "9px 10px", borderRadius: 8, fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: ws.id === activeWorkspace ? "var(--sidebar-active-bg)" : "transparent", color: ws.id === activeWorkspace ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
+                        {ws.id === activeWorkspace && <Check size={14} aria-hidden style={{ flexShrink: 0 }} />}
+                      </button>
+                    ))}
+                    <div style={{ height: 1, background: "var(--sidebar-border)", margin: "6px 4px" }} />
+                    <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); setActiveView("dashboard"); setWsSwitcherOpen(false); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", textAlign: "left", padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: "transparent", color: "var(--sidebar-text-muted)" }}>
+                      <ChevronLeft size={14} aria-hidden /> Todos os workspaces
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
@@ -3591,6 +3622,15 @@ export default function TaskManager() {
             </div>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <RoutineTab theme={theme} currentUser={currentUser} />
+            </div>
+          </motion.div>
+        ) : activeView === "agenda" ? (
+          <motion.div key="view-agenda" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Agenda</h1>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              <AgendaTab theme={theme} currentUser={currentUser} />
             </div>
           </motion.div>
         ) : (
