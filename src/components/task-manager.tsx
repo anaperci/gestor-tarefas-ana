@@ -13,7 +13,6 @@ import {
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -3392,20 +3391,15 @@ export default function TaskManager() {
           </button>
           </div>
         </div>
-        <AnimatePresence mode="wait" initial={false}>
         {activeView === "transcricoes" ? (
-          <motion.div key="view-transcricoes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0 }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div key="view-transcricoes" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <TranscriptionsTab theme={theme} />
             </div>
-          </motion.div>
+          </div>
         ) : activeView === "tasks" ? (
-          <motion.div
+          <div
             key="view-tasks"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0 }}
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
         <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -3568,14 +3562,10 @@ export default function TaskManager() {
           </DndContext>
         </div>
         )}
-          </motion.div>
+          </div>
         ) : activeView === "content" ? (
-          <motion.div
+          <div
             key="view-content"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0 }}
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
             <ContentBoard
@@ -3584,30 +3574,26 @@ export default function TaskManager() {
               users={users}
               projects={visibleProjects}
             />
-          </motion.div>
+          </div>
         ) : activeView === "assets" ? (
-          <motion.div key="view-assets" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0 }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div key="view-assets" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <AssetsView theme={theme} />
-          </motion.div>
+          </div>
         ) : activeView === "notes" ? (
-          <motion.div key="view-notes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0 }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div key="view-notes" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <NotesTab theme={theme} currentUser={currentUser} />
             </div>
-          </motion.div>
+          </div>
         ) : activeView === "routine" ? (
-          <motion.div key="view-routine" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0 }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div key="view-routine" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <RoutineTab theme={theme} currentUser={currentUser} />
             </div>
-          </motion.div>
+          </div>
         ) : (
-          <motion.div
+          <div
             key="view-personal"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0 }}
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
@@ -3624,9 +3610,8 @@ export default function TaskManager() {
                 onNewProject={isAdmin ? () => { setActiveView("tasks"); setShowNewProject(true); } : undefined}
               />
             </div>
-          </motion.div>
+          </div>
         )}
-        </AnimatePresence>
       </div>
 
       {detailTask && (
