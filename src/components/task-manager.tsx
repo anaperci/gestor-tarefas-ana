@@ -368,6 +368,8 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [newWsName, setNewWsName] = useState("");
+  const [editingWs, setEditingWs] = useState<string | null>(null);
+  const [editWsName, setEditWsName] = useState("");
 
   const addUser = async () => {
     if (!newUser.username.trim() || !newUser.password.trim()) return;
@@ -409,6 +411,18 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
     } catch (err) {
       setFeedback(err instanceof Error ? err.message : "Falha ao criar workspace.");
     }
+  };
+
+  const renameWorkspace = async (wsId: string) => {
+    const name = editWsName.trim();
+    if (!name) { setEditingWs(null); return; }
+    try {
+      await api.updateWorkspace(wsId, { name });
+      onUpdateWorkspaces(workspaces.map((w) => w.id === wsId ? { ...w, name } : w));
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : "Falha ao renomear.");
+    }
+    setEditingWs(null);
   };
 
   const toggleWorkspaceMember = async (wsId: string, userId: string) => {
@@ -601,8 +615,26 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
                   <div key={ws.id} style={{ padding: 16, borderRadius: 12, border: `1px solid ${theme.border}`, marginBottom: 12, background: theme.inputBg }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                       <span style={{ fontSize: 18 }}>{ws.icon}</span>
-                      <span style={{ fontWeight: 700, color: ws.color, fontSize: 15 }}>{ws.name}</span>
-                      <span style={{ fontSize: 11, color: theme.textMuted }}>· {wsProjects.length} projeto(s)</span>
+                      {editingWs === ws.id ? (
+                        <>
+                          <input autoFocus value={editWsName} onChange={(e) => setEditWsName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") renameWorkspace(ws.id); if (e.key === "Escape") setEditingWs(null); }}
+                            style={{ ...inputStyle, flex: 1, fontSize: 14, padding: "6px 10px" }} />
+                          <button onClick={() => renameWorkspace(ws.id)} title="Salvar"
+                            style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                          <button onClick={() => setEditingWs(null)} title="Cancelar"
+                            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ fontWeight: 700, color: ws.color, fontSize: 15 }}>{ws.name}</span>
+                          <button onClick={() => { setEditingWs(ws.id); setEditWsName(ws.name); }} title="Renomear workspace"
+                            style={{ background: "transparent", border: "none", color: theme.textMuted, cursor: "pointer", display: "flex", alignItems: "center", padding: 2, borderRadius: 4 }}>
+                            <Pencil size={13} aria-hidden />
+                          </button>
+                          <span style={{ fontSize: 11, color: theme.textMuted }}>· {wsProjects.length} projeto(s)</span>
+                        </>
+                      )}
                     </div>
 
                     <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase" }}>Membros</div>
