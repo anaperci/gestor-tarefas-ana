@@ -100,8 +100,8 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 // 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
 // 10 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
 // Tarefa = 1fr (fluida) pra o grid sempre caber no container; demais colunas enxutas
-const GRID_COLUMNS = "26px minmax(90px, 1fr) 88px 98px 110px 80px 98px 76px 42px 26px";
-const GRID_COLUMNS_SUBTASK = "26px 1fr 112px 104px 52px";
+const GRID_COLUMNS = "24px minmax(72px, 1fr) 84px 92px 106px 76px 92px 70px 40px 24px";
+const GRID_COLUMNS_SUBTASK = "24px 1fr 108px 100px 48px";
 
 /** Estilo dos botões de ícone na régua (sidebar recolhida). */
 function railBtnStyle(active: boolean): CSSProperties {
@@ -2868,6 +2868,8 @@ export default function TaskManager() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [expandedWs, setExpandedWs] = useState<Set<string>>(new Set());
+  const [editingProjName, setEditingProjName] = useState(false);
+  const [projNameDraft, setProjNameDraft] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -3083,6 +3085,16 @@ export default function TaskManager() {
       setProjects((prev) => [...prev, { ...np, ownerId: np.ownerId || currentUser.id, sharedWith: np.sharedWith || [] }]);
     } catch { showToast("Erro ao criar projeto"); }
     setNewProjectName(""); setShowNewProject(false);
+  };
+
+  const renameProjectName = async () => {
+    if (!activeProj) return;
+    const name = projNameDraft.trim();
+    setEditingProjName(false);
+    if (!name || name === activeProj.name) return;
+    setProjects((prev) => prev.map((p) => (p.id === activeProj.id ? { ...p, name } : p)));
+    try { await api.renameProject(activeProj.id, name); showToast("Projeto renomeado", "success"); }
+    catch { showToast("Erro ao renomear"); }
   };
 
   const deleteProject = (projId: string) => {
@@ -3399,9 +3411,30 @@ export default function TaskManager() {
         <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-              {activeProj
-                ? <><span style={{ width: 12, height: 12, borderRadius: "50%", background: activeProj.color, flexShrink: 0 }} />{activeProj.name}</>
-                : <><LayoutGrid size={22} aria-hidden /> Todas as Tarefas</>}
+              {activeProj ? (
+                editingProjName ? (
+                  <>
+                    <span style={{ width: 12, height: 12, borderRadius: "50%", background: activeProj.color, flexShrink: 0 }} />
+                    <input autoFocus value={projNameDraft}
+                      onChange={(e) => setProjNameDraft(e.target.value)}
+                      onBlur={renameProjectName}
+                      onKeyDown={(e) => { if (e.key === "Enter") renameProjectName(); if (e.key === "Escape") setEditingProjName(false); }}
+                      style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: theme.text, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "2px 8px", outline: "none", fontFamily: "inherit", minWidth: 200 }} />
+                  </>
+                ) : (
+                  <>
+                    <span style={{ width: 12, height: 12, borderRadius: "50%", background: activeProj.color, flexShrink: 0 }} />
+                    {activeProj.name}
+                    {isAdmin && (
+                      <button onClick={() => { setProjNameDraft(activeProj.name); setEditingProjName(true); }}
+                        title="Renomear projeto" aria-label="Renomear projeto"
+                        style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", display: "inline-flex", padding: 4, borderRadius: 6 }}>
+                        <Pencil size={16} />
+                      </button>
+                    )}
+                  </>
+                )
+              ) : <><LayoutGrid size={22} aria-hidden /> Todas as Tarefas</>}
             </h1>
             <p style={{ fontSize: 14, color: theme.textMuted, marginTop: 2 }}>{filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}</p>
           </div>
@@ -3477,7 +3510,7 @@ export default function TaskManager() {
             }}
           />
         ) : (
-        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "16px 24px", WebkitOverflowScrolling: "touch" }}>
+        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "16px 28px", WebkitOverflowScrolling: "touch" }}>
           {filteredTasks.length === 0 && (
             <EmptyState
               icon={ListChecks}

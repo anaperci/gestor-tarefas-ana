@@ -153,6 +153,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ workspaceId }),
     }),
+  renameProject: (id: string, name: string) =>
+    request<{ success: boolean }>(`/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    }),
 
   // Workspaces
   getWorkspaces: () => request<Workspace[]>("/workspaces"),

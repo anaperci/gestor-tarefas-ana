@@ -5,17 +5,18 @@ import { requireAuth, assertAdmin } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { audit } from "@/lib/audit";
 
-const moveSchema = z.object({
-  workspaceId: z.string().min(1).max(64),
+const patchSchema = z.object({
+  workspaceId: z.string().min(1).max(64).optional(),
+  name: z.string().min(1).max(120).optional(),
 });
 
 export const PATCH = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const user = await requireAuth(request);
-    assertAdmin(user); // mover projeto entre workspaces é ação de admin
+    assertAdmin(user); // mover/renomear projeto é ação de admin
 
-    const { workspaceId } = await parseJson(request, moveSchema);
+    const body = await parseJson(request, patchSchema);
 
     const { data: project } = await supabase
       .from("projects")
@@ -25,21 +26,28 @@ export const PATCH = withErrorHandling(
       .maybeSingle();
     if (!project) throw new ApiError("NOT_FOUND", "Projeto não encontrado");
 
-    const { data: ws } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("id", workspaceId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (!ws) throw new ApiError("NOT_FOUND", "Workspace não encontrado");
+    const updates: Record<string, unknown> = {};
 
-    const { error } = await supabase
-      .from("projects")
-      .update({ workspace_id: workspaceId })
-      .eq("id", id);
+    if (body.workspaceId) {
+      const { data: ws } = await supabase
+        .from("workspaces")
+        .select("id")
+        .eq("id", body.workspaceId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!ws) throw new ApiError("NOT_FOUND", "Workspace não encontrado");
+      updates.workspace_id = body.workspaceId;
+    }
+    if (body.name) updates.name = body.name.trim();
+
+    if (Object.keys(updates).length === 0) {
+      throw new ApiError("VALIDATION_ERROR", "Nada para atualizar");
+    }
+
+    const { error } = await supabase.from("projects").update(updates).eq("id", id);
     if (error) {
-      console.error("[projects.PATCH] move failed:", error);
-      throw new ApiError("INTERNAL_ERROR", "Falha ao mover projeto");
+      console.error("[projects.PATCH] failed:", error);
+      throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar projeto");
     }
 
     await audit({
@@ -48,11 +56,11 @@ export const PATCH = withErrorHandling(
       resourceId: id,
       actorId: user.id,
       actorRole: user.role,
-      metadata: { workspaceId },
+      metadata: updates,
       request,
     });
 
-    return NextResponse.json({ success: true, workspaceId });
+    return NextResponse.json({ success: true, ...updates });
   }
 );
 
