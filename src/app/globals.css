@@ -177,3 +177,18 @@ button { font-family: inherit; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   Mobile — board rola na horizontal (grid largo não estoura a página)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Grupo da board assume a largura do grid e rola dentro do .board-list-scroll */
+  .board-group { min-width: max-content; }
+
+  /* Menos respiro lateral no shell mobile */
+  .app-shell { padding: 0 !important; gap: 0 !important; }
+  .app-main { border-radius: 0 !important; }
+
+  /* Alvos de toque mínimos em itens interativos da sidebar/board */
+  .sidebar-item, .task-row { min-height: 44px; }
+}

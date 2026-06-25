@@ -2731,7 +2731,7 @@ export default function TaskManager() {
             }}
           />
         ) : (
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 0" }}>
+        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "16px 0", WebkitOverflowScrolling: "touch" }}>
           {filteredTasks.length === 0 && (
             <EmptyState
               icon={ListChecks}
@@ -2746,7 +2746,7 @@ export default function TaskManager() {
               {groups.map((group) => (
                 <SortableGroup key={group.id} id={group.id}>
                   {(dragHandleProps) => (
-                    <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
+                    <div className="board-group" style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
                       <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} canEdit={canEdit} onQuickAdd={() => addTaskInGroup(group.id)} />
                       {!collapsedGroups.has(group.id) && (
                         <>
