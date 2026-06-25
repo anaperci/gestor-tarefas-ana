@@ -191,4 +191,7 @@ button { font-family: inherit; }
 
   /* Alvos de toque mínimos em itens interativos da sidebar/board */
   .sidebar-item, .task-row { min-height: 44px; }
+
+  /* Recolher/expandir é desktop-only; no mobile o drawer já cuida */
+  .sidebar-collapse-btn, .sidebar-expand-btn { display: none !important; }
 }

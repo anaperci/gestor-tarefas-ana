@@ -11,6 +11,7 @@ import {
   LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
   Link2, LayoutDashboard, List, KanbanSquare,
+  ChevronLeft, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -2192,6 +2193,7 @@ export default function TaskManager() {
   const [toasts, setToasts] = useState<{ id: string; message: string; type: "error" | "success" }[]>([]);
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // recolher (desktop)
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [tasksViewMode, setTasksViewMode] = useState<"list" | "kanban">(() => {
@@ -2417,6 +2419,7 @@ export default function TaskManager() {
   const counts: Record<string, number> = { all: filteredTasks.length };
   visibleProjects.forEach((p) => { counts[p.id] = tasks.filter((t) => t.projectId === p.id).length; });
   const activeProj = projects.find((p) => p.id === activeProject);
+  const activeWs = workspaces.find((w) => w.id === activeWorkspace);
 
   const handleLogin = async (user: User) => {
     setCurrentUser(user);
@@ -2488,10 +2491,15 @@ export default function TaskManager() {
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden />}
 
       {/* Sidebar */}
-      <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"}
-        style={{ width: 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: "20px 0", flexShrink: 0, height: "100%" }}>
-        <div style={{ padding: "20px 20px 16px" }}>
+      <aside className="app-sidebar" data-open={sidebarOpen ? "true" : "false"} data-collapsed={sidebarCollapsed ? "true" : "false"}
+        style={{ width: sidebarCollapsed ? 0 : 260, background: "var(--sidebar)", color: "var(--sidebar-text)", borderRight: sidebarCollapsed ? "none" : `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? 0 : "20px 0", flexShrink: 0, height: "100%", overflow: "hidden", transition: "width 0.2s ease" }}>
+        <div style={{ padding: "20px 20px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <ClarezaLogo height={28} forceWhite />
+          <button onClick={() => setSidebarCollapsed(true)} aria-label="Recolher menu" title="Recolher menu"
+            className="sidebar-collapse-btn"
+            style={{ background: "transparent", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", padding: 4, borderRadius: 6 }}>
+            <PanelLeftClose size={18} />
+          </button>
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
@@ -2512,64 +2520,71 @@ export default function TaskManager() {
             </button>
           )}
 
-          {workspaces.length > 0 && (
-            <div style={{ padding: "0 8px", marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
+          {activeWorkspace === "all" ? (
+            workspaces.length > 0 && (
+              <div style={{ padding: "0 8px", marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
+                {workspaces.map((ws) => (
+                  <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }}
+                    className="sidebar-item"
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "10px 12px", borderRadius: 8, marginBottom: 2, fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: "transparent", color: "var(--sidebar-text-secondary)" }}>
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          ) : (
+            <div style={{ padding: "0 8px", marginTop: 4 }}>
               <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); }}
                 className="sidebar-item"
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "8px 12px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: activeWorkspace === "all" ? "var(--sidebar-active-bg)" : "transparent", color: activeWorkspace === "all" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-                <LayoutGrid size={15} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
+                style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", border: "none", textAlign: "left", padding: "6px 8px", borderRadius: 8, marginBottom: 8, fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--sidebar-text-muted)", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}>
+                <ChevronLeft size={14} aria-hidden /> Workspaces
               </button>
-              {workspaces.map((ws) => (
-                <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }}
-                  className="sidebar-item"
-                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "8px 12px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: activeWorkspace === ws.id ? "var(--sidebar-active-bg)" : "transparent", color: activeWorkspace === ws.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
-                </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px 10px" }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: activeWs?.color || "var(--sidebar-text-muted)", flexShrink: 0 }} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeWs?.name || "Workspace"}</span>
+              </div>
+
+              <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: activeProject === "all" ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === "all" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
+                <LayoutGrid size={16} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
+                <span style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
+              </button>
+
+              {visibleProjects.filter((proj) => proj.workspaceId === activeWorkspace).map((proj) => (
+                <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
+                  onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
+                  <span style={{ fontSize: 16 }}>{proj.icon}</span>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
+                  <span className="proj-count" style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
+                  {isAdmin && (
+                    <button onClick={(e) => { e.stopPropagation(); deleteProject(proj.id); }}
+                      className="proj-menu-btn"
+                      style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", fontSize: 16, padding: "0 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", letterSpacing: 1, lineHeight: 1, fontWeight: 700 }}
+                      title={`Apagar ${proj.name}`}>
+                      ···
+                    </button>
+                  )}
+                </div>
               ))}
-            </div>
-          )}
 
-          <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", padding: "0 8px", marginBottom: 8 }}>Projetos</div>
-
-          <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === "all" ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === "all" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-            <LayoutGrid size={16} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
-            <span style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
-          </button>
-
-          {visibleProjects.filter((proj) => activeWorkspace === "all" || proj.workspaceId === activeWorkspace).map((proj) => (
-            <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
-              onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
-              <span style={{ fontSize: 16 }}>{proj.icon}</span>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
-              <span className="proj-count" style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
               {isAdmin && (
-                <button onClick={(e) => { e.stopPropagation(); deleteProject(proj.id); }}
-                  className="proj-menu-btn"
-                  style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", fontSize: 16, padding: "0 4px", borderRadius: 4, opacity: 0, transition: "opacity 0.15s", letterSpacing: 1, lineHeight: 1, fontWeight: 700 }}
-                  title={`Apagar ${proj.name}`}>
-                  ···
-                </button>
+                showNewProject ? (
+                  <div style={{ display: "flex", gap: 4, marginTop: 8, padding: "0 4px" }}>
+                    <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addProject()} placeholder="Nome do projeto"
+                      style={{ flex: 1, background: "var(--sidebar-input-bg)", border: `1px solid var(--sidebar-border)`, borderRadius: 6, padding: "6px 10px", color: "var(--sidebar-text)", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
+                    <button onClick={addProject} style={{ background: "var(--sidebar-active-bg)", border: "none", color: "var(--sidebar-text)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                    <button onClick={() => setShowNewProject(false)} style={{ background: "var(--sidebar-input-bg)", border: "none", color: "var(--sidebar-text-secondary)", borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowNewProject(true)} className="sidebar-item"
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, marginTop: 6, fontSize: 12, color: "var(--sidebar-text-muted)", background: "transparent", width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}>
+                    <span style={{ fontSize: 14 }}>+</span> Novo projeto
+                  </button>
+                )
               )}
             </div>
-          ))}
-
-          {isAdmin && (
-            showNewProject ? (
-              <div style={{ display: "flex", gap: 4, marginTop: 8, padding: "0 4px" }}>
-                <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addProject()} placeholder="Nome do projeto"
-                  style={{ flex: 1, background: "var(--sidebar-input-bg)", border: `1px solid var(--sidebar-border)`, borderRadius: 6, padding: "6px 10px", color: "var(--sidebar-text)", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
-                <button onClick={addProject} style={{ background: "var(--sidebar-active-bg)", border: "none", color: "var(--sidebar-text)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
-                <button onClick={() => setShowNewProject(false)} style={{ background: "var(--sidebar-input-bg)", border: "none", color: "var(--sidebar-text-secondary)", borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
-              </div>
-            ) : (
-              <button onClick={() => setShowNewProject(true)} className="sidebar-item"
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, marginTop: 6, fontSize: 12, color: "var(--sidebar-text-muted)", background: "transparent" }}>
-                <span style={{ fontSize: 14 }}>+</span> Novo projeto
-              </button>
-            )
           )}
         </div>
 
@@ -2592,7 +2607,15 @@ export default function TaskManager() {
       {/* Main */}
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
         {/* Top bar — dados do usuário no canto superior direito (todas as views) */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, background: "var(--surface)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, background: "var(--surface)", flexShrink: 0 }}>
+          {sidebarCollapsed ? (
+            <button onClick={() => setSidebarCollapsed(false)} aria-label="Expandir menu" title="Expandir menu"
+              className="sidebar-expand-btn"
+              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
+              <PanelLeftOpen size={18} />
+            </button>
+          ) : <span />}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             onClick={() => setProfileOpen(true)}
             title="Editar perfil"
@@ -2609,6 +2632,7 @@ export default function TaskManager() {
             style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
             <LogOut size={16} />
           </button>
+          </div>
         </div>
         <AnimatePresence mode="wait" initial={false}>
         {activeView === "dashboard" ? (
