@@ -161,19 +161,19 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         </header>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Username */}
-          <Field id="login-username" label="Usuário">
+          {/* Email */}
+          <Field id="login-username" label="Email">
             <div style={{ position: "relative" }}>
               <span aria-hidden style={iconLeftStyle}>
                 <UserIcon size={18} />
               </span>
               <input
                 id="login-username"
-                type="text"
+                type="email"
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); setError(null); }}
-                placeholder="seu.usuario"
-                autoComplete="username"
+                placeholder="seu@email.com"
+                autoComplete="email"
                 autoFocus
                 aria-invalid={!!error}
                 style={{ ...inputStyle, paddingLeft: 44 }}

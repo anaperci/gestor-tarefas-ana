@@ -6,7 +6,8 @@ import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { clientIp, consumeRateLimit } from "@/lib/rate-limit";
 
 const loginSchema = z.object({
-  username: z.string().min(1).max(40),
+  // Login é por EMAIL (campo mantém o nome "username" p/ compat com o front)
+  username: z.string().min(1).max(120),
   password: z.string().min(1).max(128),
 });
 
@@ -18,11 +19,13 @@ export const POST = withErrorHandling(async (request) => {
   });
 
   const { username, password } = await parseJson(request, loginSchema);
+  const email = username.toLowerCase().trim();
 
+  // Login é por EMAIL apenas
   const { data: user } = await supabase
     .from("users")
     .select("*")
-    .eq("username", username.toLowerCase().trim())
+    .eq("email", email)
     .is("deleted_at", null)
     .maybeSingle();
 
