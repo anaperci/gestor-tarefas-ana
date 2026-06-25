@@ -11,7 +11,7 @@ import {
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
   Link2, LayoutDashboard, List, KanbanSquare,
   ChevronLeft, PanelLeftClose, PanelLeftOpen,
-  Quote, Eraser, Bell,
+  Quote, Eraser, Bell, Paperclip, Download,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -40,6 +40,7 @@ import type {
   RoutineItem,
   Subtask,
   Task,
+  TaskAttachment,
   TaskComment,
   User,
   Workspace,
@@ -1441,6 +1442,8 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
           {/* Subtarefas — bloco separado abaixo do checklist */}
           <SubtasksBlock task={task} canEdit={canEdit} theme={theme} onUpdate={onUpdate} />
 
+          <AttachmentsBlock taskId={task.id} theme={theme} />
+
           <TaskComments taskId={task.id} users={users} theme={theme} canEdit={canEdit} />
         </div>
       </div>
@@ -1572,6 +1575,94 @@ function SubtasksBlock({ task, canEdit, theme, onUpdate }: { task: Task; canEdit
 }
 
 // ——— Task Comments ———
+// ——— Anexos (dentro do TaskDetail) ———
+function formatBytes(n: number | null): string {
+  if (!n) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1048576) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1048576).toFixed(1)} MB`;
+}
+
+function AttachmentsBlock({ taskId, theme }: { taskId: string; theme: Theme }) {
+  const [items, setItems] = useState<TaskAttachment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    try { setItems(await api.getTaskAttachments(taskId)); } catch { /* noop */ } finally { setLoading(false); }
+  }, [taskId]);
+  useEffect(() => { load(); }, [load]);
+
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 52428800) { alert("Arquivo acima de 50 MB."); return; }
+    setUploading(true);
+    try {
+      const att = await api.uploadTaskAttachment(taskId, file);
+      setItems((prev) => [...prev, att]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Falha ao enviar arquivo.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openAtt = async (id: string) => {
+    try { const { url } = await api.getAttachmentUrl(id); window.open(url, "_blank", "noopener"); } catch { /* noop */ }
+  };
+
+  const removeAtt = async (id: string) => {
+    if (!window.confirm("Remover este anexo?")) return;
+    setItems((prev) => prev.filter((a) => a.id !== id));
+    try { await api.deleteAttachment(id); } catch { load(); }
+  };
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: theme.text, display: "flex", alignItems: "center", gap: 7, margin: 0 }}>
+          <Paperclip size={15} aria-hidden /> Anexos {items.length > 0 && <span style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>({items.length})</span>}
+        </h3>
+        <button onClick={() => fileRef.current?.click()} disabled={uploading}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, borderRadius: 8, padding: "6px 12px", cursor: uploading ? "default" : "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", opacity: uploading ? 0.6 : 1 }}>
+          <Plus size={13} aria-hidden /> {uploading ? "Enviando…" : "Anexar arquivo"}
+        </button>
+        <input ref={fileRef} type="file" onChange={onPick} style={{ display: "none" }} />
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: theme.textMuted }}>Carregando…</div>
+      ) : items.length === 0 ? (
+        <div style={{ fontSize: 13, color: theme.textMuted }}>Nenhum anexo. Arquivos até 50 MB.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {items.map((a) => (
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface }}>
+              <span style={{ color: "var(--primary)", flexShrink: 0 }}><Paperclip size={15} /></span>
+              <button onClick={() => openAtt(a.id)} title="Abrir / baixar"
+                style={{ flex: 1, minWidth: 0, textAlign: "left", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 }}>
+                <span style={{ display: "block", fontSize: 13, color: theme.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.fileName}</span>
+                <span style={{ fontSize: 11, color: theme.textMuted }}>{formatBytes(a.sizeBytes)}{a.sizeBytes ? " · " : ""}{relTime(a.createdAt)}</span>
+              </button>
+              <button onClick={() => openAtt(a.id)} aria-label="Baixar" title="Baixar"
+                style={{ background: "none", border: "none", color: theme.textSecondary, cursor: "pointer", display: "flex", padding: 4, borderRadius: 6, flexShrink: 0 }}>
+                <Download size={15} />
+              </button>
+              <button onClick={() => removeAtt(a.id)} aria-label="Remover" title="Remover"
+                style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", display: "flex", padding: 4, borderRadius: 6, flexShrink: 0 }}>
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function relTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);

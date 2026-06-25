@@ -236,6 +236,16 @@ export interface ContentStatusEvent {
   createdAt: string;
 }
 
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  uploadedBy: string;
+  fileName: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  createdAt: string;
+}
+
 export interface AppNotification {
   id: string;
   type: string;

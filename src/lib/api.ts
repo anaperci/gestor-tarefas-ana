@@ -17,6 +17,7 @@ import type {
   RoutineItem,
   Tag,
   Task,
+  TaskAttachment,
   TaskComment,
   UpdateContentItemPayload,
   UpdateTaskPayload,
@@ -186,6 +187,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify(ids && ids.length ? { ids } : {}),
     }),
+
+  // Anexos de tarefa
+  getTaskAttachments: (taskId: string) =>
+    request<TaskAttachment[]>(`/tasks/${taskId}/attachments`),
+  uploadTaskAttachment: async (taskId: string, file: File): Promise<TaskAttachment> => {
+    const token = getToken();
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API_BASE}/tasks/${taskId}/attachments`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "Erro ao enviar" }));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return res.json() as Promise<TaskAttachment>;
+  },
+  getAttachmentUrl: (id: string) =>
+    request<{ url: string; fileName: string }>(`/attachments/${id}`),
+  deleteAttachment: (id: string) =>
+    request<{ success: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
 
   // Notes
   getNotes: () => request<Note[]>("/notes"),
