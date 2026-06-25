@@ -3261,7 +3261,6 @@ export default function TaskManager() {
               <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
               {workspaces.map((ws) => {
                 const wsProjects = visibleProjects.filter((p) => p.workspaceId === ws.id);
-                const wsCount = wsProjects.reduce((s, p) => s + (counts[p.id] || 0), 0);
                 const isOpen = expandedWs.has(ws.id);
                 return (
                   <div key={ws.id}>
@@ -3275,12 +3274,6 @@ export default function TaskManager() {
 
                     {isOpen && (
                       <div style={{ marginLeft: 9, paddingLeft: 8, borderLeft: `1px solid var(--sidebar-border)`, marginBottom: 4 }}>
-                        <button className="sidebar-item" onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: (activeView === "tasks" && activeWorkspace === ws.id && activeProject === "all") ? "var(--sidebar-active-bg)" : "transparent", color: (activeView === "tasks" && activeWorkspace === ws.id && activeProject === "all") ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-                          <LayoutGrid size={15} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
-                          <span style={{ fontSize: 11, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "1px 7px", borderRadius: 10 }}>{wsCount}</span>
-                        </button>
-
                         {wsProjects.map((proj) => (
                           <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 500, background: (activeView === "tasks" && activeProject === proj.id) ? "var(--sidebar-active-bg)" : "transparent", color: (activeView === "tasks" && activeProject === proj.id) ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
                             onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject(proj.id); }}>

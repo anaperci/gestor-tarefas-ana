@@ -86,12 +86,12 @@ html, body {
 }
 
 body {
-  /* Interface: Poppins (sans-serif geométrica). Marca/display: Marcellus.
-     Aliases p/ compat: --font-figtree/-hanken → Poppins; --font-poppins → Marcellus (headlines da marca). */
+  /* Interface inteira: Manrope (--font-sans). Marcellus fica só pra marca (logo/wordmark).
+     Aliases legados todos apontam pra Manrope p/ consistência total. */
   --font-figtree: var(--font-sans);
   --font-hanken: var(--font-sans);
-  --font-poppins: var(--font-marcellus);
-  font-family: var(--font-sans), 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-poppins: var(--font-sans);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

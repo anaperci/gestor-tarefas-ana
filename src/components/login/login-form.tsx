@@ -64,7 +64,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       >
         <form onSubmit={submitForgot} style={{ width: "100%", maxWidth: 400 }}>
           <header style={{ marginBottom: 28 }}>
-            <h2 style={{ fontFamily: "var(--font-marcellus), Georgia, serif", fontSize: 24, margin: 0, color: "var(--text)" }}>
+            <h2 style={{ fontFamily: "var(--font-sans), sans-serif", fontSize: 24, margin: 0, color: "var(--text)" }}>
               Recuperar acesso
             </h2>
             <p style={{ fontSize: 15, color: "var(--text-secondary)", marginTop: 6 }}>
