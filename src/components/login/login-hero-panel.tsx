@@ -23,6 +23,34 @@ export function LoginHeroPanel() {
         padding: "48px",
       }}
     >
+      {/* Starfield (céu estrelado) */}
+      <div className="login-stars" aria-hidden />
+      <div className="login-stars login-stars--2" aria-hidden />
+      <style>{`
+        .login-stars {
+          position: absolute; inset: 0; z-index: 0; pointer-events: none;
+          background-repeat: repeat; background-size: 220px 220px;
+          background-image:
+            radial-gradient(1px 1px at 25px 35px, rgba(255,255,255,.9), transparent),
+            radial-gradient(1px 1px at 90px 120px, rgba(255,255,255,.5), transparent),
+            radial-gradient(1.5px 1.5px at 160px 70px, rgba(255,255,255,.7), transparent),
+            radial-gradient(1px 1px at 200px 180px, rgba(255,255,255,.4), transparent),
+            radial-gradient(1px 1px at 60px 200px, rgba(255,255,255,.6), transparent);
+          animation: stars-twinkle 4s ease-in-out infinite;
+        }
+        .login-stars--2 {
+          background-size: 320px 320px; opacity: .85;
+          background-image:
+            radial-gradient(1.4px 1.4px at 130px 50px, rgba(224,122,82,.6), transparent),
+            radial-gradient(1.5px 1.5px at 40px 150px, rgba(255,255,255,.6), transparent),
+            radial-gradient(1px 1px at 250px 210px, rgba(255,255,255,.35), transparent),
+            radial-gradient(1px 1px at 180px 110px, rgba(255,255,255,.4), transparent);
+          animation: stars-twinkle 6.5s ease-in-out infinite reverse;
+        }
+        @keyframes stars-twinkle { 0%,100%{opacity:.55} 50%{opacity:1} }
+        @media (prefers-reduced-motion: reduce){ .login-stars,.login-stars--2{ animation:none } }
+      `}</style>
+
       {/* Logo top-left */}
       <div style={{ position: "relative", zIndex: 2 }}>
         <img
