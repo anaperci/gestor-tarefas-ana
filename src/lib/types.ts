@@ -246,6 +246,14 @@ export interface TaskAttachment {
   createdAt: string;
 }
 
+export interface Transcription {
+  id: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  createdAt: string;
+}
+
 export interface AssetLink {
   id: string;
   workspaceId: string | null;

@@ -43,6 +43,7 @@ import type {
   Task,
   TaskAttachment,
   TaskComment,
+  Transcription,
   User,
   Workspace,
 } from "@/lib/types";
@@ -2616,11 +2617,149 @@ interface PersonalAreaProps {
   projects: Project[];
   users: User[];
   tags: Tag[];
-  personalTab: "minhas-tarefas" | "agenda";
-  onTabChange: (tab: "minhas-tarefas" | "agenda") => void;
+  personalTab: "minhas-tarefas" | "transcricoes" | "agenda";
+  onTabChange: (tab: "minhas-tarefas" | "transcricoes" | "agenda") => void;
   canEdit: boolean;
   onOpenTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
+}
+
+// ——— Transcrições de reuniões (upload/colar + resumo GPT) ———
+function TranscriptionsTab({ theme }: { theme: Theme }) {
+  const [items, setItems] = useState<Transcription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [summarizing, setSummarizing] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setItems(await api.getTranscriptions()); } catch { /* noop */ } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { setContent(String(r.result || "")); if (!title.trim()) setTitle(f.name.replace(/\.[^.]+$/, "")); };
+    r.readAsText(f);
+  };
+
+  const save = async () => {
+    if (!title.trim() || !content.trim()) return;
+    setSaving(true);
+    try {
+      const t = await api.createTranscription({ title: title.trim(), content });
+      setItems((prev) => [t, ...prev]);
+      setTitle(""); setContent(""); setAdding(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Falha ao salvar");
+    } finally { setSaving(false); }
+  };
+
+  const summarize = async (id: string) => {
+    setSummarizing(id);
+    try {
+      const { summary } = await api.summarizeTranscription(id);
+      setItems((prev) => prev.map((t) => (t.id === id ? { ...t, summary } : t)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Falha ao resumir");
+    } finally { setSummarizing(null); }
+  };
+
+  const remove = async (id: string) => {
+    if (!window.confirm("Remover esta transcrição?")) return;
+    setItems((prev) => prev.filter((t) => t.id !== id));
+    try { await api.deleteTranscription(id); } catch { load(); }
+  };
+
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" };
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+        <p style={{ fontSize: 13, color: theme.textSecondary, margin: 0, maxWidth: 520, lineHeight: 1.5 }}>
+          Suba o arquivo da transcrição (.txt, .vtt, .srt) ou cole o texto. A IA gera um resumo com decisões e próximos passos.
+        </p>
+        <button onClick={() => setAdding((s) => !s)}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+          <Plus size={14} aria-hidden /> Nova transcrição
+        </button>
+      </div>
+
+      {adding && (
+        <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título (ex: Reunião com cliente X)" autoFocus style={inputStyle} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => fileRef.current?.click()} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <Paperclip size={13} aria-hidden /> Subir arquivo
+            </button>
+            <input ref={fileRef} type="file" accept=".txt,.vtt,.srt,.md,text/plain" onChange={onFile} style={{ display: "none" }} />
+            <span style={{ fontSize: 12, color: theme.textMuted }}>ou cole abaixo</span>
+          </div>
+          <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={8} placeholder="Cole aqui o texto da transcrição…"
+            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={save} disabled={saving || !title.trim() || !content.trim()}
+              style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: (saving || !title.trim() || !content.trim()) ? 0.5 : 1, fontFamily: "inherit" }}>
+              {saving ? "Salvando…" : "Salvar"}
+            </button>
+            <button onClick={() => setAdding(false)} style={{ background: theme.inputBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ color: theme.textMuted, fontSize: 14 }}>Carregando…</div>
+      ) : items.length === 0 ? (
+        <EmptyState icon={FileText} title="Nenhuma transcrição ainda" description="Suba a primeira e deixe a IA resumir pra você." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {items.map((t) => (
+            <div key={t.id} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: theme.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</h3>
+                  <span style={{ fontSize: 11, color: theme.textMuted }}>{new Date(t.createdAt).toLocaleString("pt-BR")}</span>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => summarize(t.id)} disabled={summarizing === t.id}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "var(--primary-soft)", color: "var(--primary)", border: "none", borderRadius: 8, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", opacity: summarizing === t.id ? 0.6 : 1 }}>
+                    {summarizing === t.id ? "Resumindo…" : (t.summary ? "Refazer resumo" : "Resumir com IA")}
+                  </button>
+                  <button onClick={() => remove(t.id)} aria-label="Remover" title="Remover" style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", padding: 6, borderRadius: 6 }}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {t.summary && (
+                <div style={{ marginTop: 12, padding: 14, background: "var(--primary-soft)", borderRadius: 10, fontSize: 13, color: theme.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                  {t.summary}
+                </div>
+              )}
+
+              <button onClick={() => setExpanded(expanded === t.id ? null : t.id)}
+                style={{ marginTop: 10, background: "none", border: "none", color: "var(--primary-hover)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit", padding: 0 }}>
+                {expanded === t.id ? "Ocultar transcrição" : "Ver transcrição"}
+              </button>
+              {expanded === t.id && (
+                <div style={{ marginTop: 8, maxHeight: 300, overflowY: "auto", padding: 12, background: theme.inputBg, borderRadius: 8, fontSize: 12, color: theme.textSecondary, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                  {t.content}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ——— Agenda (embed do Google Calendar — só ver) ———
@@ -2686,6 +2825,7 @@ function AgendaTab({ theme, currentUser }: { theme: Theme; currentUser: User }) 
 function PersonalArea({ theme, currentUser, tasks, projects, users, tags, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: PersonalAreaProps) {
   const tabs: { key: PersonalAreaProps["personalTab"]; label: string }[] = [
     { key: "minhas-tarefas", label: "Tarefas" },
+    { key: "transcricoes", label: "Transcrições" },
     { key: "agenda", label: "Agenda" },
   ];
   return (
@@ -2704,6 +2844,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
         {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} tags={tags} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
+        {personalTab === "transcricoes" && <TranscriptionsTab theme={theme} />}
         {personalTab === "agenda" && <AgendaTab theme={theme} currentUser={currentUser} />}
       </div>
     </div>
@@ -2733,7 +2874,7 @@ export default function TaskManager() {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine" | "assets">("dashboard");
-  const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "agenda">("minhas-tarefas");
+  const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "transcricoes" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("nexia-group-order");

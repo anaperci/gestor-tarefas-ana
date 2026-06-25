@@ -20,6 +20,7 @@ import type {
   Task,
   TaskAttachment,
   TaskComment,
+  Transcription,
   UpdateContentItemPayload,
   UpdateTaskPayload,
   User,
@@ -219,6 +220,15 @@ export const api = {
     request<AssetLink>("/assets", { method: "POST", body: JSON.stringify(data) }),
   deleteAsset: (id: string) =>
     request<{ success: boolean }>(`/assets/${id}`, { method: "DELETE" }),
+
+  // Transcrições de reuniões
+  getTranscriptions: () => request<Transcription[]>("/transcriptions"),
+  createTranscription: (data: { title: string; content: string }) =>
+    request<Transcription>("/transcriptions", { method: "POST", body: JSON.stringify(data) }),
+  summarizeTranscription: (id: string) =>
+    request<{ summary: string }>(`/transcriptions/${id}/summarize`, { method: "POST" }),
+  deleteTranscription: (id: string) =>
+    request<{ success: boolean }>(`/transcriptions/${id}`, { method: "DELETE" }),
 
   // Notes
   getNotes: () => request<Note[]>("/notes"),
