@@ -15,6 +15,7 @@ interface ContentRow {
   preview_text: string;
   duration_seconds: number | null;
   tags: string[] | null;
+  workspace_id: string | null;
   linked_project_id: string | null;
   linked_task_id: string | null;
   scheduled_for: string | null;
@@ -42,6 +43,7 @@ export function rowToItem(row: ContentRow): ContentItem {
     previewText: row.preview_text ?? "",
     durationSeconds: row.duration_seconds,
     tags: Array.isArray(row.tags) ? row.tags : [],
+    workspaceId: row.workspace_id,
     linkedProjectId: row.linked_project_id,
     linkedTaskId: row.linked_task_id,
     scheduledFor: row.scheduled_for,
@@ -121,6 +123,7 @@ export function payloadToDbColumns(p: Record<string, unknown>): Record<string, u
     platform: "platform", targetAudience: "target_audience",
     hook: "hook", cta: "cta", subjectLine: "subject_line", previewText: "preview_text",
     durationSeconds: "duration_seconds", tags: "tags",
+    workspaceId: "workspace_id",
     linkedProjectId: "linked_project_id", linkedTaskId: "linked_task_id",
     assignedTo: "assigned_to", scheduledFor: "scheduled_for", publishedUrl: "published_url",
   };

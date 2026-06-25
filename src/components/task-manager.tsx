@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -25,6 +24,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { AvatarPicker } from "@/components/ui/avatar-picker";
 import { ProfilePanel } from "@/components/profile/profile-panel";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
+import { ContentBoard } from "@/components/content/ContentBoard";
 import { TagsPicker } from "@/components/tags/tags-picker";
 import type { Tag } from "@/lib/types";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
@@ -2195,7 +2195,6 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
 export default function TaskManager() {
   // Sistema é light-only — sem mode toggle
   const theme = useMemo(() => getTheme("light"), []);
-  const router = useRouter();
 
   const [users, setUsers] = useState<User[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -2213,7 +2212,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content">("dashboard");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "anotacoes" | "rotina">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -2545,9 +2544,9 @@ export default function TaskManager() {
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
           </button>
 
-          {currentUser.canAccessContent && (
-            <button className="sidebar-item" onClick={() => router.push("/content")}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+          {currentUser.canAccessContent && activeWorkspace === "all" && (
+            <button className="sidebar-item" onClick={() => { setActiveView("content"); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 10, fontSize: 14, fontWeight: 600, background: activeView === "content" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "content" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
               <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
             </button>
           )}
@@ -2583,6 +2582,13 @@ export default function TaskManager() {
                 <LayoutGrid size={16} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
                 <span style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
               </button>
+
+              {currentUser.canAccessContent && (
+                <button className="sidebar-item" onClick={() => { setActiveView("content"); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: activeView === "content" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "content" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
+                  <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
+                </button>
+              )}
 
               {visibleProjects.filter((proj) => proj.workspaceId === activeWorkspace).map((proj) => (
                 <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
@@ -2839,6 +2845,26 @@ export default function TaskManager() {
           </DndContext>
         </div>
         )}
+          </motion.div>
+        ) : activeView === "content" ? (
+          <motion.div
+            key="view-content"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
+          >
+            <ContentBoard
+              embedded
+              currentUser={currentUser}
+              users={users}
+              projects={activeWorkspace !== "all"
+                ? visibleProjects.filter((p) => p.workspaceId === activeWorkspace)
+                : visibleProjects}
+              workspaceId={activeWorkspace !== "all" ? activeWorkspace : undefined}
+              workspaceName={activeWorkspace !== "all" ? activeWs?.name : undefined}
+            />
           </motion.div>
         ) : (
           <motion.div

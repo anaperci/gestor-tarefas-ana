@@ -10,6 +10,7 @@ interface ListFilters {
   format?: string[];
   platform?: string;
   assignedTo?: string;
+  workspaceId?: string;
   search?: string;
 }
 

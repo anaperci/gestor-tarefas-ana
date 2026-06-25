@@ -195,6 +195,7 @@ export interface ContentItem {
   previewText: string;
   durationSeconds: number | null;
   tags: string[];
+  workspaceId: string | null;
   linkedProjectId: string | null;
   linkedTaskId: string | null;
   scheduledFor: string | null;
@@ -239,6 +240,7 @@ export interface CreateContentItemPayload {
   title?: string;
   body?: string;
   format?: ContentFormat;
+  workspaceId?: string | null;
 }
 
 export interface UpdateContentItemPayload {
@@ -254,6 +256,7 @@ export interface UpdateContentItemPayload {
   previewText?: string;
   durationSeconds?: number | null;
   tags?: string[];
+  workspaceId?: string | null;
   linkedProjectId?: string | null;
   linkedTaskId?: string | null;
   assignedTo?: string | null;

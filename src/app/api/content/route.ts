@@ -12,6 +12,7 @@ const querySchema = z.object({
   format: z.array(contentFormatEnum).optional(),
   platform: contentPlatformEnum.optional(),
   assignedTo: z.string().optional(),
+  workspaceId: z.string().optional(),
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
@@ -27,6 +28,7 @@ export const GET = withErrorHandling(async (request) => {
     format: url.searchParams.getAll("format"),
     platform: url.searchParams.get("platform") ?? undefined,
     assignedTo: url.searchParams.get("assignedTo") ?? undefined,
+    workspaceId: url.searchParams.get("workspaceId") ?? undefined,
     search: url.searchParams.get("search") ?? undefined,
     limit: url.searchParams.get("limit") ?? undefined,
     offset: url.searchParams.get("offset") ?? undefined,
@@ -41,6 +43,7 @@ export const GET = withErrorHandling(async (request) => {
   if (params.format && params.format.length > 0) query = query.in("format", params.format);
   if (params.platform) query = query.eq("platform", params.platform);
   if (params.assignedTo) query = query.eq("assigned_to", params.assignedTo);
+  if (params.workspaceId) query = query.eq("workspace_id", params.workspaceId);
   if (params.search) {
     query = query.or(`title.ilike.%${params.search}%,body.ilike.%${params.search}%,hook.ilike.%${params.search}%`);
   }
@@ -70,6 +73,7 @@ export const POST = withErrorHandling(async (request) => {
     body: body.body ?? "",
     format: body.format ?? "post",
     status: "idea",
+    workspace_id: body.workspaceId ?? null,
     created_by: user.id,
     last_edited_by: user.id,
   });

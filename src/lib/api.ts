@@ -191,6 +191,7 @@ export const api = {
     format?: string[];
     platform?: string;
     assignedTo?: string;
+    workspaceId?: string;
     search?: string;
   } = {}) => {
     const search = new URLSearchParams();
@@ -198,6 +199,7 @@ export const api = {
     (params.format ?? []).forEach((f) => search.append("format", f));
     if (params.platform) search.set("platform", params.platform);
     if (params.assignedTo) search.set("assignedTo", params.assignedTo);
+    if (params.workspaceId) search.set("workspaceId", params.workspaceId);
     if (params.search) search.set("search", params.search);
     const qs = search.toString();
     return request<ContentItem[]>(`/content${qs ? `?${qs}` : ""}`);

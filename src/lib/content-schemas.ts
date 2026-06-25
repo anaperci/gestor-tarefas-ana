@@ -13,6 +13,7 @@ export const createContentSchema = z.object({
   title: z.string().max(255).optional(),
   body: z.string().max(50_000).optional(),
   format: contentFormatEnum.optional(),
+  workspaceId: idSchema.nullable().optional(),
 });
 
 export const updateContentSchema = z.object({
@@ -28,6 +29,7 @@ export const updateContentSchema = z.object({
   previewText: z.string().max(255).optional(),
   durationSeconds: z.number().int().min(0).max(86_400).nullable().optional(),
   tags: z.array(z.string().max(40)).max(20).optional(),
+  workspaceId: idSchema.nullable().optional(),
   linkedProjectId: idSchema.nullable().optional(),
   linkedTaskId: idSchema.nullable().optional(),
   assignedTo: idSchema.nullable().optional(),
