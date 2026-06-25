@@ -97,8 +97,9 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 
 // 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
 // 10 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
-const GRID_COLUMNS = "36px minmax(220px, 380px) 120px 120px 110px 100px 140px 130px 70px 48px";
-const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
+// Tarefa = 1fr (fluida) pra o grid sempre caber no container; demais colunas enxutas
+const GRID_COLUMNS = "30px minmax(130px, 1fr) 104px 108px 112px 90px 112px 92px 52px 32px";
+const GRID_COLUMNS_SUBTASK = "30px 1fr 118px 108px 56px";
 
 /** Detecta viewport mobile (≤768px) reativo a resize/rotação. */
 function useIsMobile(breakpoint = 768) {
