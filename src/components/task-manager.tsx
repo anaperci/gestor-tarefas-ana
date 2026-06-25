@@ -12,7 +12,6 @@ import {
   Link2, LayoutDashboard, List, KanbanSquare,
   ChevronLeft, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
-  Calendar,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -101,8 +100,8 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 // 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
 // 10 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
 // Tarefa = 1fr (fluida) pra o grid sempre caber no container; demais colunas enxutas
-const GRID_COLUMNS = "30px minmax(130px, 1fr) 104px 108px 112px 90px 112px 92px 52px 32px";
-const GRID_COLUMNS_SUBTASK = "30px 1fr 118px 108px 56px";
+const GRID_COLUMNS = "26px minmax(90px, 1fr) 88px 98px 110px 80px 98px 76px 42px 26px";
+const GRID_COLUMNS_SUBTASK = "26px 1fr 112px 104px 52px";
 
 /** Estilo dos botões de ícone na régua (sidebar recolhida). */
 function railBtnStyle(active: boolean): CSSProperties {
@@ -1228,11 +1227,8 @@ function AssetsView({ theme }: { theme: Theme }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Assets</h1>
-          <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>Links e drives da empresa</p>
-        </div>
+      <div style={{ padding: "12px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <p style={{ fontSize: 13, color: theme.textMuted, margin: 0 }}>Links e drives da empresa</p>
         <button onClick={() => setAdding((s) => !s)}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
           <Plus size={14} aria-hidden /> Novo link
@@ -1902,7 +1898,7 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
       style={{
         display: "grid",
         gridTemplateColumns: isSubtask ? GRID_COLUMNS_SUBTASK : GRID_COLUMNS,
-        alignItems: "center", padding: isSubtask ? "6px 20px 6px 44px" : "10px 20px", gap: 8,
+        alignItems: "center", padding: isSubtask ? "6px 14px 6px 40px" : "10px 14px", gap: 8,
         borderBottom: `1px solid ${theme.border}`, cursor: "pointer", fontSize: 14,
         borderLeft: isSubtask ? undefined : `4px solid ${priorityColor(task.priority)}`,
         background: isSubtask
@@ -2225,7 +2221,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
   if (!active) {
     return (
       <div onClick={() => setActive(true)} style={{
-        display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 20px", gap: 8,
+        display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 14px", gap: 8,
         cursor: "pointer", borderBottom: `1px solid ${theme.border}`, opacity: 0.5,
         transition: "opacity 0.15s", fontSize: 14, color: theme.textMuted
       }}
@@ -2241,7 +2237,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
 
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 20px", gap: 8,
+      display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 14px", gap: 8,
       borderBottom: `1px solid ${theme.border}`, background: theme.surfaceHover
     }}>
       <div></div>
@@ -2323,7 +2319,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
         <div key={group.id} style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
           <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
           {!myCollapsed.has(group.id) && (<>
-            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 20px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 14px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
               <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
             </div>
             {group.tasks.map((task) => (
@@ -2875,7 +2871,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"tasks" | "personal" | "content" | "notes" | "routine" | "assets" | "agenda" | "transcricoes">("personal");
+  const [activeView, setActiveView] = useState<"tasks" | "personal" | "content" | "notes" | "routine" | "assets" | "transcricoes">("personal");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "transcricoes" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -3115,6 +3111,15 @@ export default function TaskManager() {
   const activeProj = projects.find((p) => p.id === activeProject);
   const activeWs = workspaces.find((w) => w.id === activeWorkspace);
 
+  // Título da página exibido na barra superior (views simples; tasks/content têm header próprio)
+  const pageTitle =
+    activeView === "personal" ? "Minha Área" :
+    activeView === "notes" ? "Anotações" :
+    activeView === "routine" ? "Rotina" :
+    activeView === "transcricoes" ? "Transcrições" :
+    activeView === "assets" ? "Assets" : "";
+  const pageSubtitle = activeView === "personal" ? (currentUser?.name ?? "") : "";
+
   const handleLogin = async (user: User) => {
     setCurrentUser(user);
   };
@@ -3148,7 +3153,8 @@ export default function TaskManager() {
         ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
         .task-row:hover { background: var(--surface-hover) !important; }
         .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
-        .sidebar-item:hover { background: var(--surface-hover) !important; }
+        .sidebar-item { position: relative; }
+        .sidebar-item:hover { background: rgba(244, 239, 226, 0.14) !important; box-shadow: inset 3px 0 0 var(--accent); }
         .sidebar-item:hover .proj-menu-btn { opacity: 0.6 !important; }
         .sidebar-item:hover .proj-count { opacity: 0 !important; position: absolute !important; }
         .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: var(--status-review) !important; }
@@ -3192,7 +3198,6 @@ export default function TaskManager() {
             <button onClick={() => setSidebarCollapsed(false)} title="Expandir menu" aria-label="Expandir menu" style={railBtnStyle(false)}><PanelLeftOpen size={18} /></button>
             <div style={{ height: 6 }} />
             <button onClick={() => setActiveView("personal")} title="Minha Área" aria-label="Minha Área" style={railBtnStyle(activeView === "personal")}><UserIcon size={18} /></button>
-            <button onClick={() => setActiveView("agenda")} title="Agenda" aria-label="Agenda" style={railBtnStyle(activeView === "agenda")}><Calendar size={18} /></button>
             <button onClick={() => setActiveView("routine")} title="Rotina" aria-label="Rotina" style={railBtnStyle(activeView === "routine")}><Repeat size={18} /></button>
             <button onClick={() => setActiveView("notes")} title="Anotações" aria-label="Anotações" style={railBtnStyle(activeView === "notes" || activeView === "transcricoes")}><Pencil size={18} /></button>
             <button onClick={() => setActiveView("assets")} title="Assets" aria-label="Assets" style={railBtnStyle(activeView === "assets")}><Link2 size={18} /></button>
@@ -3216,14 +3221,11 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
+          {activeWorkspace === "all" ? (
+          <>
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
-          </button>
-
-          <button className="sidebar-item" onClick={() => { setActiveView("agenda"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "agenda" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "agenda" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-            <Calendar size={16} aria-hidden /><span style={{ flex: 1 }}>Agenda</span>
           </button>
 
           <button className="sidebar-item" onClick={() => { setActiveView("routine"); }}
@@ -3243,25 +3245,32 @@ export default function TaskManager() {
             </button>
           )}
 
+          {currentUser.canAccessContent && (
+            <button className="sidebar-item" onClick={() => { setActiveView("content"); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "content" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "content" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+              <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
+            </button>
+          )}
+
           <button className="sidebar-item" onClick={() => { setActiveView("assets"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "assets" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "assets" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <Link2 size={16} aria-hidden /><span style={{ flex: 1 }}>Assets</span>
           </button>
 
-          {activeWorkspace === "all" ? (
-            workspaces.length > 0 && (
-              <div style={{ padding: "0 8px", marginTop: 4 }}>
-                <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
-                {workspaces.map((ws) => (
-                  <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }}
-                    className="sidebar-item"
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "10px 12px", borderRadius: 8, marginBottom: 2, fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: "transparent", color: "var(--sidebar-text-secondary)" }}>
-                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
-                  </button>
-                ))}
-              </div>
-            )
+          {workspaces.length > 0 && (
+            <div style={{ padding: "0 8px", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
+              {workspaces.map((ws) => (
+                <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }}
+                  className="sidebar-item"
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "10px 12px", borderRadius: 8, marginBottom: 2, fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: "transparent", color: "var(--sidebar-text-secondary)" }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          </>
           ) : (
             <div style={{ padding: "0 8px", marginTop: 4 }}>
               {/* Header alto contraste do workspace atual (clicar volta pra Minha Área) */}
@@ -3277,13 +3286,6 @@ export default function TaskManager() {
                 <LayoutGrid size={16} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
                 <span style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
               </button>
-
-              {currentUser.canAccessContent && (
-                <button className="sidebar-item" onClick={() => { setActiveView("content"); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: activeView === "content" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "content" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-                  <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
-                </button>
-              )}
 
               {visibleProjects.filter((proj) => proj.workspaceId === activeWorkspace).map((proj) => (
                 <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
@@ -3357,6 +3359,12 @@ export default function TaskManager() {
                 <ChevronLeft size={15} aria-hidden /> Voltar
               </button>
             )}
+            {pageTitle && (
+              <div style={{ marginLeft: 4, lineHeight: 1.1 }}>
+                <h1 style={{ fontSize: 19, fontWeight: 800, letterSpacing: -0.4, margin: 0, color: theme.text }}>{pageTitle}</h1>
+                {pageSubtitle && <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600 }}>{pageSubtitle}</span>}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {isAdmin && (
@@ -3392,9 +3400,6 @@ export default function TaskManager() {
         <AnimatePresence mode="wait" initial={false}>
         {activeView === "transcricoes" ? (
           <motion.div key="view-transcricoes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Transcrições</h1>
-            </div>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <TranscriptionsTab theme={theme} />
             </div>
@@ -3509,7 +3514,7 @@ export default function TaskManager() {
                       {!collapsedGroups.has(group.id) && (
                         <>
                           {!isMobile && (
-                            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 20px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 14px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
                               <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
                             </div>
                           )}
@@ -3561,11 +3566,7 @@ export default function TaskManager() {
               embedded
               currentUser={currentUser}
               users={users}
-              projects={activeWorkspace !== "all"
-                ? visibleProjects.filter((p) => p.workspaceId === activeWorkspace)
-                : visibleProjects}
-              workspaceId={activeWorkspace !== "all" ? activeWorkspace : undefined}
-              workspaceName={activeWorkspace !== "all" ? activeWs?.name : undefined}
+              projects={visibleProjects}
             />
           </motion.div>
         ) : activeView === "assets" ? (
@@ -3574,29 +3575,14 @@ export default function TaskManager() {
           </motion.div>
         ) : activeView === "notes" ? (
           <motion.div key="view-notes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Anotações</h1>
-            </div>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <NotesTab theme={theme} currentUser={currentUser} />
             </div>
           </motion.div>
         ) : activeView === "routine" ? (
           <motion.div key="view-routine" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Rotina</h1>
-            </div>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <RoutineTab theme={theme} currentUser={currentUser} />
-            </div>
-          </motion.div>
-        ) : activeView === "agenda" ? (
-          <motion.div key="view-agenda" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Agenda</h1>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-              <AgendaTab theme={theme} currentUser={currentUser} />
             </div>
           </motion.div>
         ) : (
@@ -3608,10 +3594,6 @@ export default function TaskManager() {
             transition={{ duration: 0.18, ease: "easeOut" }}
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Minha Área</h1>
-              <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{currentUser.name}</p>
-            </div>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <DashboardView
                 currentUser={currentUser}
