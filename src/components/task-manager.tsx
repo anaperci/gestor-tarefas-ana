@@ -1900,7 +1900,7 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
       style={{
         display: "grid",
         gridTemplateColumns: isSubtask ? GRID_COLUMNS_SUBTASK : GRID_COLUMNS,
-        alignItems: "center", padding: isSubtask ? "6px 12px 6px 40px" : "10px 12px", gap: 8,
+        alignItems: "center", padding: isSubtask ? "6px 20px 6px 44px" : "10px 20px", gap: 8,
         borderBottom: `1px solid ${theme.border}`, cursor: "pointer", fontSize: 14,
         borderLeft: isSubtask ? undefined : `4px solid ${priorityColor(task.priority)}`,
         background: isSubtask
@@ -2223,7 +2223,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
   if (!active) {
     return (
       <div onClick={() => setActive(true)} style={{
-        display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 12px", gap: 8,
+        display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 20px", gap: 8,
         cursor: "pointer", borderBottom: `1px solid ${theme.border}`, opacity: 0.5,
         transition: "opacity 0.15s", fontSize: 14, color: theme.textMuted
       }}
@@ -2239,7 +2239,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
 
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 12px", gap: 8,
+      display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "8px 20px", gap: 8,
       borderBottom: `1px solid ${theme.border}`, background: theme.surfaceHover
     }}>
       <div></div>
@@ -2321,7 +2321,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
         <div key={group.id} style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
           <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
           {!myCollapsed.has(group.id) && (<>
-            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 20px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
               <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
             </div>
             {group.tasks.map((task) => (
@@ -3367,7 +3367,7 @@ export default function TaskManager() {
                       {!collapsedGroups.has(group.id) && (
                         <>
                           {!isMobile && (
-                            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 20px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
                               <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
                             </div>
                           )}
