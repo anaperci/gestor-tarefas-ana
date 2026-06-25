@@ -16,6 +16,7 @@ import type {
   RoutineItem,
   Tag,
   Task,
+  TaskComment,
   UpdateContentItemPayload,
   UpdateTaskPayload,
   User,
@@ -171,6 +172,9 @@ export const api = {
     request<Task>(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteTask: (id: string) =>
     request<{ success: boolean }>(`/tasks/${id}`, { method: "DELETE" }),
+  getTaskComments: (id: string) => request<TaskComment[]>(`/tasks/${id}/comments`),
+  addTaskComment: (id: string, body: string) =>
+    request<TaskComment>(`/tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
 
   // Notes
   getNotes: () => request<Note[]>("/notes"),

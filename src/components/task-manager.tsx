@@ -37,6 +37,7 @@ import type {
   RoutineItem,
   Subtask,
   Task,
+  TaskComment,
   User,
   Workspace,
 } from "@/lib/types";
@@ -1220,6 +1221,8 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
 
           {/* Subtarefas — bloco separado abaixo do checklist */}
           <SubtasksBlock task={task} canEdit={canEdit} theme={theme} onUpdate={onUpdate} />
+
+          <TaskComments taskId={task.id} users={users} theme={theme} canEdit={canEdit} />
         </div>
       </div>
     </div>
@@ -1343,6 +1346,97 @@ function SubtasksBlock({ task, canEdit, theme, onUpdate }: { task: Task; canEdit
             aria-label="Nova subtarefa"
             style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit", padding: 0 }}
           />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ——— Task Comments ———
+function relTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const days = Math.floor(h / 24);
+  if (days < 7) return `há ${days}d`;
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+function TaskComments({ taskId, users, theme, canEdit }: { taskId: string; users: User[]; theme: Theme; canEdit: boolean }) {
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.getTaskComments(taskId)
+      .then((c) => { if (active) setComments(c); })
+      .catch(() => {})
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [taskId]);
+
+  const submit = async () => {
+    const text = body.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    try {
+      const c = await api.addTaskComment(taskId, text);
+      setComments((prev) => [...prev, c]);
+      setBody("");
+    } catch { /* noop */ } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 12 }}>
+        Comentários {comments.length > 0 && <span style={{ color: theme.textMuted, fontWeight: 500 }}>· {comments.length}</span>}
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 12 }}>Carregando…</div>
+      ) : comments.length === 0 ? (
+        <div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 12 }}>Nenhum comentário ainda.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
+          {comments.map((c) => {
+            const author = users.find((u) => u.id === c.userId);
+            return (
+              <div key={c.id} style={{ display: "flex", gap: 10 }}>
+                <UserAvatar avatar={author?.avatar || ""} name={author?.name || "?"} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{author?.name || "Usuário"}</span>
+                    <span style={{ fontSize: 11, color: theme.textMuted }}>{relTime(c.createdAt)}</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: theme.textSecondary, whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 2 }}>{c.body}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {canEdit && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit(); }}
+            placeholder="Escreva um comentário… (Cmd+Enter envia)"
+            rows={2}
+            style={{ width: "100%", resize: "vertical", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 10, padding: "10px 12px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={submit} disabled={!body.trim() || submitting}
+              style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: body.trim() && !submitting ? "pointer" : "default", opacity: body.trim() && !submitting ? 1 : 0.5 }}>
+              {submitting ? "Enviando…" : "Comentar"}
+            </button>
+          </div>
         </div>
       )}
     </div>
