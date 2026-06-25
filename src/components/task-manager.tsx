@@ -72,11 +72,21 @@ const STATUS_OPTIONS = [
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: "critical", label: "Crítica", bg: "#E2445C" },
-  { value: "high", label: "Alta", bg: "#FDAB3D" },
-  { value: "medium", label: "Média", bg: "#579BFC" },
-  { value: "low", label: "Baixa", bg: "#A0A0A0" },
+  { value: "high", label: "Alta", bg: "#E2445C" },      // urgente — vermelho
+  { value: "medium", label: "Média", bg: "#579BFC" },   // azul
+  { value: "low", label: "Baixa", bg: "#F4A8C0" },      // rosa claro
 ];
+
+// Cor por prioridade (crítica legada cai em vermelho). Usada no accent do card.
+const PRIORITY_COLOR: Record<string, string> = {
+  critical: "#E2445C",
+  high: "#E2445C",
+  medium: "#579BFC",
+  low: "#F4A8C0",
+};
+function priorityColor(p: string): string {
+  return PRIORITY_COLOR[p] || "#F4A8C0";
+}
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 
@@ -1367,7 +1377,11 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
         gridTemplateColumns: isSubtask ? GRID_COLUMNS_SUBTASK : GRID_COLUMNS,
         alignItems: "center", padding: isSubtask ? "6px 12px 6px 40px" : "10px 12px", gap: 8,
         borderBottom: `1px solid ${theme.border}`, cursor: "pointer", fontSize: 14,
-        background: isSubtask ? theme.surfaceHover : "transparent", transition: "background 0.15s"
+        borderLeft: isSubtask ? undefined : `4px solid ${priorityColor(task.priority)}`,
+        background: isSubtask
+          ? theme.surfaceHover
+          : (task.priority === "high" || task.priority === "critical") ? "rgba(226,68,92,0.05)" : "transparent",
+        transition: "background 0.15s"
       }}>
       <button onClick={(e) => { e.stopPropagation(); if (canEdit) onUpdate({ ...task, checked: !task.checked }); }}
         style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${task.checked ? "#00C875" : theme.inputBorder}`, background: task.checked ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
@@ -2421,7 +2435,7 @@ export default function TaskManager() {
                 <option value="all" style={{ color: "#18313A" }}>Todos os workspaces</option>
                 {workspaces.map((ws) => (
                   <option key={ws.id} value={ws.id} style={{ color: "#18313A" }}>
-                    {ws.icon} {ws.name}
+                    {ws.name}
                   </option>
                 ))}
               </select>
@@ -2483,36 +2497,30 @@ export default function TaskManager() {
             <span style={{ color: "#7CFFB4" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
             <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
           </div>
-
-          {/* Bloco do usuário — agora no footer */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 10, background: "var(--sidebar-input-bg)" }}>
-            <button
-              onClick={() => setProfileOpen(true)}
-              aria-label="Abrir meu perfil"
-              title="Editar perfil"
-              style={{
-                flex: 1, display: "flex", alignItems: "center", gap: 10,
-                background: "transparent", border: "none", cursor: "pointer",
-                padding: "4px 4px", borderRadius: 8,
-                fontFamily: "inherit", textAlign: "left", minWidth: 0,
-              }}
-            >
-              <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={32} background="rgba(255,255,255,0.18)" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--sidebar-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentUser.name}</div>
-                <div style={{ fontSize: 12, color: "var(--sidebar-text-secondary)", fontWeight: 600 }}>{ROLES[currentUser.role].icon} {ROLES[currentUser.role].label}</div>
-              </div>
-            </button>
-            <button onClick={handleLogout} aria-label="Sair"
-              style={{ background: "none", border: "none", color: "var(--sidebar-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 6 }}>
-              <LogOut size={16} />
-            </button>
-          </div>
         </div>
       </aside>
 
       {/* Main */}
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
+        {/* Top bar — dados do usuário no canto superior direito (todas as views) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, background: "var(--surface)", flexShrink: 0 }}>
+          <button
+            onClick={() => setProfileOpen(true)}
+            title="Editar perfil"
+            aria-label="Abrir meu perfil"
+            style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", cursor: "pointer", padding: "4px 6px", borderRadius: 10, fontFamily: "inherit" }}
+          >
+            <div style={{ textAlign: "right", lineHeight: 1.2 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{currentUser.name}</div>
+              <div style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600 }}>{ROLES[currentUser.role].label}</div>
+            </div>
+            <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={34} background="var(--primary-soft)" />
+          </button>
+          <button onClick={handleLogout} aria-label="Sair" title="Sair"
+            style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
+            <LogOut size={16} />
+          </button>
+        </div>
         <AnimatePresence mode="wait" initial={false}>
         {activeView === "dashboard" ? (
           <motion.div

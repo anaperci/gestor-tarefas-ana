@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk, Marcellus } from "next/font/google";
+import { Poppins, Marcellus } from "next/font/google";
 import "./globals.css";
 
-// Design System "Clareza": Hanken Grotesk (interface) + Marcellus (display/marca)
-const hanken = Hanken_Grotesk({
+// Design System "Clareza": Poppins (sans-serif geométrica, interface) + Marcellus (display/marca)
+const sans = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-hanken",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${hanken.variable} ${marcellus.variable}`}>
+      <body className={`${sans.variable} ${marcellus.variable}`}>
         {children}
       </body>
     </html>
