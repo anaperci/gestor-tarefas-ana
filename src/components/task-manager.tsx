@@ -1017,9 +1017,20 @@ function UserRow({ user, currentUser, theme, onResetPassword, onSendReset, onCha
 // ——— Rich Text Editor (Monday.com style) ———
 function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMention }: { value: string; onChange: (v: string) => void; theme: Theme; readOnly?: boolean; placeholder?: string; users?: User[]; onMention?: (userId: string) => void }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
   const [showMentions, setShowMentions] = useState(false);
+  const [mentionPos, setMentionPos] = useState<{ top: number; left: number } | null>(null);
   const [mentionQuery, setMentionQuery] = useState("");
+
+  const toggleMentions = () => {
+    editorRef.current?.focus();
+    if (showMentions) { setShowMentions(false); return; }
+    const r = containerRef.current?.getBoundingClientRect();
+    if (r) setMentionPos({ top: r.top + 46, left: r.left + 10 });
+    setMentionQuery("");
+    setShowMentions(true);
+  };
 
   useEffect(() => {
     if (editorRef.current && isInitialMount.current) {
@@ -1093,7 +1104,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
   const sep = () => <div style={{ width: 1, height: 18, background: theme.border, margin: "0 3px" }} />;
 
   return (
-    <div style={{ border: `1px solid ${theme.border}`, borderRadius: 8, overflow: "visible", position: "relative" }}>
+    <div ref={containerRef} style={{ border: `1px solid ${theme.border}`, borderRadius: 8, overflow: "visible", position: "relative" }}>
       {!readOnly && (
         <div style={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", padding: "6px 10px", borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
           {toolBtn("B", () => exec("bold"), "Negrito", { bold: true })}
@@ -1109,33 +1120,37 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
           {toolBtn(<Quote size={15} />, () => exec("formatBlock", "blockquote"), "Citação")}
           {sep()}
           {toolBtn(<Link2 size={15} />, insertLink, "Inserir link")}
-          {toolBtn("@", () => { editorRef.current?.focus(); setShowMentions((s) => !s); }, "Mencionar (notifica no sistema)")}
+          {toolBtn("@", toggleMentions, "Mencionar (notifica no sistema)")}
           {toolBtn("―", () => exec("insertHorizontalRule"), "Divisória (ou digite ---)")}
           {sep()}
           {toolBtn(<Eraser size={15} />, () => exec("removeFormat"), "Limpar formatação")}
         </div>
       )}
 
-      {showMentions && !readOnly && (
-        <div style={{ position: "absolute", zIndex: 50, top: 44, left: 10, width: 240, background: theme.dropdownBg, border: `1px solid ${theme.border}`, borderRadius: 10, boxShadow: "0 8px 28px rgba(0,0,0,0.16)", overflow: "hidden" }}
-          onMouseDown={(e) => e.preventDefault()}>
-          <input autoFocus value={mentionQuery} onChange={(e) => setMentionQuery(e.target.value)}
-            placeholder="Mencionar quem…"
-            style={{ width: "100%", border: "none", borderBottom: `1px solid ${theme.border}`, padding: "9px 12px", fontSize: 13, outline: "none", background: "transparent", color: theme.text, fontFamily: "inherit" }} />
-          <div style={{ maxHeight: 200, overflowY: "auto" }}>
-            {mentionableUsers.length === 0 ? (
-              <div style={{ padding: "10px 12px", fontSize: 12, color: theme.textMuted }}>Ninguém encontrado</div>
-            ) : mentionableUsers.map((u) => (
-              <button key={u.id} type="button" onClick={() => insertMention(u)}
-                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", background: "transparent", padding: "8px 12px", cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: theme.text }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = theme.surfaceHover)}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <UserAvatar avatar={u.avatar} name={u.name} size={22} background="var(--primary-soft)" />
-                <span style={{ fontSize: 13 }}>{u.name}</span>
-              </button>
-            ))}
+      {showMentions && !readOnly && mentionPos && createPortal(
+        <>
+          <div onMouseDown={() => setShowMentions(false)} style={{ position: "fixed", inset: 0, zIndex: 1290 }} />
+          <div style={{ position: "fixed", zIndex: 1300, top: mentionPos.top, left: mentionPos.left, width: 240, background: theme.dropdownBg, border: `1px solid ${theme.border}`, borderRadius: 10, boxShadow: "0 8px 28px var(--card-shadow-color, rgba(15,76,92,0.20))", overflow: "hidden" }}
+            onMouseDown={(e) => e.preventDefault()}>
+            <input autoFocus value={mentionQuery} onChange={(e) => setMentionQuery(e.target.value)}
+              placeholder="Mencionar quem…"
+              style={{ width: "100%", border: "none", borderBottom: `1px solid ${theme.border}`, padding: "9px 12px", fontSize: 13, outline: "none", background: "transparent", color: theme.text, fontFamily: "inherit" }} />
+            <div style={{ maxHeight: 200, overflowY: "auto" }}>
+              {mentionableUsers.length === 0 ? (
+                <div style={{ padding: "10px 12px", fontSize: 12, color: theme.textMuted }}>Ninguém encontrado</div>
+              ) : mentionableUsers.map((u) => (
+                <button key={u.id} type="button" onClick={() => insertMention(u)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", background: "transparent", padding: "8px 12px", cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: theme.text }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = theme.surfaceHover)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                  <UserAvatar avatar={u.avatar} name={u.name} size={22} background="var(--primary-soft)" />
+                  <span style={{ fontSize: 13 }}>{u.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </>,
+        document.body
       )}
 
       <div
@@ -1153,14 +1168,14 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
       />
       <style>{`
         [data-placeholder]:empty:before { content: attr(data-placeholder); color: ${theme.textMuted}; pointer-events: none; }
-        [contenteditable] a { color: #15708C; text-decoration: underline; }
+        [contenteditable] a { color: var(--primary-hover); text-decoration: underline; }
         [contenteditable] h2 { font-size: 18px; font-weight: 700; margin: 10px 0 4px; }
         [contenteditable] h3 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; }
         [contenteditable] ul, [contenteditable] ol { margin: 6px 0 6px 22px; }
         [contenteditable] li { margin: 2px 0; }
         [contenteditable] blockquote { margin: 8px 0; padding: 6px 14px; border-left: 3px solid var(--primary); background: var(--primary-soft); color: var(--text-secondary); border-radius: 0 6px 6px 0; }
         [contenteditable] hr { border: none; border-top: 1px solid ${theme.border}; margin: 12px 0; }
-        .rt-mention { color: #15708C; font-weight: 600; background: rgba(21,112,140,0.10); padding: 0 4px; border-radius: 4px; }
+        .rt-mention { color: var(--primary-hover); font-weight: 600; background: var(--primary-soft); padding: 0 4px; border-radius: 4px; }
       `}</style>
     </div>
   );
@@ -1223,6 +1238,7 @@ function NotificationBell({ theme, onOpenTask }: { theme: Theme; onOpenTask: (ta
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
       <button onClick={() => setOpen((s) => !s)} aria-label="Notificações" title="Notificações"
+        className="topbar-icon-btn"
         style={{ position: "relative", background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
         <Bell size={16} />
         {unread > 0 && (
@@ -3019,6 +3035,7 @@ export default function TaskManager() {
             <UserAvatar avatar={currentUser.avatar} name={currentUser.name} size={34} background="var(--primary-soft)" />
           </button>
           <button onClick={handleLogout} aria-label="Sair" title="Sair"
+            className="topbar-icon-btn"
             style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
             <LogOut size={16} />
           </button>

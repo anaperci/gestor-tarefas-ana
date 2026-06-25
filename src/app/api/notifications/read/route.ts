@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { parseJson, withErrorHandling } from "@/lib/api-error";
 
-const readSchema = z.object({ ids: z.array(z.string()).optional() });
+const readSchema = z.object({ ids: z.array(z.string()).max(200).optional() });
 
 export const POST = withErrorHandling(async (request) => {
   const user = await requireAuth(request);

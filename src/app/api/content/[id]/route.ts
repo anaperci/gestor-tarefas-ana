@@ -1,16 +1,31 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth, assertContentAccess } from "@/lib/auth";
+import { requireAuth, assertContentAccess, getAccessibleWorkspaceIds, type AuthUser } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 import { updateContentSchema } from "@/lib/content-schemas";
 import { rowToItem, payloadToDbColumns, type ContentRow } from "@/lib/content";
+
+/** Não-admin só acessa item de workspace de que é membro. */
+async function assertContentItemAccess(user: AuthUser, itemId: string) {
+  const accessibleWs = await getAccessibleWorkspaceIds(user);
+  if (accessibleWs === null) return; // admin
+  const { data: it } = await supabase
+    .from("content_items")
+    .select("workspace_id")
+    .eq("id", itemId)
+    .maybeSingle();
+  if (!it || !it.workspace_id || !accessibleWs.includes(it.workspace_id)) {
+    throw new ApiError("FORBIDDEN", "Sem acesso a este conteúdo.");
+  }
+}
 
 export const GET = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertContentItemAccess(user, id);
 
     const { data } = await supabase
       .from("content_items")
@@ -29,6 +44,7 @@ export const PUT = withErrorHandling(
     const { id } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertContentItemAccess(user, id);
 
     const { data: current } = await supabase
       .from("content_items")
@@ -75,6 +91,7 @@ export const DELETE = withErrorHandling(
     const { id } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertContentItemAccess(user, id);
 
     const { error } = await supabase
       .from("content_items")

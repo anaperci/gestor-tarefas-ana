@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { requireAuth, assertContentAccess } from "@/lib/auth";
+import { requireAuth, assertContentAccess, getAccessibleWorkspaceIds } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 import { createContentSchema, contentFormatEnum, contentStatusEnum, contentPlatformEnum } from "@/lib/content-schemas";
@@ -44,6 +44,13 @@ export const GET = withErrorHandling(async (request) => {
   if (params.platform) query = query.eq("platform", params.platform);
   if (params.assignedTo) query = query.eq("assigned_to", params.assignedTo);
   if (params.workspaceId) query = query.eq("workspace_id", params.workspaceId);
+
+  // Isolamento: não-admin só enxerga conteúdo dos workspaces de que é membro
+  const accessibleWs = await getAccessibleWorkspaceIds(user);
+  if (accessibleWs !== null) {
+    if (accessibleWs.length === 0) return NextResponse.json([]);
+    query = query.in("workspace_id", accessibleWs);
+  }
   if (params.search) {
     query = query.or(`title.ilike.%${params.search}%,body.ilike.%${params.search}%,hook.ilike.%${params.search}%`);
   }

@@ -118,3 +118,59 @@ export function assertContentAccess(user: AuthUser): void {
     throw new ApiError("FORBIDDEN", "Você não tem acesso ao Hub de Conteúdo.");
   }
 }
+
+/**
+ * Garante que o usuário tem acesso à tarefa (e a recursos vinculados a ela,
+ * como anexos/menções). Admin sempre; senão: dono do projeto, membro do
+ * workspace do projeto, share do projeto, ou responsável pela tarefa.
+ */
+export async function assertTaskAccess(user: AuthUser, taskId: string): Promise<void> {
+  if (user.role === "admin") return;
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("project_id, assigned_to")
+    .eq("id", taskId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!task) throw new ApiError("NOT_FOUND", "Tarefa não encontrada");
+  if (task.assigned_to === user.id) return;
+
+  const { data: proj } = await supabase
+    .from("projects")
+    .select("owner_id, workspace_id")
+    .eq("id", task.project_id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (proj) {
+    if (proj.owner_id === user.id) return;
+    if (proj.workspace_id) {
+      const { data: member } = await supabase
+        .from("workspace_members")
+        .select("user_id")
+        .eq("workspace_id", proj.workspace_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (member) return;
+    }
+    const { data: share } = await supabase
+      .from("project_shares")
+      .select("user_id")
+      .eq("project_id", task.project_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (share) return;
+  }
+
+  throw new ApiError("FORBIDDEN", "Você não tem acesso a esta tarefa.");
+}
+
+/** IDs dos workspaces que o usuário pode ver. Admin → null (todos). */
+export async function getAccessibleWorkspaceIds(user: AuthUser): Promise<string[] | null> {
+  if (user.role === "admin") return null;
+  const { data } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id);
+  return (data ?? []).map((r) => r.workspace_id as string);
+}

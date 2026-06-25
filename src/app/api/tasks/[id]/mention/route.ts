@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, assertTaskAccess } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ export const POST = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const actor = await requireAuth(request);
+    await assertTaskAccess(actor, id);
     const { userId } = await parseJson(request, mentionSchema);
 
     // Não notifica a si mesmo

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, assertTaskAccess } from "@/lib/auth";
 import { ApiError, withErrorHandling } from "@/lib/api-error";
 
 const BUCKET = "task-attachments";
@@ -9,14 +9,15 @@ const BUCKET = "task-attachments";
 export const GET = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    await requireAuth(request);
+    const user = await requireAuth(request);
 
     const { data: att } = await supabase
       .from("task_attachments")
-      .select("storage_path, file_name")
+      .select("storage_path, file_name, task_id")
       .eq("id", id)
       .maybeSingle();
     if (!att) throw new ApiError("NOT_FOUND", "Anexo não encontrado");
+    await assertTaskAccess(user, att.task_id);
 
     const { data: signed, error } = await supabase.storage
       .from(BUCKET)
@@ -34,14 +35,15 @@ export const GET = withErrorHandling(
 export const DELETE = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    await requireAuth(request);
+    const user = await requireAuth(request);
 
     const { data: att } = await supabase
       .from("task_attachments")
-      .select("storage_path")
+      .select("storage_path, task_id")
       .eq("id", id)
       .maybeSingle();
     if (!att) throw new ApiError("NOT_FOUND", "Anexo não encontrado");
+    await assertTaskAccess(user, att.task_id);
 
     await supabase.storage.from(BUCKET).remove([att.storage_path]);
     const { error } = await supabase.from("task_attachments").delete().eq("id", id);

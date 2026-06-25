@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, assertTaskAccess } from "@/lib/auth";
 import { ApiError, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 
@@ -32,7 +32,8 @@ function rowToAttachment(r: AttachmentRow) {
 export const GET = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    await requireAuth(request);
+    const user = await requireAuth(request);
+    await assertTaskAccess(user, id);
 
     const { data } = await supabase
       .from("task_attachments")
@@ -48,14 +49,7 @@ export const POST = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const user = await requireAuth(request);
-
-    const { data: task } = await supabase
-      .from("tasks")
-      .select("id")
-      .eq("id", id)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (!task) throw new ApiError("NOT_FOUND", "Tarefa não encontrada");
+    await assertTaskAccess(user, id);
 
     const form = await request.formData();
     const file = form.get("file");

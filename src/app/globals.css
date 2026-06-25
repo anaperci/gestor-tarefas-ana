@@ -201,4 +201,7 @@ button { font-family: inherit; }
 
   /* Drawer de detalhe da tarefa: full-screen no mobile */
   .task-drawer { width: 100vw !important; }
+
+  /* Alvos de toque ≥42px nos botões de ícone da barra superior */
+  .topbar-icon-btn, .menu-toggle { width: 42px !important; height: 42px !important; }
 }
