@@ -182,8 +182,9 @@ button { font-family: inherit; }
    Mobile — board rola na horizontal (grid largo não estoura a página)
    ============================================================ */
 @media (max-width: 768px) {
-  /* Grupo da board assume a largura do grid e rola dentro do .board-list-scroll */
-  .board-group { min-width: max-content; }
+  /* No mobile a board vira cards empilhados — preenche a largura, sem scroll-x */
+  .board-group { min-width: 0; width: 100%; }
+  .board-list-scroll { overflow-x: hidden !important; }
 
   /* Menos respiro lateral no shell mobile */
   .app-shell { padding: 0 !important; gap: 0 !important; }
@@ -194,4 +195,10 @@ button { font-family: inherit; }
 
   /* Recolher/expandir é desktop-only; no mobile o drawer já cuida */
   .sidebar-collapse-btn, .sidebar-expand-btn { display: none !important; }
+
+  /* Busca/filtros do header de tarefas ocupam a largura ao empilhar */
+  .app-header input, .app-header select { width: 100% !important; flex: 1 1 100%; }
+
+  /* Drawer de detalhe da tarefa: full-screen no mobile */
+  .task-drawer { width: 100vw !important; }
 }

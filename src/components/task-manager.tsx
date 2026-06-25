@@ -97,6 +97,19 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 const GRID_COLUMNS = "36px minmax(220px, 380px) 120px 120px 110px 100px 140px 130px 70px 48px";
 const GRID_COLUMNS_SUBTASK = "36px 1fr 130px 110px 60px";
 
+/** Detecta viewport mobile (≤768px) reativo a resize/rotação. */
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 // ——— Theme ———
 // Sistema é light-only. Os valores apontam pra CSS custom properties em
 // globals.css; getTheme() devolve sempre o mesmo shape (compat com props).
@@ -1119,7 +1132,7 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
   return (
     <div role="dialog" aria-modal="true" aria-label={`Detalhes da tarefa: ${task.title}`} style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "flex-end" }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: theme.overlay, backdropFilter: "blur(4px)" }} />
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} className="task-drawer" style={{
         position: "relative", width: "min(640px, 94vw)", height: "100%",
         background: theme.surface, display: "flex", flexDirection: "column",
         boxShadow: "-8px 0 40px rgba(0,0,0,0.15)", animation: "slideIn 0.25s ease-out"
@@ -1589,6 +1602,67 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
       <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
         <button onClick={(e) => { e.stopPropagation(); onOpen(task); }}
           style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 14 }}>❯</button>
+      </div>
+    </div>
+  );
+}
+
+// ——— Card de tarefa no mobile (empilhado, alvos ≥44px) ———
+function MobileTaskCard({ task, projects, users, onUpdate, onOpen, theme, canEdit }: {
+  task: Task; projects: Project[]; users: User[]; onUpdate: (t: Task) => void; onOpen: (t: Task) => void; theme: Theme; canEdit: boolean;
+}) {
+  const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
+  const stDone = (task.subtasks || []).filter((s) => s.checked).length;
+  const stTotal = (task.subtasks || []).length;
+  const assignee = users?.find((u) => u.id === task.assignedTo);
+  const project = projects.find((p) => p.id === task.projectId);
+  const isHigh = task.priority === "high" || task.priority === "critical";
+
+  return (
+    <div onClick={() => onOpen(task)} className="task-row mobile-task-card"
+      style={{
+        display: "flex", flexDirection: "column", gap: 8,
+        padding: "12px 14px", borderBottom: `1px solid ${theme.border}`,
+        borderLeft: `4px solid ${priorityColor(task.priority)}`,
+        background: isHigh ? "rgba(226,68,92,0.05)" : "transparent",
+        cursor: "pointer",
+      }}>
+      {/* Linha 1: check + título + chevron */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <button onClick={(e) => { e.stopPropagation(); if (canEdit) onUpdate({ ...task, checked: !task.checked }); }}
+          aria-label={task.checked ? "Desmarcar" : "Concluir"}
+          style={{ width: 26, height: 26, borderRadius: 7, border: `2px solid ${task.checked ? "#00C875" : theme.inputBorder}`, background: task.checked ? "#00C875" : "transparent", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0, marginTop: 1 }}>
+          {task.checked && <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>✓</span>}
+        </button>
+        <span style={{ flex: 1, minWidth: 0, color: task.checked ? theme.textMuted : theme.text, fontWeight: 600, fontSize: 15, lineHeight: 1.35, textDecoration: task.checked ? "line-through" : "none" }}>
+          {task.title}
+        </span>
+        <span aria-hidden style={{ color: theme.textMuted, fontSize: 16, flexShrink: 0, lineHeight: 1.5 }}>❯</span>
+      </div>
+
+      {/* Linha 2: status (interativo) + meta */}
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, paddingLeft: 36 }}>
+        <div onClick={(e) => e.stopPropagation()}>
+          <StatusBadge value={task.status} onChange={(v: string) => onUpdate({ ...task, status: v })} theme={theme} disabled={!canEdit} />
+        </div>
+        {project && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: project.color || theme.textSecondary, fontWeight: 600, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span aria-hidden>{project.icon}</span>{project.name}
+          </span>
+        )}
+        {task.deadline && (
+          <span style={{ fontSize: 12, fontWeight: 600, color: overdue ? "#E2445C" : theme.textSecondary }}>
+            {new Date(task.deadline + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+          </span>
+        )}
+        {stTotal > 0 && (
+          <span style={{ fontSize: 11, color: theme.textSecondary, background: theme.inputBg, padding: "2px 7px", borderRadius: 10 }}>{stDone}/{stTotal}</span>
+        )}
+        {assignee && (
+          <span style={{ marginLeft: "auto" }}>
+            <UserAvatar avatar={assignee.avatar} name={assignee.name} size={24} background="var(--primary-soft)" />
+          </span>
+        )}
       </div>
     </div>
   );
@@ -2195,6 +2269,7 @@ function PersonalArea({ theme, currentUser, tasks, projects, users, tags, person
 export default function TaskManager() {
   // Sistema é light-only — sem mode toggle
   const theme = useMemo(() => getTheme("light"), []);
+  const isMobile = useIsMobile();
 
   const [users, setUsers] = useState<User[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -2646,13 +2721,21 @@ export default function TaskManager() {
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
         {/* Top bar — dados do usuário no canto superior direito (todas as views) */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, background: "var(--surface)", flexShrink: 0 }}>
-          {sidebarCollapsed ? (
-            <button onClick={() => setSidebarCollapsed(false)} aria-label="Expandir menu" title="Expandir menu"
-              className="sidebar-expand-btn"
-              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
-              <PanelLeftOpen size={18} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Hambúrguer — abre o drawer no mobile (todas as views) */}
+            <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu" title="Menu"
+              className="menu-toggle"
+              style={{ alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer" }}>
+              <MenuIcon size={18} aria-hidden />
             </button>
-          ) : <span />}
+            {sidebarCollapsed && (
+              <button onClick={() => setSidebarCollapsed(false)} aria-label="Expandir menu" title="Expandir menu"
+                className="sidebar-expand-btn"
+                style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
+                <PanelLeftOpen size={18} />
+              </button>
+            )}
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             onClick={() => setProfileOpen(true)}
@@ -2705,14 +2788,6 @@ export default function TaskManager() {
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
         <div className="app-header" style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <button
-            className="menu-toggle"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Abrir menu"
-            style={{ alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer" }}
-          >
-            <MenuIcon size={18} aria-hidden />
-          </button>
           <div style={{ flex: 1, minWidth: 200 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
               {activeProj
@@ -2812,12 +2887,17 @@ export default function TaskManager() {
                       <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} canEdit={canEdit} onQuickAdd={() => addTaskInGroup(group.id)} />
                       {!collapsedGroups.has(group.id) && (
                         <>
-                          <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-                            <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
-                          </div>
-                          {/* Quick add no TOPO do grupo (estilo monday): clica e digita */}
-                          {canEdit && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
+                          {!isMobile && (
+                            <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 12px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
+                              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
+                            </div>
+                          )}
+                          {/* Quick add no TOPO do grupo (estilo monday): clica e digita — desktop */}
+                          {canEdit && !isMobile && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
                           {group.tasks.map((task) => (
+                            isMobile ? (
+                              <MobileTaskCard key={task.id} task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} />
+                            ) : (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
                               <TaskRow task={task} projects={visibleProjects} users={users} tags={tags} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
                               {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => {
@@ -2834,6 +2914,7 @@ export default function TaskManager() {
                                 );
                               })}
                             </div>
+                            )
                           ))}
                         </>
                       )}
