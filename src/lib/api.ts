@@ -1,4 +1,5 @@
 import type {
+  AppNotification,
   ContentComment,
   ContentItem,
   ContentSlide,
@@ -175,6 +176,16 @@ export const api = {
   getTaskComments: (id: string) => request<TaskComment[]>(`/tasks/${id}/comments`),
   addTaskComment: (id: string, body: string) =>
     request<TaskComment>(`/tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
+  notifyMention: (taskId: string, userId: string) =>
+    request<{ success: boolean }>(`/tasks/${taskId}/mention`, { method: "POST", body: JSON.stringify({ userId }) }),
+
+  // Notificações internas
+  getNotifications: () => request<{ items: AppNotification[]; unread: number }>("/notifications"),
+  markNotificationsRead: (ids?: string[]) =>
+    request<{ success: boolean }>("/notifications/read", {
+      method: "POST",
+      body: JSON.stringify(ids && ids.length ? { ids } : {}),
+    }),
 
   // Notes
   getNotes: () => request<Note[]>("/notes"),

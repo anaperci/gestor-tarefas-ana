@@ -236,6 +236,16 @@ export interface ContentStatusEvent {
   createdAt: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: string;
+  taskId: string | null;
+  title: string;
+  read: boolean;
+  createdAt: string;
+  actorName?: string | null;
+}
+
 export interface CreateContentItemPayload {
   title?: string;
   body?: string;

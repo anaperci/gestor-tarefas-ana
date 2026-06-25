@@ -11,6 +11,7 @@ import {
   Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
   Link2, LayoutDashboard, List, KanbanSquare,
   ChevronLeft, PanelLeftClose, PanelLeftOpen,
+  Quote, Eraser, Bell,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -29,6 +30,7 @@ import { TagsPicker } from "@/components/tags/tags-picker";
 import type { Tag } from "@/lib/types";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
+  AppNotification,
   ChecklistItem,
   Note,
   Project,
@@ -1011,9 +1013,11 @@ function UserRow({ user, currentUser, theme, onResetPassword, onSendReset, onCha
 }
 
 // ——— Rich Text Editor (Monday.com style) ———
-function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: string; onChange: (v: string) => void; theme: Theme; readOnly?: boolean; placeholder?: string }) {
+function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMention }: { value: string; onChange: (v: string) => void; theme: Theme; readOnly?: boolean; placeholder?: string; users?: User[]; onMention?: (userId: string) => void }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
 
   useEffect(() => {
     if (editorRef.current && isInitialMount.current) {
@@ -1025,58 +1029,119 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
   const exec = (cmd: string, val?: string) => {
     editorRef.current?.focus();
     document.execCommand(cmd, false, val);
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
   };
 
   const handleInput = () => {
+    const el = editorRef.current;
+    if (!el) return;
+    // Atalho markdown: uma linha com exatamente "---" vira divisória
+    const sel = window.getSelection();
+    if (sel && sel.anchorNode && sel.anchorNode.nodeType === 3) {
+      const tn = sel.anchorNode as Text;
+      if (tn.textContent === "---") {
+        tn.textContent = "";
+        document.execCommand("insertHorizontalRule");
+      }
+    }
+    onChange(el.innerHTML);
+  };
+
+  // Colar limpo: sempre como texto puro (sem lixo de HTML de outras fontes)
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, text);
     if (editorRef.current) onChange(editorRef.current.innerHTML);
   };
 
   const insertLink = () => {
-    const url = window.prompt("URL do link:");
-    if (url) exec("createLink", url);
+    let url = window.prompt("URL do link:");
+    if (!url) return;
+    url = url.trim();
+    if (!/^https?:\/\//i.test(url) && !url.startsWith("mailto:")) url = "https://" + url;
+    exec("createLink", url);
   };
 
-  const insertMention = () => {
-    const sel = window.getSelection();
-    if (sel && editorRef.current) {
-      const mention = document.createElement("span");
-      mention.style.cssText = "color: #579BFC; font-weight: 600;";
-      mention.textContent = "@";
-      sel.getRangeAt(0).insertNode(mention);
-      sel.collapseToEnd();
-      editorRef.current.focus();
-      handleInput();
-    }
+  const insertMention = (u: User) => {
+    editorRef.current?.focus();
+    const first = u.name.split(" ")[0];
+    const html = `<span class="rt-mention" data-user-id="${u.id}">@${first}</span>&nbsp;`;
+    document.execCommand("insertHTML", false, html);
+    setShowMentions(false);
+    setMentionQuery("");
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
+    onMention?.(u.id);
   };
 
-  const toolBtn = (label: string, action: () => void, title: string) => (
-    <button onClick={action} title={title}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 14, fontWeight: label === "B" ? 700 : label === "I" ? 400 : 500, fontStyle: label === "I" ? "italic" : "normal", fontFamily: "inherit", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
+  const mentionableUsers = (users || []).filter((u) =>
+    !mentionQuery || u.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
+
+  const toolBtn = (label: ReactNode, action: () => void, title: string, opts?: { bold?: boolean; italic?: boolean; strike?: boolean }) => (
+    <button onClick={action} title={title} type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 13, fontWeight: opts?.bold ? 700 : 600, fontStyle: opts?.italic ? "italic" : "normal", textDecoration: opts?.strike ? "line-through" : "none", fontFamily: "inherit", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
       onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = theme.textSecondary; }}>
       {label}
     </button>
   );
 
+  const sep = () => <div style={{ width: 1, height: 18, background: theme.border, margin: "0 3px" }} />;
+
   return (
-    <div style={{ border: `1px solid ${theme.border}`, borderRadius: 8, overflow: "hidden" }}>
+    <div style={{ border: `1px solid ${theme.border}`, borderRadius: 8, overflow: "visible", position: "relative" }}>
       {!readOnly && (
-        <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "6px 10px", borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
-          {toolBtn("B", () => exec("bold"), "Negrito")}
-          {toolBtn("I", () => exec("italic"), "Itálico")}
+        <div style={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", padding: "6px 10px", borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
+          {toolBtn("B", () => exec("bold"), "Negrito", { bold: true })}
+          {toolBtn("I", () => exec("italic"), "Itálico", { italic: true })}
           {toolBtn("U", () => exec("underline"), "Sublinhado")}
-          <div style={{ width: 1, height: 18, background: theme.border, margin: "0 4px" }} />
-          {toolBtn("🔗", insertLink, "Inserir link")}
-          {toolBtn("@", insertMention, "Mencionar")}
-          <div style={{ width: 1, height: 18, background: theme.border, margin: "0 4px" }} />
-          {toolBtn("― ―", () => exec("insertHorizontalRule"), "Linha divisória")}
+          {toolBtn("S", () => exec("strikeThrough"), "Tachado", { strike: true })}
+          {sep()}
+          {toolBtn("H2", () => exec("formatBlock", "h2"), "Título")}
+          {toolBtn("H3", () => exec("formatBlock", "h3"), "Subtítulo")}
+          {sep()}
+          {toolBtn(<List size={15} />, () => exec("insertUnorderedList"), "Lista")}
+          {toolBtn(<ListChecks size={15} />, () => exec("insertOrderedList"), "Lista numerada")}
+          {toolBtn(<Quote size={15} />, () => exec("formatBlock", "blockquote"), "Citação")}
+          {sep()}
+          {toolBtn(<Link2 size={15} />, insertLink, "Inserir link")}
+          {toolBtn("@", () => { editorRef.current?.focus(); setShowMentions((s) => !s); }, "Mencionar (notifica no sistema)")}
+          {toolBtn("―", () => exec("insertHorizontalRule"), "Divisória (ou digite ---)")}
+          {sep()}
+          {toolBtn(<Eraser size={15} />, () => exec("removeFormat"), "Limpar formatação")}
         </div>
       )}
+
+      {showMentions && !readOnly && (
+        <div style={{ position: "absolute", zIndex: 50, top: 44, left: 10, width: 240, background: theme.dropdownBg, border: `1px solid ${theme.border}`, borderRadius: 10, boxShadow: "0 8px 28px rgba(0,0,0,0.16)", overflow: "hidden" }}
+          onMouseDown={(e) => e.preventDefault()}>
+          <input autoFocus value={mentionQuery} onChange={(e) => setMentionQuery(e.target.value)}
+            placeholder="Mencionar quem…"
+            style={{ width: "100%", border: "none", borderBottom: `1px solid ${theme.border}`, padding: "9px 12px", fontSize: 13, outline: "none", background: "transparent", color: theme.text, fontFamily: "inherit" }} />
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            {mentionableUsers.length === 0 ? (
+              <div style={{ padding: "10px 12px", fontSize: 12, color: theme.textMuted }}>Ninguém encontrado</div>
+            ) : mentionableUsers.map((u) => (
+              <button key={u.id} type="button" onClick={() => insertMention(u)}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", background: "transparent", padding: "8px 12px", cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: theme.text }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = theme.surfaceHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                <UserAvatar avatar={u.avatar} name={u.name} size={22} background="var(--primary-soft)" />
+                <span style={{ fontSize: 13 }}>{u.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div
         ref={editorRef}
         contentEditable={!readOnly}
         suppressContentEditableWarning
         onInput={handleInput}
+        onPaste={handlePaste}
         data-placeholder={placeholder}
         style={{
           padding: "14px 16px", minHeight: 120, outline: "none", color: theme.text,
@@ -1086,8 +1151,114 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder }: { value: 
       />
       <style>{`
         [data-placeholder]:empty:before { content: attr(data-placeholder); color: ${theme.textMuted}; pointer-events: none; }
-        [contenteditable] a { color: #579BFC; text-decoration: underline; }
+        [contenteditable] a { color: #15708C; text-decoration: underline; }
+        [contenteditable] h2 { font-size: 18px; font-weight: 700; margin: 10px 0 4px; }
+        [contenteditable] h3 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; }
+        [contenteditable] ul, [contenteditable] ol { margin: 6px 0 6px 22px; }
+        [contenteditable] li { margin: 2px 0; }
+        [contenteditable] blockquote { margin: 8px 0; padding: 6px 14px; border-left: 3px solid var(--primary); background: var(--primary-soft); color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+        [contenteditable] hr { border: none; border-top: 1px solid ${theme.border}; margin: 12px 0; }
+        .rt-mention { color: #15708C; font-weight: 600; background: rgba(21,112,140,0.10); padding: 0 4px; border-radius: 4px; }
       `}</style>
+    </div>
+  );
+}
+
+// ——— Sininho de notificações internas ———
+function relTimeShort(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "agora";
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
+
+function NotificationBell({ theme, onOpenTask }: { theme: Theme; onOpenTask: (taskId: string) => void }) {
+  const [items, setItems] = useState<AppNotification[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api.getNotifications();
+      setItems(r.items);
+      setUnread(r.unread);
+    } catch { /* silencioso */ }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const markAll = async () => {
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnread(0);
+    try { await api.markNotificationsRead(); } catch { /* noop */ }
+  };
+
+  const openNotif = async (n: AppNotification) => {
+    setOpen(false);
+    if (!n.read) {
+      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+      setUnread((u) => Math.max(0, u - 1));
+      api.markNotificationsRead([n.id]).catch(() => {});
+    }
+    if (n.taskId) onOpenTask(n.taskId);
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <button onClick={() => setOpen((s) => !s)} aria-label="Notificações" title="Notificações"
+        style={{ position: "relative", background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
+        <Bell size={16} />
+        {unread > 0 && (
+          <span style={{ position: "absolute", top: -5, right: -5, minWidth: 17, height: 17, padding: "0 4px", borderRadius: 9, background: "#E2445C", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${theme.surface}` }}>
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{ position: "absolute", top: 44, right: 0, width: "min(340px, 92vw)", background: theme.dropdownBg, border: `1px solid ${theme.border}`, borderRadius: 12, boxShadow: "0 12px 40px rgba(0,0,0,0.18)", zIndex: 1200, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${theme.border}` }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>Notificações</span>
+            {unread > 0 && (
+              <button onClick={markAll} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+                Marcar todas como lidas
+              </button>
+            )}
+          </div>
+          <div style={{ maxHeight: 360, overflowY: "auto" }}>
+            {items.length === 0 ? (
+              <div style={{ padding: "28px 16px", textAlign: "center", color: theme.textMuted, fontSize: 13 }}>Sem notificações por aqui.</div>
+            ) : items.map((n) => (
+              <button key={n.id} onClick={() => openNotif(n)}
+                style={{ display: "flex", gap: 10, width: "100%", border: "none", borderBottom: `1px solid ${theme.border}`, background: n.read ? "transparent" : "var(--primary-soft)", padding: "11px 14px", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = theme.surfaceHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = n.read ? "transparent" : "var(--primary-soft)")}>
+                <span style={{ marginTop: 2, color: "var(--primary)", flexShrink: 0 }}><Bell size={15} /></span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13, color: theme.text, lineHeight: 1.4 }}>{n.title}</span>
+                  <span style={{ fontSize: 11, color: theme.textMuted }}>{relTimeShort(n.createdAt)}</span>
+                </span>
+                {!n.read && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E2445C", flexShrink: 0, marginTop: 5 }} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1175,6 +1346,8 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
             theme={theme}
             readOnly={!canEdit}
             placeholder={canEdit ? "Escreva aqui... Use a barra de ferramentas para formatar" : "Sem descrição"}
+            users={users}
+            onMention={(userId) => { api.notifyMention(task.id, userId).catch(() => {}); }}
           />
 
           {/* Meta: timeline + estimativa + tags */}
@@ -2737,6 +2910,10 @@ export default function TaskManager() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <NotificationBell theme={theme} onOpenTask={(taskId) => {
+            const t = tasks.find((x) => x.id === taskId);
+            if (t) setDetailTask(t);
+          }} />
           <button
             onClick={() => setProfileOpen(true)}
             title="Editar perfil"
