@@ -1,5 +1,6 @@
 import type {
   AppNotification,
+  AssetLink,
   ContentComment,
   ContentItem,
   ContentSlide,
@@ -210,6 +211,14 @@ export const api = {
     request<{ url: string; fileName: string }>(`/attachments/${id}`),
   deleteAttachment: (id: string) =>
     request<{ success: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
+
+  // Assets (links de drives por workspace)
+  getAssets: (workspaceId: string) =>
+    request<AssetLink[]>(`/assets?workspaceId=${encodeURIComponent(workspaceId)}`),
+  createAsset: (data: { workspaceId: string; title: string; url: string; description?: string }) =>
+    request<AssetLink>("/assets", { method: "POST", body: JSON.stringify(data) }),
+  deleteAsset: (id: string) =>
+    request<{ success: boolean }>(`/assets/${id}`, { method: "DELETE" }),
 
   // Notes
   getNotes: () => request<Note[]>("/notes"),

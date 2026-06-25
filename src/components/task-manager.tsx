@@ -31,6 +31,7 @@ import type { Tag } from "@/lib/types";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
 import type {
   AppNotification,
+  AssetLink,
   ChecklistItem,
   Note,
   Project,
@@ -1182,6 +1183,104 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
         [contenteditable] hr { border: none; border-top: 1px solid ${theme.border}; margin: 12px 0; }
         .rt-mention { color: var(--primary-hover); font-weight: 600; background: var(--primary-soft); padding: 0 4px; border-radius: 4px; }
       `}</style>
+    </div>
+  );
+}
+
+// ——— Assets (links de drives por workspace) ———
+function AssetsView({ workspaceId, workspaceName, theme }: { workspaceId: string; workspaceName?: string; theme: Theme }) {
+  const [items, setItems] = useState<AssetLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [desc, setDesc] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setItems(await api.getAssets(workspaceId)); } catch { /* noop */ } finally { setLoading(false); }
+  }, [workspaceId]);
+  useEffect(() => { load(); }, [load]);
+
+  const add = async () => {
+    if (!title.trim() || !url.trim()) return;
+    setSaving(true);
+    try {
+      const a = await api.createAsset({ workspaceId, title: title.trim(), url: url.trim(), description: desc.trim() || undefined });
+      setItems((prev) => [...prev, a]);
+      setTitle(""); setUrl(""); setDesc(""); setAdding(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Falha ao salvar");
+    } finally { setSaving(false); }
+  };
+
+  const remove = async (id: string) => {
+    if (!window.confirm("Remover este link?")) return;
+    setItems((prev) => prev.filter((a) => a.id !== id));
+    try { await api.deleteAsset(id); } catch { load(); }
+  };
+
+  const hostOf = (u: string) => { try { return new URL(u.startsWith("http") ? u : "https://" + u).hostname.replace("www.", ""); } catch { return u; } };
+  const openLink = (u: string) => window.open(u.startsWith("http") ? u : "https://" + u, "_blank", "noopener");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Assets</h1>
+          <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>Links e drives{workspaceName ? ` · ${workspaceName}` : ""}</p>
+        </div>
+        <button onClick={() => setAdding((s) => !s)}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          <Plus size={14} aria-hidden /> Novo link
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+        {adding && (
+          <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, marginBottom: 16, maxWidth: 640, display: "flex", flexDirection: "column", gap: 10 }}>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nome (ex: Drive de Marketing)" autoFocus
+              style={{ padding: "9px 12px", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link (https://drive.google.com/...)" onKeyDown={(e) => e.key === "Enter" && add()}
+              style={{ padding: "9px 12px", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+            <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrição (opcional)"
+              style={{ padding: "9px 12px", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={add} disabled={saving || !title.trim() || !url.trim()}
+                style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: (saving || !title.trim() || !url.trim()) ? 0.5 : 1, fontFamily: "inherit" }}>
+                {saving ? "Salvando…" : "Salvar"}
+              </button>
+              <button onClick={() => setAdding(false)} style={{ background: theme.inputBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div style={{ color: theme.textMuted, fontSize: 14 }}>Carregando…</div>
+        ) : items.length === 0 ? (
+          <EmptyState icon={Link2} title="Nenhum link ainda" description="Adicione os drives e recursos deste workspace pra acesso rápido." />
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+            {items.map((a) => (
+              <div key={a.id} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 6, position: "relative" }}>
+                <button onClick={() => remove(a.id)} title="Remover" aria-label="Remover"
+                  style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", color: theme.textMuted, cursor: "pointer", padding: 4, borderRadius: 6 }}>
+                  <Trash2 size={14} />
+                </button>
+                <button onClick={() => openLink(a.url)} style={{ textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 32, height: 32, borderRadius: 8, background: "var(--primary-soft)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Link2 size={16} /></span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</span>
+                </button>
+                {a.description && <p style={{ fontSize: 12, color: theme.textSecondary, margin: 0, lineHeight: 1.45 }}>{a.description}</p>}
+                <button onClick={() => openLink(a.url)} style={{ textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit", fontSize: 11, color: "var(--primary-hover)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  {hostOf(a.url)} <Link2 size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2633,7 +2732,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine" | "assets">("dashboard");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -3033,6 +3132,11 @@ export default function TaskManager() {
                 </button>
               )}
 
+              <button className="sidebar-item" onClick={() => { setActiveView("assets"); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: activeView === "assets" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "assets" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
+                <Link2 size={16} aria-hidden /><span style={{ flex: 1 }}>Assets</span>
+              </button>
+
               {visibleProjects.filter((proj) => proj.workspaceId === activeWorkspace).map((proj) => (
                 <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
                   onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
@@ -3321,6 +3425,14 @@ export default function TaskManager() {
               workspaceId={activeWorkspace !== "all" ? activeWorkspace : undefined}
               workspaceName={activeWorkspace !== "all" ? activeWs?.name : undefined}
             />
+          </motion.div>
+        ) : activeView === "assets" ? (
+          <motion.div key="view-assets" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            {activeWorkspace !== "all" ? (
+              <AssetsView workspaceId={activeWorkspace} workspaceName={activeWs?.name} theme={theme} />
+            ) : (
+              <div style={{ padding: 40, color: theme.textMuted }}>Abra um workspace pra ver os assets.</div>
+            )}
           </motion.div>
         ) : activeView === "notes" ? (
           <motion.div key="view-notes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>

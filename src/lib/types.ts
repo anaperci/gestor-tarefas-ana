@@ -246,6 +246,15 @@ export interface TaskAttachment {
   createdAt: string;
 }
 
+export interface AssetLink {
+  id: string;
+  workspaceId: string | null;
+  title: string;
+  url: string;
+  description: string | null;
+  createdAt: string;
+}
+
 export interface AppNotification {
   id: string;
   type: string;
