@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Poppins, Marcellus } from "next/font/google";
+import { Manrope, Marcellus } from "next/font/google";
 import "./globals.css";
 
-// Design System "Clareza": Poppins (sans-serif geométrica, interface) + Marcellus (display/marca)
-const sans = Poppins({
+// Design System "Clareza": Manrope (interface) + Marcellus (display/marca)
+const sans = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-sans",
