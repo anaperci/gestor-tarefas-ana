@@ -2420,25 +2420,20 @@ export default function TaskManager() {
 
           {workspaces.length > 0 && (
             <div style={{ padding: "0 8px", marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspace</div>
-              <select
-                value={activeWorkspace}
-                onChange={(e) => { setActiveWorkspace(e.target.value); setActiveProject("all"); }}
-                aria-label="Selecionar workspace"
-                style={{
-                  width: "100%", padding: "9px 10px", borderRadius: 8,
-                  background: "var(--sidebar-input-bg)", border: "1px solid var(--sidebar-border)",
-                  color: "var(--sidebar-text)", fontSize: 13, fontWeight: 600, fontFamily: "inherit",
-                  cursor: "pointer", outline: "none",
-                }}
-              >
-                <option value="all" style={{ color: "#18313A" }}>Todos os workspaces</option>
-                {workspaces.map((ws) => (
-                  <option key={ws.id} value={ws.id} style={{ color: "#18313A" }}>
-                    {ws.name}
-                  </option>
-                ))}
-              </select>
+              <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
+              <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); }}
+                className="sidebar-item"
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "8px 12px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: activeWorkspace === "all" ? "var(--sidebar-active-bg)" : "transparent", color: activeWorkspace === "all" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
+                <LayoutGrid size={15} aria-hidden /><span style={{ flex: 1 }}>Todos</span>
+              </button>
+              {workspaces.map((ws) => (
+                <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }}
+                  className="sidebar-item"
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: "none", textAlign: "left", padding: "8px 12px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: activeWorkspace === ws.id ? "var(--sidebar-active-bg)" : "transparent", color: activeWorkspace === ws.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
+                </button>
+              ))}
             </div>
           )}
 
@@ -2450,7 +2445,7 @@ export default function TaskManager() {
             <span style={{ fontSize: 12, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "2px 8px", borderRadius: 10 }}>{counts.all}</span>
           </button>
 
-          {visibleProjects.map((proj) => (
+          {visibleProjects.filter((proj) => activeWorkspace === "all" || proj.workspaceId === activeWorkspace).map((proj) => (
             <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
               onClick={() => { setActiveView("tasks"); setActiveProject(proj.id); }}>
               <span style={{ fontSize: 16 }}>{proj.icon}</span>
