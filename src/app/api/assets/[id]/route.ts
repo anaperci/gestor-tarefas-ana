@@ -15,9 +15,13 @@ export const DELETE = withErrorHandling(
       .maybeSingle();
     if (!asset) throw new ApiError("NOT_FOUND", "Link não encontrado");
 
-    const accessible = await getAccessibleWorkspaceIds(user);
-    if (accessible !== null && (!asset.workspace_id || !accessible.includes(asset.workspace_id))) {
-      throw new ApiError("FORBIDDEN", "Sem acesso a este workspace.");
+    // Assets globais (workspace_id null) qualquer autenticado remove; os de
+    // workspace exigem membership (admin vê tudo)
+    if (asset.workspace_id) {
+      const accessible = await getAccessibleWorkspaceIds(user);
+      if (accessible !== null && !accessible.includes(asset.workspace_id)) {
+        throw new ApiError("FORBIDDEN", "Sem acesso a este workspace.");
+      }
     }
 
     const { error } = await supabase.from("asset_links").delete().eq("id", id);

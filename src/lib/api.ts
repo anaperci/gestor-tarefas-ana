@@ -213,10 +213,10 @@ export const api = {
   deleteAttachment: (id: string) =>
     request<{ success: boolean }>(`/attachments/${id}`, { method: "DELETE" }),
 
-  // Assets (links de drives por workspace)
-  getAssets: (workspaceId: string) =>
-    request<AssetLink[]>(`/assets?workspaceId=${encodeURIComponent(workspaceId)}`),
-  createAsset: (data: { workspaceId: string; title: string; url: string; description?: string }) =>
+  // Assets (links de drives — globais da empresa, ou por workspace se informado)
+  getAssets: (workspaceId?: string) =>
+    request<AssetLink[]>(`/assets${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`),
+  createAsset: (data: { workspaceId?: string; title: string; url: string; description?: string }) =>
     request<AssetLink>("/assets", { method: "POST", body: JSON.stringify(data) }),
   deleteAsset: (id: string) =>
     request<{ success: boolean }>(`/assets/${id}`, { method: "DELETE" }),

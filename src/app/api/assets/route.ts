@@ -26,7 +26,7 @@ function rowToAsset(r: AssetRow) {
 }
 
 const createSchema = z.object({
-  workspaceId: z.string().min(1),
+  workspaceId: z.string().min(1).optional(),
   title: z.string().min(1).max(160),
   url: z.string().min(1).max(2000),
   description: z.string().max(500).optional(),
@@ -44,28 +44,34 @@ export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
   const url = new URL(request.url);
   const workspaceId = url.searchParams.get("workspaceId");
-  if (!workspaceId) throw new ApiError("VALIDATION_ERROR", "workspaceId obrigatório");
-  await assertWorkspaceMember(user, workspaceId);
 
-  const { data } = await supabase
+  let query = supabase
     .from("asset_links")
     .select("*")
-    .eq("workspace_id", workspaceId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
+  if (workspaceId) {
+    await assertWorkspaceMember(user, workspaceId);
+    query = query.eq("workspace_id", workspaceId);
+  } else {
+    // Assets globais da empresa (sem workspace) — visíveis a todos
+    query = query.is("workspace_id", null);
+  }
+
+  const { data } = await query;
   return NextResponse.json((data ?? []).map((r) => rowToAsset(r as AssetRow)));
 });
 
 export const POST = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
   const body = await parseJson(request, createSchema);
-  await assertWorkspaceMember(user, body.workspaceId);
+  if (body.workspaceId) await assertWorkspaceMember(user, body.workspaceId);
 
   const id = "asset-" + genId();
   const { error } = await supabase.from("asset_links").insert({
     id,
-    workspace_id: body.workspaceId,
+    workspace_id: body.workspaceId ?? null,
     title: body.title.trim(),
     url: body.url.trim(),
     description: body.description?.trim() || null,

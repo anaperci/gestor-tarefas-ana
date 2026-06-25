@@ -12,7 +12,7 @@ import {
   Link2, LayoutDashboard, List, KanbanSquare,
   ChevronLeft, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
-  ChevronDown, Calendar, Check,
+  Calendar,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { api } from "@/lib/api";
@@ -1190,7 +1190,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
 }
 
 // ——— Assets (links de drives por workspace) ———
-function AssetsView({ workspaceId, workspaceName, theme }: { workspaceId: string; workspaceName?: string; theme: Theme }) {
+function AssetsView({ theme }: { theme: Theme }) {
   const [items, setItems] = useState<AssetLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -1201,15 +1201,15 @@ function AssetsView({ workspaceId, workspaceName, theme }: { workspaceId: string
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setItems(await api.getAssets(workspaceId)); } catch { /* noop */ } finally { setLoading(false); }
-  }, [workspaceId]);
+    try { setItems(await api.getAssets()); } catch { /* noop */ } finally { setLoading(false); }
+  }, []);
   useEffect(() => { load(); }, [load]);
 
   const add = async () => {
     if (!title.trim() || !url.trim()) return;
     setSaving(true);
     try {
-      const a = await api.createAsset({ workspaceId, title: title.trim(), url: url.trim(), description: desc.trim() || undefined });
+      const a = await api.createAsset({ title: title.trim(), url: url.trim(), description: desc.trim() || undefined });
       setItems((prev) => [...prev, a]);
       setTitle(""); setUrl(""); setDesc(""); setAdding(false);
     } catch (err) {
@@ -1231,7 +1231,7 @@ function AssetsView({ workspaceId, workspaceName, theme }: { workspaceId: string
       <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Assets</h1>
-          <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>Links e drives{workspaceName ? ` · ${workspaceName}` : ""}</p>
+          <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>Links e drives da empresa</p>
         </div>
         <button onClick={() => setAdding((s) => !s)}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
@@ -2793,9 +2793,12 @@ function AgendaTab({ theme, currentUser }: { theme: Theme; currentUser: User }) 
       {editing || !src ? (
         <div style={{ maxWidth: 620 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: theme.text }}>Conectar sua agenda</h2>
-          <p style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 1.6, marginBottom: 14 }}>
+          <p style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 1.6, marginBottom: 10 }}>
             No Google Calendar: <b>Configurações → Configurações do calendário → Incorporar código</b>.
-            Cole aqui o código <code>&lt;iframe&gt;</code> (ou só o link <code>src</code>).
+            Cole aqui o código <code>&lt;iframe&gt;</code> ou só o link.
+          </p>
+          <p style={{ fontSize: 12, color: "var(--accent)", lineHeight: 1.5, marginBottom: 14, fontWeight: 600 }}>
+            ⚠ Importante: a agenda precisa estar <b>pública</b> (Configurações do calendário → <b>Permissões de acesso → Tornar disponível ao público</b>), senão o Google mostra em branco.
           </p>
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={4}
             placeholder='<iframe src="https://calendar.google.com/calendar/embed?src=..."></iframe>'
@@ -2872,7 +2875,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"dashboard" | "tasks" | "personal" | "content" | "notes" | "routine" | "assets" | "agenda">("dashboard");
+  const [activeView, setActiveView] = useState<"tasks" | "personal" | "content" | "notes" | "routine" | "assets" | "agenda" | "transcricoes">("personal");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "transcricoes" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -2885,14 +2888,6 @@ export default function TaskManager() {
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // recolher (desktop)
-  const [wsSwitcherOpen, setWsSwitcherOpen] = useState(false);
-  const wsSwitcherRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!wsSwitcherOpen) return;
-    const onDoc = (e: MouseEvent) => { if (wsSwitcherRef.current && !wsSwitcherRef.current.contains(e.target as Node)) setWsSwitcherOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [wsSwitcherOpen]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [tasksViewMode, setTasksViewMode] = useState<"list" | "kanban">(() => {
@@ -3196,11 +3191,11 @@ export default function TaskManager() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1, overflowY: "auto", width: "100%" }}>
             <button onClick={() => setSidebarCollapsed(false)} title="Expandir menu" aria-label="Expandir menu" style={railBtnStyle(false)}><PanelLeftOpen size={18} /></button>
             <div style={{ height: 6 }} />
-            <button onClick={() => setActiveView("dashboard")} title="Dashboard" aria-label="Dashboard" style={railBtnStyle(activeView === "dashboard")}><LayoutDashboard size={18} /></button>
             <button onClick={() => setActiveView("personal")} title="Minha Área" aria-label="Minha Área" style={railBtnStyle(activeView === "personal")}><UserIcon size={18} /></button>
-            <button onClick={() => setActiveView("notes")} title="Anotações" aria-label="Anotações" style={railBtnStyle(activeView === "notes")}><Pencil size={18} /></button>
             <button onClick={() => setActiveView("agenda")} title="Agenda" aria-label="Agenda" style={railBtnStyle(activeView === "agenda")}><Calendar size={18} /></button>
             <button onClick={() => setActiveView("routine")} title="Rotina" aria-label="Rotina" style={railBtnStyle(activeView === "routine")}><Repeat size={18} /></button>
+            <button onClick={() => setActiveView("notes")} title="Anotações" aria-label="Anotações" style={railBtnStyle(activeView === "notes" || activeView === "transcricoes")}><Pencil size={18} /></button>
+            <button onClick={() => setActiveView("assets")} title="Assets" aria-label="Assets" style={railBtnStyle(activeView === "assets")}><Link2 size={18} /></button>
             {workspaces.length > 0 && <div style={{ width: 24, height: 1, background: "var(--sidebar-border)", margin: "6px 0" }} />}
             {workspaces.map((ws) => (
               <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }} title={ws.name} aria-label={ws.name} style={railBtnStyle(activeWorkspace === ws.id)}>
@@ -3208,7 +3203,6 @@ export default function TaskManager() {
               </button>
             ))}
             <div style={{ flex: 1 }} />
-            {isAdmin && <button onClick={() => setShowAdmin(true)} title="Painel Admin" aria-label="Painel Admin" style={{ ...railBtnStyle(false), color: "#FFB4BD" }}><Settings size={18} /></button>}
           </div>
         ) : (
         <>
@@ -3222,19 +3216,9 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
-          <button className="sidebar-item" onClick={() => { setActiveView("dashboard"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "dashboard" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "dashboard" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-            <LayoutDashboard size={16} aria-hidden /><span style={{ flex: 1 }}>Dashboard</span>
-          </button>
-
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
-          </button>
-
-          <button className="sidebar-item" onClick={() => { setActiveView("notes"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "notes" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "notes" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-            <Pencil size={16} aria-hidden /><span style={{ flex: 1 }}>Anotações</span>
           </button>
 
           <button className="sidebar-item" onClick={() => { setActiveView("agenda"); }}
@@ -3245,6 +3229,23 @@ export default function TaskManager() {
           <button className="sidebar-item" onClick={() => { setActiveView("routine"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "routine" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "routine" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <Repeat size={16} aria-hidden /><span style={{ flex: 1 }}>Rotina</span>
+          </button>
+
+          <button className="sidebar-item" onClick={() => { setActiveView("notes"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: (activeView === "notes" || activeView === "transcricoes") ? 2 : 6, fontSize: 14, fontWeight: 600, background: activeView === "notes" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "notes" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            <Pencil size={16} aria-hidden /><span style={{ flex: 1 }}>Anotações</span>
+          </button>
+
+          {(activeView === "notes" || activeView === "transcricoes") && (
+            <button className="sidebar-item" onClick={() => { setActiveView("transcricoes"); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px 8px 34px", borderRadius: 10, marginBottom: 6, fontSize: 13, fontWeight: 500, background: activeView === "transcricoes" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "transcricoes" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+              <FileText size={14} aria-hidden /><span style={{ flex: 1 }}>Transcrições</span>
+            </button>
+          )}
+
+          <button className="sidebar-item" onClick={() => { setActiveView("assets"); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "assets" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "assets" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            <Link2 size={16} aria-hidden /><span style={{ flex: 1 }}>Assets</span>
           </button>
 
           {activeWorkspace === "all" ? (
@@ -3263,33 +3264,13 @@ export default function TaskManager() {
             )
           ) : (
             <div style={{ padding: "0 8px", marginTop: 4 }}>
-              {/* Seletor de workspace (estilo Monday) */}
-              <div ref={wsSwitcherRef} style={{ position: "relative", marginBottom: 10 }}>
-                <button onClick={() => setWsSwitcherOpen((s) => !s)} aria-haspopup="listbox" aria-expanded={wsSwitcherOpen}
-                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", border: `1px solid var(--sidebar-border)`, textAlign: "left", padding: "10px 12px", borderRadius: 10, fontFamily: "inherit", cursor: "pointer", background: "var(--sidebar-input-bg)", color: "var(--sidebar-text)" }}>
-                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: activeWs?.color || "var(--sidebar-text-muted)", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeWs?.name || "Workspace"}</span>
-                  <ChevronDown size={16} aria-hidden style={{ transform: wsSwitcherOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0, color: "var(--sidebar-text-muted)" }} />
-                </button>
-                {wsSwitcherOpen && (
-                  <div role="listbox" style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "var(--sidebar)", border: `1px solid var(--sidebar-border)`, borderRadius: 10, padding: 6, boxShadow: "0 12px 32px rgba(0,0,0,0.32)", maxHeight: 320, overflowY: "auto" }}>
-                    {workspaces.map((ws) => (
-                      <button key={ws.id} role="option" aria-selected={ws.id === activeWorkspace}
-                        onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); setWsSwitcherOpen(false); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", textAlign: "left", padding: "9px 10px", borderRadius: 8, fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: ws.id === activeWorkspace ? "var(--sidebar-active-bg)" : "transparent", color: ws.id === activeWorkspace ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: ws.color, flexShrink: 0 }} />
-                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws.name}</span>
-                        {ws.id === activeWorkspace && <Check size={14} aria-hidden style={{ flexShrink: 0 }} />}
-                      </button>
-                    ))}
-                    <div style={{ height: 1, background: "var(--sidebar-border)", margin: "6px 4px" }} />
-                    <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); setActiveView("dashboard"); setWsSwitcherOpen(false); }}
-                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", textAlign: "left", padding: "9px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: "transparent", color: "var(--sidebar-text-muted)" }}>
-                      <ChevronLeft size={14} aria-hidden /> Todos os workspaces
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* Header alto contraste do workspace atual (clicar volta pra Minha Área) */}
+              <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); setActiveView("personal"); }}
+                title="Voltar pra Minha Área"
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", textAlign: "left", padding: "11px 12px", borderRadius: 10, marginBottom: 10, background: activeWs?.color || "var(--accent)", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(0,0,0,0.28)" }}>
+                <ChevronLeft size={16} aria-hidden style={{ flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeWs?.name || "Workspace"}</span>
+              </button>
 
               <button className="sidebar-item" onClick={() => { setActiveView("tasks"); setActiveProject("all"); }}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: activeProject === "all" ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === "all" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
@@ -3303,11 +3284,6 @@ export default function TaskManager() {
                   <FileText size={16} aria-hidden /><span style={{ flex: 1 }}>Conteúdo</span>
                 </button>
               )}
-
-              <button className="sidebar-item" onClick={() => { setActiveView("assets"); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 500, width: "100%", border: "none", textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: activeView === "assets" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "assets" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)" }}>
-                <Link2 size={16} aria-hidden /><span style={{ flex: 1 }}>Assets</span>
-              </button>
 
               {visibleProjects.filter((proj) => proj.workspaceId === activeWorkspace).map((proj) => (
                 <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, fontSize: 14, fontWeight: 500, background: activeProject === proj.id ? "var(--sidebar-active-bg)" : "transparent", color: activeProject === proj.id ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
@@ -3346,13 +3322,6 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "12px", borderTop: `1px solid var(--sidebar-border)`, display: "flex", flexDirection: "column", gap: 8 }}>
-          {isAdmin && (
-            <button onClick={() => setShowAdmin(true)} className="sidebar-item"
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, fontSize: 14, fontWeight: 600, color: "#FFB4BD", background: "transparent" }}>
-              <Settings size={16} aria-hidden /> Painel Admin
-            </button>
-          )}
-
           <div style={{ padding: "6px 12px", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--sidebar-text-muted)" }}>
             <span>Total: <b style={{ color: "var(--sidebar-text)" }}>{filteredTasks.length}</b></span>
             <span style={{ color: "#7CFFB4" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
@@ -3381,8 +3350,22 @@ export default function TaskManager() {
                 <PanelLeftOpen size={18} />
               </button>
             )}
+            {activeWorkspace !== "all" && (
+              <button onClick={() => { setActiveWorkspace("all"); setActiveProject("all"); setActiveView("personal"); }}
+                title="Voltar pra Minha Área"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.text, borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                <ChevronLeft size={15} aria-hidden /> Voltar
+              </button>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isAdmin && (
+            <button onClick={() => setShowAdmin(true)} title="Painel Admin" aria-label="Painel Admin"
+              className="topbar-icon-btn"
+              style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: "#E2445C", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8 }}>
+              <Settings size={16} />
+            </button>
+          )}
           <NotificationBell theme={theme} onOpenTask={(taskId) => {
             const t = tasks.find((x) => x.id === taskId);
             if (t) setDetailTask(t);
@@ -3407,27 +3390,14 @@ export default function TaskManager() {
           </div>
         </div>
         <AnimatePresence mode="wait" initial={false}>
-        {activeView === "dashboard" ? (
-          <motion.div
-            key="view-dashboard"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
-          >
-          <DashboardView
-            currentUser={currentUser}
-            projects={visibleProjects}
-            users={users}
-            canEdit={canEdit}
-            isAdmin={isAdmin}
-            defaultProjectId={visibleProjects[0]?.id ?? null}
-            onOpenTask={(t) => setDetailTask(t)}
-            onOpenProject={(projId) => { setActiveView("tasks"); setActiveProject(projId); }}
-            onSeeAllProjects={() => { setActiveView("tasks"); setActiveProject("all"); }}
-            onNewProject={isAdmin ? () => { setActiveView("tasks"); setShowNewProject(true); } : undefined}
-          />
+        {activeView === "transcricoes" ? (
+          <motion.div key="view-transcricoes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Transcrições</h1>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              <TranscriptionsTab theme={theme} />
+            </div>
           </motion.div>
         ) : activeView === "tasks" ? (
           <motion.div
@@ -3600,11 +3570,7 @@ export default function TaskManager() {
           </motion.div>
         ) : activeView === "assets" ? (
           <motion.div key="view-assets" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-            {activeWorkspace !== "all" ? (
-              <AssetsView workspaceId={activeWorkspace} workspaceName={activeWs?.name} theme={theme} />
-            ) : (
-              <div style={{ padding: 40, color: theme.textMuted }}>Abra um workspace pra ver os assets.</div>
-            )}
+            <AssetsView theme={theme} />
           </motion.div>
         ) : activeView === "notes" ? (
           <motion.div key="view-notes" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: "easeOut" }} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -3642,7 +3608,24 @@ export default function TaskManager() {
             transition={{ duration: 0.18, ease: "easeOut" }}
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
-            <PersonalArea theme={theme} currentUser={currentUser} tasks={tasks} projects={visibleProjects} users={users} tags={tags} personalTab={personalTab} onTabChange={setPersonalTab} canEdit={canEdit} onOpenTask={setDetailTask} onUpdateTask={updateTask} />
+            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
+              <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Minha Área</h1>
+              <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{currentUser.name}</p>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              <DashboardView
+                currentUser={currentUser}
+                projects={visibleProjects}
+                users={users}
+                canEdit={canEdit}
+                isAdmin={isAdmin}
+                defaultProjectId={visibleProjects[0]?.id ?? null}
+                onOpenTask={(t) => setDetailTask(t)}
+                onOpenProject={(projId) => { setActiveView("tasks"); setActiveProject(projId); }}
+                onSeeAllProjects={() => { setActiveView("tasks"); setActiveProject("all"); }}
+                onNewProject={isAdmin ? () => { setActiveView("tasks"); setShowNewProject(true); } : undefined}
+              />
+            </div>
           </motion.div>
         )}
         </AnimatePresence>
