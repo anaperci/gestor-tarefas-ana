@@ -25,6 +25,7 @@ import { AvatarPicker } from "@/components/ui/avatar-picker";
 import { ProfilePanel } from "@/components/profile/profile-panel";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { ContentBoard } from "@/components/content/ContentBoard";
+import { VoiceCapture } from "@/components/voice/VoiceCapture";
 import { TagsPicker } from "@/components/tags/tags-picker";
 import type { Tag } from "@/lib/types";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcuts";
@@ -3664,6 +3665,14 @@ export default function TaskManager() {
           // Mantém a lista de users em sync também
           setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, name: u.name, avatar: u.avatar } : x)));
         }}
+      />
+
+      {/* Captura por voz (FAB flutuante) */}
+      <VoiceCapture
+        projects={visibleProjects}
+        currentUser={currentUser}
+        onCreated={() => { api.getTasks().then(setTasks).catch(() => {}); }}
+        onToast={showToast}
       />
     </div>
   );

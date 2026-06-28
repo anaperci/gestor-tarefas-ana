@@ -226,6 +226,27 @@ export const api = {
   deleteAsset: (id: string) =>
     request<{ success: boolean }>(`/assets/${id}`, { method: "DELETE" }),
 
+  // Nota de voz → tarefas + notas (Whisper + GPT)
+  processVoiceNote: async (file: File): Promise<{
+    transcription: string;
+    tasks: { title: string; projectId: string | null; dueDate: string | null; priority: "low" | "medium" | "high" | null }[];
+    notes: { title: string; body: string }[];
+  }> => {
+    const token = getToken();
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API_BASE}/voice/process`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "Erro ao processar áudio" }));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
   // Transcrições de reuniões
   getTranscriptions: () => request<Transcription[]>("/transcriptions"),
   createTranscription: (data: { title: string; content: string }) =>
