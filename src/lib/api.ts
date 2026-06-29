@@ -10,6 +10,7 @@ import type {
   CreateUserPayload,
   CreateWorkspacePayload,
   Note,
+  PersonalTask,
   Project,
   Role,
   Workspace,
@@ -181,6 +182,15 @@ export const api = {
     request<Task>(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteTask: (id: string) =>
     request<{ success: boolean }>(`/tasks/${id}`, { method: "DELETE" }),
+  // Lista pessoal (projeto "Pessoal" do próprio usuário)
+  getPersonalTasks: () => request<PersonalTask[]>("/personal/tasks"),
+  addPersonalTask: (data: { title: string; deadline?: string; priority?: string }) =>
+    request<PersonalTask>("/personal/tasks", { method: "POST", body: JSON.stringify(data) }),
+  setPersonalTaskChecked: (id: string, checked: boolean) =>
+    request<{ success: boolean }>(`/personal/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ checked }) }),
+  deletePersonalTask: (id: string) =>
+    request<{ success: boolean }>(`/personal/tasks/${id}`, { method: "DELETE" }),
+
   getTaskComments: (id: string) => request<TaskComment[]>(`/tasks/${id}/comments`),
   addTaskComment: (id: string, body: string) =>
     request<TaskComment>(`/tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),

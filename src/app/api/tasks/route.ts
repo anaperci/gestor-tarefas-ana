@@ -69,7 +69,11 @@ export const GET = withErrorHandling(async (request) => {
       .select("*")
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
-    tasks = (data ?? []) as TaskRow[];
+    // Privacidade: tarefas em projetos "Pessoal" de OUTROS usuários não
+    // aparecem pra admin (o dono é derivado do id `personal-<userId>`).
+    tasks = ((data ?? []) as TaskRow[]).filter(
+      (t) => !t.project_id?.startsWith("personal-") || t.project_id === `personal-${user.id}`
+    );
   } else {
     // RPC já filtra deleted_at desde a sprint-1 SQL migration
     const { data } = await supabase.rpc("get_user_tasks", { p_user_id: user.id });

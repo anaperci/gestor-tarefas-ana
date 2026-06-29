@@ -76,6 +76,17 @@ export interface Tag {
   createdAt: string;
 }
 
+/** Pendência pessoal (projeto "Pessoal" do usuário) — shape enxuto. */
+export interface PersonalTask {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  deadline: string;
+  checked: boolean;
+  createdAt: string;
+}
+
 export interface TaskComment {
   id: string;
   taskId: string;

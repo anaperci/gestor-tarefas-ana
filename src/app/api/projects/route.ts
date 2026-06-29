@@ -33,7 +33,11 @@ export const GET = withErrorHandling(async (request) => {
       .select("id, name, color, icon, owner_id, workspace_id")
       .is("deleted_at", null)
       .order("created_at");
-    projects = (data ?? []) as ProjectRow[];
+    // Privacidade: o projeto "Pessoal" de cada um só aparece pro próprio dono,
+    // mesmo pra admin.
+    projects = ((data ?? []) as ProjectRow[]).filter(
+      (p) => !p.id.startsWith("personal-") || p.owner_id === user.id
+    );
   } else {
     // RPC já filtra deleted_at desde a sprint-1 SQL migration
     const { data } = await supabase.rpc("get_user_projects", { p_user_id: user.id });

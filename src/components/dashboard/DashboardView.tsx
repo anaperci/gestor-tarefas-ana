@@ -11,6 +11,7 @@ import { OverdueTasksBlock } from "./OverdueTasksBlock";
 import { ReviewBlock } from "./ReviewBlock";
 import { DelegatedBlock } from "./DelegatedBlock";
 import { ProjectsGrid } from "./ProjectsGrid";
+import { PersonalTasksBlock } from "./PersonalTasksBlock";
 import { RoutinesBlock } from "./RoutinesBlock";
 import { ContentInProductionBlock } from "./ContentInProductionBlock";
 import { NotesColumn } from "./NotesColumn";
@@ -154,6 +155,7 @@ export function DashboardView({
                 />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+                <PersonalTasksBlock delay={0.12} />
                 {currentUser.role !== "viewer" && (
                   <ReviewBlock
                     tasks={data.review_tasks}
