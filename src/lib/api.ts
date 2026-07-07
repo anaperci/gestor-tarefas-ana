@@ -348,11 +348,11 @@ export const api = {
     request<{ items: RoutineItem[]; checks: RoutineCheck[]; date: string }>(
       `/routines${date ? `?date=${date}` : ""}`
     ),
-  createRoutineItem: (data: { title: string }) =>
+  createRoutineItem: (data: { title: string; days?: number[] }) =>
     request<RoutineItem>("/routines", { method: "POST", body: JSON.stringify(data) }),
   updateRoutineItem: (
     id: string,
-    data: { title?: string; sort_order?: number; active?: boolean }
+    data: { title?: string; sort_order?: number; active?: boolean; days?: number[] }
   ) => request<RoutineItem>(`/routines/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteRoutineItem: (id: string) =>
     request<{ success: boolean }>(`/routines/${id}`, { method: "DELETE" }),

@@ -167,15 +167,22 @@ export const GET = withErrorHandling(async (request) => {
   const checkedSet = new Set(
     ((checksRes.data ?? []) as Array<{ routine_item_id: string }>).map((c) => c.routine_item_id)
   );
-  const todayRoutines: DashboardRoutine[] = ((routinesRes.data ?? []) as Array<RoutineItem & { user_id: string; sort_order: number }>).map((r) => ({
-    id: r.id,
-    title: r.title,
-    sort_order: r.sort_order,
-    active: r.active,
-    userId: r.user_id ?? user.id,
-    createdAt: r.createdAt ?? "",
-    checked: checkedSet.has(r.id),
-  }));
+  const todayDow = new Date().getDay();
+  const todayRoutines: DashboardRoutine[] = ((routinesRes.data ?? []) as Array<RoutineItem & { user_id: string; sort_order: number; days: number[] | null }>)
+    .filter((r) => {
+      const days = r.days && r.days.length ? r.days : [0, 1, 2, 3, 4, 5, 6];
+      return days.includes(todayDow);
+    })
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      sort_order: r.sort_order,
+      active: r.active,
+      userId: r.user_id ?? user.id,
+      days: r.days && r.days.length ? r.days : [0, 1, 2, 3, 4, 5, 6],
+      createdAt: r.createdAt ?? "",
+      checked: checkedSet.has(r.id),
+    }));
 
   // Weekly stats
   const weeklyData = (weeklyRes.data ?? []) as Array<{ status: string; updated_at?: string }>;

@@ -2503,16 +2503,56 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
   );
 }
 
+// Dias da semana (v = valor de Date.getDay(): 0=Dom … 6=Sáb).
+const WEEKDAYS = [
+  { v: 1, label: "Seg", full: "Segunda" },
+  { v: 2, label: "Ter", full: "Terça" },
+  { v: 3, label: "Qua", full: "Quarta" },
+  { v: 4, label: "Qui", full: "Quinta" },
+  { v: 5, label: "Sex", full: "Sexta" },
+  { v: 6, label: "Sáb", full: "Sábado" },
+  { v: 0, label: "Dom", full: "Domingo" },
+];
+
+/** Texto curto dos dias: "Todo dia" quando é a semana inteira, senão "Seg, Qua, Sex". */
+function daysLabel(days: number[] | undefined): string {
+  if (!days || days.length >= 7) return "Todo dia";
+  return WEEKDAYS.filter((d) => days.includes(d.v)).map((d) => d.label).join(", ");
+}
+
+/** Chips selecionáveis dos dias da semana. */
+function DayChips({ value, onChange, theme }: { value: number[]; onChange: (days: number[]) => void; theme: Theme }) {
+  const toggle = (d: number) => onChange(value.includes(d) ? value.filter((x) => x !== d) : [...value, d]);
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {WEEKDAYS.map((d) => {
+        const on = value.includes(d.v);
+        return (
+          <button key={d.v} type="button" onClick={() => toggle(d.v)} aria-pressed={on}
+            style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${on ? "var(--primary)" : theme.inputBorder}`, background: on ? "var(--primary)" : theme.inputBg, color: on ? "#fff" : theme.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            {d.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
+  const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
   const [items, setItems] = useState<RoutineItem[]>([]);
   const [checks, setChecks] = useState<Pick<RoutineCheck, "routineItemId" | "checkDate">[]>([]);
   const [history, setHistory] = useState<RoutineHistoryDay[]>([]);
   const [newTitle, setNewTitle] = useState("");
+  const [newDays, setNewDays] = useState<number[]>(ALL_DAYS);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editDays, setEditDays] = useState<number[]>(ALL_DAYS);
+  const [routineView, setRoutineView] = useState<"hoje" | "semana">("hoje");
 
   const today = new Date().toLocaleDateString("en-CA");
+  const todayDow = new Date().getDay();
   const todayFormatted = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
   useEffect(() => { loadRoutines(); loadHistory(); }, []);
@@ -2521,6 +2561,7 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
   const loadHistory = async () => { try { const data = await api.getRoutineHistory(7); setHistory(data.history); } catch {} };
 
   const isChecked = (itemId: string) => checks.some((c) => c.routineItemId === itemId);
+  const daysOf = (item: RoutineItem) => (item.days && item.days.length ? item.days : ALL_DAYS);
 
   const toggleCheck = async (itemId: string) => {
     const wasChecked = isChecked(itemId);
@@ -2535,22 +2576,64 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
 
   const addItem = async () => {
     if (!newTitle.trim()) return;
-    try { const created = await api.createRoutineItem({ title: newTitle.trim() }); setItems([...items, created]); setNewTitle(""); loadHistory(); } catch {}
+    try { const created = await api.createRoutineItem({ title: newTitle.trim(), days: newDays }); setItems([...items, created]); setNewTitle(""); setNewDays(ALL_DAYS); loadHistory(); } catch {}
   };
 
   const deleteItem = async (id: string) => {
     try { await api.deleteRoutineItem(id); setItems(items.filter((i) => i.id !== id)); setChecks(checks.filter((c) => c.routineItemId !== id)); loadHistory(); } catch {}
   };
 
+  const startEdit = (item: RoutineItem) => { setEditingId(item.id); setEditTitle(item.title); setEditDays(daysOf(item)); };
+  const cancelEdit = () => { setEditingId(null); };
+
   const saveEdit = async (id: string) => {
     if (!editTitle.trim()) { setEditingId(null); return; }
-    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim() }); setItems(items.map((i) => (i.id === updated.id ? updated : i))); } catch {}
+    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim(), days: editDays }); setItems(items.map((i) => (i.id === updated.id ? updated : i))); } catch {}
     setEditingId(null);
   };
 
-  const completedToday = checks.length;
-  const totalItems = items.length;
+  const todaysItems = items.filter((i) => daysOf(i).includes(todayDow));
+  const completedToday = todaysItems.filter((i) => isChecked(i.id)).length;
+  const totalItems = todaysItems.length;
   const pct = totalItems > 0 ? Math.round((completedToday / totalItems) * 100) : 0;
+
+  // Bloco editor compartilhado (usado quando um hábito está em edição).
+  const editorCard = (id: string) => (
+    <div style={{ padding: 12, borderRadius: 10, border: `1px solid var(--primary)`, marginBottom: 6, background: theme.inputBg }}>
+      <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(id); if (e.key === "Escape") cancelEdit(); }}
+        style={{ width: "100%", background: theme.surface, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "8px 10px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 10 }} />
+      <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 6 }}>Dias da semana</div>
+      <div style={{ marginBottom: 12 }}><DayChips value={editDays} onChange={setEditDays} theme={theme} /></div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={() => saveEdit(id)} style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Salvar</button>
+        <button onClick={cancelEdit} style={{ background: theme.inputBg, color: theme.textSecondary, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => deleteItem(id)} style={{ background: "none", border: "none", color: "#E2445C", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit" }}>Excluir</button>
+      </div>
+    </div>
+  );
+
+  // Linha de hábito. showCheck=true no painel de hoje (com bolinha de concluir).
+  const habitRow = (item: RoutineItem, showCheck: boolean) => {
+    if (editingId === item.id) return <div key={item.id}>{editorCard(item.id)}</div>;
+    const checked = showCheck && isChecked(item.id);
+    return (
+      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, border: `1px solid ${theme.border}`, marginBottom: 6, background: checked ? theme.badgeBg("#00C875") : "transparent", transition: "all 0.15s" }}>
+        {showCheck && (
+          <button onClick={() => toggleCheck(item.id)}
+            style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${checked ? "#00C875" : theme.textMuted}`, background: checked ? "#00C875" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
+            {checked && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
+          </button>
+        )}
+        <span onClick={() => startEdit(item)}
+          style={{ flex: 1, fontSize: 14, fontWeight: 500, color: checked ? theme.textMuted : theme.text, textDecoration: checked ? "line-through" : "none", cursor: "text" }}>{item.title}</span>
+        <span style={{ fontSize: 11, color: theme.textMuted, flexShrink: 0 }}>{daysLabel(daysOf(item))}</span>
+        <button onClick={() => startEdit(item)} aria-label="Editar" style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", padding: 4, display: "flex", flexShrink: 0 }}><Pencil size={14} /></button>
+        <button onClick={() => deleteItem(item.id)} aria-label="Excluir" style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, opacity: 0.4, flexShrink: 0 }}>×</button>
+      </div>
+    );
+  };
 
   if (loading) return (
     <div style={{ padding: 24, maxWidth: 500, margin: "0 auto" }}>
@@ -2564,72 +2647,109 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: theme.textMuted, textTransform: "capitalize" }}>{todayFormatted}</div>
-        <div style={{ fontSize: 40, fontWeight: 800, color: pct === 100 ? "#00C875" : "var(--primary)", marginTop: 4 }}>{pct}%</div>
-        <div style={{ maxWidth: 300, margin: "8px auto 0", height: 6, borderRadius: 6, background: theme.inputBg }}>
-          <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: pct === 100 ? "#00C875" : "var(--primary)", transition: "width 0.3s" }} />
-        </div>
-        <div style={{ fontSize: 12, color: theme.textSecondary, marginTop: 4 }}>{completedToday} de {totalItems} concluídos</div>
+      {/* Alternador Hoje / Semana */}
+      <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 20 }}>
+        {(["hoje", "semana"] as const).map((v) => (
+          <button key={v} onClick={() => setRoutineView(v)}
+            style={{ padding: "7px 18px", borderRadius: 9, border: `1px solid ${routineView === v ? "var(--primary)" : theme.border}`, background: routineView === v ? "var(--primary)" : "transparent", color: routineView === v ? "#fff" : theme.textSecondary, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            {v === "hoje" ? "Hoje" : "Semana"}
+          </button>
+        ))}
       </div>
 
-      <div style={{ maxWidth: 500, margin: "0 auto" }}>
-        {items.length === 0 && (
-          <EmptyState
-            icon={Repeat}
-            title="Nenhum item na rotina"
-            description="Adicione hábitos no campo abaixo para acompanhar todo dia."
-            size="sm"
-          />
-        )}
-        {items.map((item) => {
-          const checked = isChecked(item.id);
-          return (
-            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, border: `1px solid ${theme.border}`, marginBottom: 6, background: checked ? theme.badgeBg("#00C875") : "transparent", transition: "all 0.15s" }}>
-              <button onClick={() => toggleCheck(item.id)}
-                style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${checked ? "#00C875" : theme.textMuted}`, background: checked ? "#00C875" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0 }}>
-                {checked && <span style={{ color: "#fff", fontSize: 13 }}>✓</span>}
-              </button>
-              {editingId === item.id ? (
-                <input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onBlur={() => saveEdit(item.id)} onKeyDown={(e) => e.key === "Enter" && saveEdit(item.id)}
-                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "4px 8px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
-              ) : (
-                <span onClick={() => { setEditingId(item.id); setEditTitle(item.title); }}
-                  style={{ flex: 1, fontSize: 14, fontWeight: 500, color: checked ? theme.textMuted : theme.text, textDecoration: checked ? "line-through" : "none", cursor: "text" }}>{item.title}</span>
-              )}
-              <button onClick={() => deleteItem(item.id)}
-                style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 16, opacity: 0.4, flexShrink: 0 }}>×</button>
+      {routineView === "hoje" ? (
+        <>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 13, color: theme.textMuted, textTransform: "capitalize" }}>{todayFormatted}</div>
+            <div style={{ fontSize: 40, fontWeight: 800, color: pct === 100 ? "#00C875" : "var(--primary)", marginTop: 4 }}>{pct}%</div>
+            <div style={{ maxWidth: 300, margin: "8px auto 0", height: 6, borderRadius: 6, background: theme.inputBg }}>
+              <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: pct === 100 ? "#00C875" : "var(--primary)", transition: "width 0.3s" }} />
             </div>
-          );
-        })}
+            <div style={{ fontSize: 12, color: theme.textSecondary, marginTop: 4 }}>{completedToday} de {totalItems} concluídos hoje</div>
+          </div>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Adicionar item à rotina..."
-            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-          <button onClick={addItem} style={{ background: "var(--primary)", border: "none", borderRadius: 8, color: "#fff", padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+</button>
-        </div>
-      </div>
+          <div style={{ maxWidth: 500, margin: "0 auto" }}>
+            {todaysItems.length === 0 && (
+              <EmptyState
+                icon={Repeat}
+                title="Nada na rotina de hoje"
+                description="Adicione um hábito abaixo e escolha em quais dias ele vale."
+                size="sm"
+              />
+            )}
+            {todaysItems.map((item) => habitRow(item, true))}
 
-      {history.length > 0 && (
-        <div style={{ maxWidth: 500, margin: "24px auto 0" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: theme.textSecondary, marginBottom: 10 }}>Últimos 7 dias</div>
-          <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
-            {history.map((day) => {
-              const dayPct = day.total > 0 ? Math.round((day.completed / day.total) * 100) : 0;
-              const isToday = day.date === today;
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: `1px dashed ${theme.border}` }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder="Novo hábito..."
+                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, padding: "10px 14px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={addItem} style={{ background: "var(--primary)", border: "none", borderRadius: 8, color: "#fff", padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>+</button>
+              </div>
+              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: theme.textMuted }}>Dias:</span>
+                <DayChips value={newDays} onChange={setNewDays} theme={theme} />
+              </div>
+            </div>
+          </div>
+
+          {history.length > 0 && (
+            <div style={{ maxWidth: 500, margin: "24px auto 0" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: theme.textSecondary, marginBottom: 10 }}>Últimos 7 dias</div>
+              <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
+                {history.map((day) => {
+                  const dayPct = day.total > 0 ? Math.round((day.completed / day.total) * 100) : 0;
+                  const isToday = day.date === today;
+                  return (
+                    <div key={day.date} style={{ textAlign: "center", flex: 1 }}>
+                      <div style={{ fontSize: 10, color: isToday ? "var(--primary)" : theme.textMuted, fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
+                        {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short" })}
+                      </div>
+                      <div style={{ height: 40, borderRadius: 6, background: theme.inputBg, position: "relative", overflow: "hidden" }}>
+                        <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${dayPct}%`, background: dayPct === 100 ? "#00C875" : "var(--primary)", borderRadius: 6, transition: "height 0.3s" }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{dayPct}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ maxWidth: 560, margin: "0 auto" }}>
+          {/* Visão semanal: cada dia com os hábitos agendados */}
+          <div style={{ marginBottom: 24 }}>
+            {WEEKDAYS.map((d) => {
+              const dayItems = items.filter((i) => daysOf(i).includes(d.v));
+              const isTodayCol = d.v === todayDow;
               return (
-                <div key={day.date} style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 10, color: isToday ? "var(--primary)" : theme.textMuted, fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
-                    {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short" })}
+                <div key={d.v} style={{ marginBottom: 8, padding: "12px 14px", borderRadius: 10, border: `1px solid ${isTodayCol ? "var(--primary)" : theme.border}`, background: isTodayCol ? "var(--primary-soft)" : "transparent" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: dayItems.length ? 8 : 0 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: isTodayCol ? "var(--primary)" : theme.text }}>{d.full}</span>
+                    {isTodayCol && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "var(--primary)", borderRadius: 6, padding: "1px 7px" }}>hoje</span>}
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: theme.textMuted }}>{dayItems.length} {dayItems.length === 1 ? "hábito" : "hábitos"}</span>
                   </div>
-                  <div style={{ height: 40, borderRadius: 6, background: theme.inputBg, position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${dayPct}%`, background: dayPct === 100 ? "#00C875" : "var(--primary)", borderRadius: 6, transition: "height 0.3s" }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{dayPct}%</div>
+                  {dayItems.length === 0 ? (
+                    <span style={{ fontSize: 12, color: theme.textMuted }}>—</span>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {dayItems.map((i) => (
+                        <span key={i.id} style={{ fontSize: 13, color: theme.textSecondary }}>• {i.title}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {/* Gerenciar: todos os hábitos, editar dias / excluir */}
+          <div style={{ fontSize: 13, fontWeight: 700, color: theme.textSecondary, marginBottom: 10 }}>Todos os hábitos</div>
+          {items.length === 0 ? (
+            <EmptyState icon={Repeat} title="Nenhum hábito ainda" description="Crie hábitos na aba Hoje." size="sm" />
+          ) : (
+            items.map((item) => habitRow(item, false))
+          )}
         </div>
       )}
     </div>
@@ -2916,6 +3036,7 @@ export default function TaskManager() {
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // recolher (desktop)
+  const [personalExpanded, setPersonalExpanded] = useState(false); // submenu "Minha Área" fechado por padrão
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [tasksViewMode, setTasksViewMode] = useState<"list" | "kanban">(() => {
@@ -3265,12 +3386,13 @@ export default function TaskManager() {
         </div>
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
-          <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: (activeView === "personal" || activeView === "my-tasks") ? 2 : 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+          <button className="sidebar-item" onClick={() => { setActiveView("personal"); setPersonalExpanded((v) => !v); }}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: personalExpanded ? 2 : 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
+            <ChevronRight size={14} aria-hidden style={{ transform: personalExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0, opacity: 0.6 }} />
           </button>
 
-          {(activeView === "personal" || activeView === "my-tasks") && (
+          {personalExpanded && (
             <button className="sidebar-item" onClick={() => { setActiveView("my-tasks"); }}
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px 8px 34px", borderRadius: 10, marginBottom: 6, fontSize: 13, fontWeight: 500, background: activeView === "my-tasks" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "my-tasks" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
               <ListChecks size={14} aria-hidden /><span style={{ flex: 1 }}>Minhas tarefas</span>

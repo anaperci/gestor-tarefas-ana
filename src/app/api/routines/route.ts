@@ -6,7 +6,14 @@ import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 import { titleSchema } from "@/lib/validation";
 
-const createRoutineSchema = z.object({ title: titleSchema });
+const daysSchema = z.array(z.number().int().min(0).max(6)).max(7);
+const createRoutineSchema = z.object({ title: titleSchema, days: daysSchema.optional() });
+
+/** Normaliza os dias: remove duplicados, ordena; vazio vira a semana toda. */
+function normalizeDays(days?: number[]): number[] {
+  const set = Array.from(new Set(days ?? [])).sort((a, b) => a - b);
+  return set.length ? set : [0, 1, 2, 3, 4, 5, 6];
+}
 
 const dateQuerySchema = z
   .string()
@@ -38,6 +45,7 @@ export const GET = withErrorHandling(async (request) => {
       ...i,
       active: !!i.active,
       userId: i.user_id,
+      days: i.days ?? [0, 1, 2, 3, 4, 5, 6],
       createdAt: i.created_at,
     })),
     checks: (checks ?? []).map((c) => ({
@@ -53,7 +61,7 @@ export const GET = withErrorHandling(async (request) => {
 
 export const POST = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
-  const { title } = await parseJson(request, createRoutineSchema);
+  const { title, days } = await parseJson(request, createRoutineSchema);
 
   const { count } = await supabase
     .from("routine_items")
@@ -67,6 +75,7 @@ export const POST = withErrorHandling(async (request) => {
     user_id: user.id,
     title,
     sort_order: count ?? 0,
+    days: normalizeDays(days),
   });
 
   if (error) {
@@ -76,7 +85,7 @@ export const POST = withErrorHandling(async (request) => {
 
   const { data: item } = await supabase.from("routine_items").select("*").eq("id", id).single();
   return NextResponse.json(
-    { ...item, active: !!item!.active, userId: item!.user_id, createdAt: item!.created_at },
+    { ...item, active: !!item!.active, userId: item!.user_id, days: item!.days ?? [0, 1, 2, 3, 4, 5, 6], createdAt: item!.created_at },
     { status: 201 }
   );
 });

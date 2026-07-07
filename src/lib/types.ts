@@ -112,6 +112,8 @@ export interface RoutineItem {
   title: string;
   sort_order: number;
   active: boolean;
+  /** Dias da semana em que a rotina vale (0=Dom … 6=Sáb). Vazio/7 dias = todo dia. */
+  days: number[];
   createdAt: string;
 }
 
