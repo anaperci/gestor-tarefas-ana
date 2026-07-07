@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ListTodo, Plus, Trash2 } from "lucide-react";
+import { Check, ListTodo, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PersonalTask } from "@/lib/types";
 import { BlockCard } from "./BlockCard";
@@ -16,6 +16,8 @@ export function PersonalTasksBlock({ delay }: PersonalTasksBlockProps) {
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
 
   useEffect(() => {
     api.getPersonalTasks().then((t) => { setTasks(t); setLoaded(true); }).catch(() => setLoaded(true));
@@ -38,6 +40,25 @@ export function PersonalTasksBlock({ delay }: PersonalTasksBlockProps) {
     setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, checked } : x)));
     try { await api.setPersonalTaskChecked(t.id, checked); }
     catch { setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, checked: !checked } : x))); }
+  };
+
+  const startEdit = (t: PersonalTask) => {
+    setEditingId(t.id);
+    setEditDraft(t.title);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft("");
+  };
+
+  const saveEdit = async (t: PersonalTask) => {
+    const title = editDraft.trim();
+    if (!title || title === t.title) { cancelEdit(); return; }
+    setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, title } : x)));
+    cancelEdit();
+    try { await api.updatePersonalTaskTitle(t.id, title); }
+    catch { setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, title: t.title } : x))); }
   };
 
   const remove = async (t: PersonalTask) => {
@@ -113,25 +134,64 @@ export function PersonalTasksBlock({ delay }: PersonalTasksBlockProps) {
                 >
                   {t.checked && <Check size={14} color="#fff" strokeWidth={3} aria-hidden />}
                 </motion.button>
-                <span style={{
-                  flex: 1, fontSize: 14, color: "var(--text)",
-                  textDecoration: t.checked ? "line-through" : "none",
-                  opacity: t.checked ? 0.55 : 1, wordBreak: "break-word",
-                }}>
-                  {t.title}
-                </span>
-                <button
-                  onClick={() => remove(t)}
-                  aria-label={`Excluir ${t.title}`}
-                  className="personal-del"
-                  style={{
-                    flexShrink: 0, border: "none", background: "transparent",
-                    color: "var(--text-muted)", cursor: "pointer", padding: 4,
-                    display: "flex", alignItems: "center", borderRadius: 6,
-                  }}
-                >
-                  <Trash2 size={15} aria-hidden />
-                </button>
+                {editingId === t.id ? (
+                  <input
+                    value={editDraft}
+                    autoFocus
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEdit(t);
+                      else if (e.key === "Escape") cancelEdit();
+                    }}
+                    onBlur={() => saveEdit(t)}
+                    aria-label={`Editar ${t.title}`}
+                    style={{
+                      flex: 1, minWidth: 0,
+                      padding: "6px 8px", borderRadius: 8,
+                      border: "1px solid var(--accent)", background: "var(--surface-2)",
+                      color: "var(--text)", fontSize: 14, fontFamily: "inherit", outline: "none",
+                    }}
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={() => startEdit(t)}
+                    style={{
+                      flex: 1, fontSize: 14, color: "var(--text)",
+                      textDecoration: t.checked ? "line-through" : "none",
+                      opacity: t.checked ? 0.55 : 1, wordBreak: "break-word",
+                    }}
+                  >
+                    {t.title}
+                  </span>
+                )}
+                {editingId !== t.id && (
+                  <button
+                    onClick={() => startEdit(t)}
+                    aria-label={`Editar ${t.title}`}
+                    className="personal-edit"
+                    style={{
+                      flexShrink: 0, border: "none", background: "transparent",
+                      color: "var(--text-muted)", cursor: "pointer", padding: 4,
+                      display: "flex", alignItems: "center", borderRadius: 6,
+                    }}
+                  >
+                    <Pencil size={15} aria-hidden />
+                  </button>
+                )}
+                {editingId !== t.id && (
+                  <button
+                    onClick={() => remove(t)}
+                    aria-label={`Excluir ${t.title}`}
+                    className="personal-del"
+                    style={{
+                      flexShrink: 0, border: "none", background: "transparent",
+                      color: "var(--text-muted)", cursor: "pointer", padding: 4,
+                      display: "flex", alignItems: "center", borderRadius: 6,
+                    }}
+                  >
+                    <Trash2 size={15} aria-hidden />
+                  </button>
+                )}
               </div>
             </li>
           ))}
@@ -139,9 +199,10 @@ export function PersonalTasksBlock({ delay }: PersonalTasksBlockProps) {
       )}
 
       <style>{`
-        .personal-del { opacity: 0; transition: opacity 0.15s, color 0.15s; }
-        .personal-row:hover .personal-del { opacity: 1; }
+        .personal-del, .personal-edit { opacity: 0; transition: opacity 0.15s, color 0.15s; }
+        .personal-row:hover .personal-del, .personal-row:hover .personal-edit { opacity: 1; }
         .personal-del:hover { color: var(--status-review); }
+        .personal-edit:hover { color: var(--accent); }
       `}</style>
     </BlockCard>
   );

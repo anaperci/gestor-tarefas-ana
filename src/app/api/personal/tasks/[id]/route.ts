@@ -7,6 +7,7 @@ import { personalProjectId } from "@/lib/personal";
 
 const patchSchema = z.object({
   checked: z.boolean().optional(),
+  title: z.string().trim().min(1, "Título obrigatório").max(500).optional(),
 });
 
 // Garante que a tarefa pertence ao projeto pessoal de quem chama.
@@ -30,11 +31,16 @@ export const PATCH = withErrorHandling(
     await loadOwnPersonalTask(user.id, id);
 
     const body = await parseJson(request, patchSchema);
+    const update: { checked?: boolean; status?: string; title?: string } = {};
     if (body.checked !== undefined) {
-      await supabase
-        .from("tasks")
-        .update({ checked: body.checked, status: body.checked ? "done" : "todo" })
-        .eq("id", id);
+      update.checked = body.checked;
+      update.status = body.checked ? "done" : "todo";
+    }
+    if (body.title !== undefined) {
+      update.title = body.title;
+    }
+    if (Object.keys(update).length > 0) {
+      await supabase.from("tasks").update(update).eq("id", id);
     }
     return NextResponse.json({ success: true });
   }

@@ -188,6 +188,8 @@ export const api = {
     request<PersonalTask>("/personal/tasks", { method: "POST", body: JSON.stringify(data) }),
   setPersonalTaskChecked: (id: string, checked: boolean) =>
     request<{ success: boolean }>(`/personal/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ checked }) }),
+  updatePersonalTaskTitle: (id: string, title: string) =>
+    request<{ success: boolean }>(`/personal/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   deletePersonalTask: (id: string) =>
     request<{ success: boolean }>(`/personal/tasks/${id}`, { method: "DELETE" }),
 

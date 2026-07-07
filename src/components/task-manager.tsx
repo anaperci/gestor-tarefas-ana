@@ -2277,12 +2277,27 @@ interface MyTasksTabProps {
   canEdit: boolean;
   onOpenTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
+  onReload?: () => Promise<void> | void;
 }
 
-function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit, onOpenTask, onUpdateTask }: MyTasksTabProps) {
+function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit, onOpenTask, onUpdateTask, onReload }: MyTasksTabProps) {
   const myTasks = tasks.filter((t) => t.assignedTo === currentUser.id);
   const [myCollapsed, setMyCollapsed] = useState<Set<string>>(new Set());
   const [myExpanded, setMyExpanded] = useState<Set<string>>(new Set());
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const addQuick = async () => {
+    const title = draft.trim();
+    if (!title || adding) return;
+    setAdding(true);
+    try {
+      await api.addPersonalTask({ title });
+      setDraft("");
+      await onReload?.();
+    } catch { /* mantém o texto pra tentar de novo */ }
+    finally { setAdding(false); }
+  };
 
   const myGroups: Group[] = useMemo(() => {
     const map = new Map<string, Group>();
@@ -2307,12 +2322,26 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
         <StatCard label="Em progresso" value={doing} color="#FDAB3D" theme={theme} />
         <StatCard label="Atrasadas" value={overdue} color="#E2445C" theme={theme} />
       </div>
+      <div style={{ padding: "0 24px 12px", display: "flex", gap: 8 }}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") addQuick(); }}
+          placeholder="Escreva uma tarefa e Enter para criar…"
+          aria-label="Nova tarefa pessoal"
+          style={{ flex: 1, minWidth: 0, padding: "11px 14px", borderRadius: 10, border: `1px solid ${theme.inputBorder}`, background: theme.inputBg, color: theme.text, fontSize: 14, fontFamily: "inherit", outline: "none" }}
+        />
+        <button onClick={addQuick} disabled={!draft.trim() || adding}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, background: "var(--primary)", color: "#fff", border: "none", borderRadius: 10, padding: "0 18px", fontSize: 14, fontWeight: 700, cursor: draft.trim() && !adding ? "pointer" : "default", opacity: draft.trim() && !adding ? 1 : 0.5, fontFamily: "inherit" }}>
+          <Plus size={16} aria-hidden /> {adding ? "Criando…" : "Adicionar"}
+        </button>
+      </div>
       <div style={{ padding: "0 24px 24px" }}>
       {myTasks.length === 0 && (
         <EmptyState
           icon={Inbox}
-          title="Nenhuma tarefa atribuída a você"
-          description="Quando alguém te marcar numa tarefa, ela aparece aqui."
+          title="Nenhuma tarefa por aqui ainda"
+          description="Crie uma tarefa no campo acima, ou espere alguém te marcar numa tarefa de projeto."
         />
       )}
       {myGroups.map((group) => (
@@ -2874,7 +2903,7 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"tasks" | "personal" | "content" | "notes" | "routine" | "assets" | "transcricoes">("personal");
+  const [activeView, setActiveView] = useState<"tasks" | "personal" | "my-tasks" | "content" | "notes" | "routine" | "assets" | "transcricoes">("personal");
   const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "transcricoes" | "agenda">("minhas-tarefas");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -3127,11 +3156,12 @@ export default function TaskManager() {
   // Título da página exibido na barra superior (views simples; tasks/content têm header próprio)
   const pageTitle =
     activeView === "personal" ? "Minha Área" :
+    activeView === "my-tasks" ? "Minhas tarefas" :
     activeView === "notes" ? "Anotações" :
     activeView === "routine" ? "Rotina" :
     activeView === "transcricoes" ? "Transcrições" :
     activeView === "assets" ? "Assets" : "";
-  const pageSubtitle = activeView === "personal" ? (currentUser?.name ?? "") : "";
+  const pageSubtitle = (activeView === "personal" || activeView === "my-tasks") ? (currentUser?.name ?? "") : "";
 
   const handleLogin = async (user: User) => {
     setCurrentUser(user);
@@ -3211,6 +3241,7 @@ export default function TaskManager() {
             <button onClick={() => setSidebarCollapsed(false)} title="Expandir menu" aria-label="Expandir menu" style={railBtnStyle(false)}><PanelLeftOpen size={18} /></button>
             <div style={{ height: 6 }} />
             <button onClick={() => setActiveView("personal")} title="Minha Área" aria-label="Minha Área" style={railBtnStyle(activeView === "personal")}><UserIcon size={18} /></button>
+            <button onClick={() => setActiveView("my-tasks")} title="Minhas tarefas" aria-label="Minhas tarefas" style={railBtnStyle(activeView === "my-tasks")}><ListChecks size={18} /></button>
             <button onClick={() => setActiveView("routine")} title="Rotina" aria-label="Rotina" style={railBtnStyle(activeView === "routine")}><Repeat size={18} /></button>
             <button onClick={() => setActiveView("notes")} title="Anotações" aria-label="Anotações" style={railBtnStyle(activeView === "notes" || activeView === "transcricoes")}><Pencil size={18} /></button>
             <button onClick={() => setActiveView("assets")} title="Assets" aria-label="Assets" style={railBtnStyle(activeView === "assets")}><Link2 size={18} /></button>
@@ -3235,9 +3266,16 @@ export default function TaskManager() {
 
         <div style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
           <button className="sidebar-item" onClick={() => { setActiveView("personal"); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: (activeView === "personal" || activeView === "my-tasks") ? 2 : 6, fontSize: 14, fontWeight: 600, background: activeView === "personal" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "personal" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <UserIcon size={16} aria-hidden /><span style={{ flex: 1 }}>Minha Área</span>
           </button>
+
+          {(activeView === "personal" || activeView === "my-tasks") && (
+            <button className="sidebar-item" onClick={() => { setActiveView("my-tasks"); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px 8px 34px", borderRadius: 10, marginBottom: 6, fontSize: 13, fontWeight: 500, background: activeView === "my-tasks" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "my-tasks" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+              <ListChecks size={14} aria-hidden /><span style={{ flex: 1 }}>Minhas tarefas</span>
+            </button>
+          )}
 
           <button className="sidebar-item" onClick={() => { setActiveView("routine"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "routine" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "routine" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
@@ -3590,6 +3628,12 @@ export default function TaskManager() {
           <div key="view-routine" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
               <RoutineTab theme={theme} currentUser={currentUser} />
+            </div>
+          </div>
+        ) : activeView === "my-tasks" ? (
+          <div key="view-my-tasks" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+              <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} tags={tags} canEdit={canEdit} onOpenTask={(t) => setDetailTask(t)} onUpdateTask={updateTask} onReload={loadData} />
             </div>
           </div>
         ) : (
