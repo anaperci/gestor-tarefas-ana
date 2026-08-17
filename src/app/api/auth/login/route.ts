@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { verifyPassword, upgradePasswordIfNeeded, generateToken } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
-import { clientIp, consumeRateLimit } from "@/lib/rate-limit";
 
 const loginSchema = z.object({
   // Login é por EMAIL (campo mantém o nome "username" p/ compat com o front)
@@ -12,12 +11,6 @@ const loginSchema = z.object({
 });
 
 export const POST = withErrorHandling(async (request) => {
-  consumeRateLimit(clientIp(request as NextRequest), {
-    key: "login",
-    limit: 5,
-    windowMs: 15 * 60 * 1000,
-  });
-
   const { username, password } = await parseJson(request, loginSchema);
   const email = username.toLowerCase().trim();
 

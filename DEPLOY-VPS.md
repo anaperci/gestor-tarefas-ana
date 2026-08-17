@@ -5,7 +5,7 @@ Mesmo padrão dos outros projetos NexIA na VPS (`/opt/apps/...`).
 
 ## Pré-requisitos
 - VPS com Docker + Docker Compose.
-- Um subdomínio apontando pra VPS (ex: `clareza.nexialab.com.br`).
+- Um subdomínio apontando pra VPS (produção: `tarefas.anapaulaperci.com.br` → 76.13.226.25, DNS-only na Cloudflare).
 - Reverse proxy (Caddy/Nginx/Traefik) já rodando na VPS.
 - **Chave NOVA do Supabase** (`sb_secret_...`) — a legada (`eyJ...`) foi desativada.
 - Credenciais Brevo (API key + remetente verificado), se quiser email.
@@ -27,7 +27,7 @@ Obrigatórios:
 - `NEXT_PUBLIC_SUPABASE_URL=https://ydnwqptkrftonunyjzoc.supabase.co`
 - `SUPABASE_SERVICE_ROLE_KEY=sb_secret_...`   ← chave NOVA
 - `JWT_SECRET=` (gere com `openssl rand -base64 48`)
-- `NEXT_PUBLIC_APP_URL=https://clareza.nexialab.com.br`
+- `NEXT_PUBLIC_APP_URL=https://tarefas.anapaulaperci.com.br`
 - Brevo (opcional p/ email): `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME=Clareza`
 
 ## 3. Build + subir
@@ -42,7 +42,7 @@ Apontar o subdomínio pra `127.0.0.1:3000`.
 
 Caddy (exemplo):
 ```
-clareza.nexialab.com.br {
+tarefas.anapaulaperci.com.br {
     reverse_proxy 127.0.0.1:3000
 }
 ```
