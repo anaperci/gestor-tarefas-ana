@@ -3319,9 +3319,16 @@ export default function TaskManager() {
         .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
         .sidebar-item { position: relative; }
         .sidebar-item:hover { background: rgba(244, 239, 226, 0.14) !important; box-shadow: inset 3px 0 0 var(--accent); }
-        .sidebar-item:hover .proj-menu-btn { opacity: 0.6 !important; }
-        .sidebar-item:hover .proj-count { opacity: 0 !important; position: absolute !important; }
-        .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: var(--status-review) !important; }
+        /* O "···" (apagar projeto) só existe em dispositivos com mouse real.
+           Em touch o :hover fica preso depois do toque e o botão aparecia sozinho. */
+        @media (hover: hover) and (pointer: fine) {
+          .sidebar-item:hover .proj-menu-btn { opacity: 0.6 !important; }
+          .sidebar-item:hover .proj-count { opacity: 0 !important; position: absolute !important; }
+          .sidebar-item .proj-menu-btn:hover { opacity: 1 !important; color: var(--status-review) !important; }
+        }
+        @media not all and (hover: hover) {
+          .proj-menu-btn { display: none !important; }
+        }
         input::placeholder, textarea::placeholder { color: var(--text-muted); }
 
         /* ── Responsividade: sidebar vira drawer em <=1024px ─────── */
