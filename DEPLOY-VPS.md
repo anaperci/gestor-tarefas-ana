@@ -8,7 +8,6 @@ Mesmo padrão dos outros projetos NexIA na VPS (`/opt/apps/...`).
 - Um subdomínio apontando pra VPS (produção: `tarefas.anapaulaperci.com.br` → 76.13.226.25, DNS-only na Cloudflare).
 - Reverse proxy (Caddy/Nginx/Traefik) já rodando na VPS.
 - **Chave NOVA do Supabase** (`sb_secret_...`) — a legada (`eyJ...`) foi desativada.
-- Credenciais Brevo (API key + remetente verificado), se quiser email.
 
 ## 1. Subir o código
 ```bash
@@ -28,7 +27,6 @@ Obrigatórios:
 - `SUPABASE_SERVICE_ROLE_KEY=sb_secret_...`   ← chave NOVA
 - `JWT_SECRET=` (gere com `openssl rand -base64 48`)
 - `NEXT_PUBLIC_APP_URL=https://tarefas.anapaulaperci.com.br`
-- Brevo (opcional p/ email): `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME=Clareza`
 
 ## 3. Build + subir
 ```bash
@@ -56,5 +54,4 @@ docker compose --env-file .env.production up -d --build
 
 ## Notas
 - Migrations SQL rodam no Supabase (SQL Editor), não na VPS.
-- Sem `NEXT_PUBLIC_APP_URL` correto, os links dos emails saem como localhost.
-- Sem Brevo configurado, o app funciona mas emails só ficam logados.
+- O acesso é por nome de usuário e senha. Não há recuperação por email: quem esquecer a senha depende de um admin redefinir na tela de usuários.

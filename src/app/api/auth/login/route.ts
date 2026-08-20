@@ -5,20 +5,19 @@ import { verifyPassword, upgradePasswordIfNeeded, generateToken } from "@/lib/au
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 
 const loginSchema = z.object({
-  // Login é por EMAIL (campo mantém o nome "username" p/ compat com o front)
+  // Login é por NOME DE USUÁRIO.
   username: z.string().min(1).max(120),
   password: z.string().min(1).max(128),
 });
 
 export const POST = withErrorHandling(async (request) => {
   const { username, password } = await parseJson(request, loginSchema);
-  const email = username.toLowerCase().trim();
+  const login = username.toLowerCase().trim();
 
-  // Login é por EMAIL apenas
   const { data: user } = await supabase
     .from("users")
     .select("*")
-    .eq("email", email)
+    .eq("username", login)
     .is("deleted_at", null)
     .maybeSingle();
 

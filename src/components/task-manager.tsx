@@ -386,8 +386,8 @@ interface AdminPanelProps {
 
 function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdateProjects, onUpdateTags, onUpdateWorkspaces, onClose, theme, currentUser }: AdminPanelProps) {
   const [tab, setTab] = useState("users");
-  const [newUser, setNewUser] = useState<{ username: string; name: string; email: string; password: string; role: Role }>({
-    username: "", name: "", email: "", password: "", role: "editor",
+  const [newUser, setNewUser] = useState<{ username: string; name: string; password: string; role: Role }>({
+    username: "", name: "", password: "", role: "editor",
   });
   const [confirm, setConfirm] = useState<{ title: string; description?: string; onConfirm: () => void | Promise<void> } | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -402,28 +402,19 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
       const created = await api.createUser({
         username: newUser.username,
         name: newUser.name || newUser.username,
-        email: newUser.email.trim() || undefined,
         password: newUser.password,
         role: newUser.role,
       });
       onUpdateUsers([...users, { ...created }]);
-      if (newUser.email.trim()) setFeedback(`Usuário criado. Email de acesso enviado para ${newUser.email.trim()}.`);
+      setFeedback(`Usuário "${created.username}" criado. Informe a senha a ele.`);
     } catch {}
-    setNewUser({ username: "", name: "", email: "", password: "", role: "editor" });
+    setNewUser({ username: "", name: "", password: "", role: "editor" });
   };
 
   const resetPassword = async (userId: string, newPwd: string) => {
     try { await api.resetPassword(userId, newPwd); } catch {}
   };
 
-  const sendResetEmail = async (userId: string) => {
-    try {
-      await api.sendResetEmail(userId);
-      setFeedback("Email de redefinição enviado.");
-    } catch (err) {
-      setFeedback(err instanceof Error ? err.message : "Falha ao enviar email.");
-    }
-  };
 
   // ── Workspaces ──────────────────────────────────────────────────
   const addWorkspace = async () => {
@@ -575,8 +566,8 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
             <>
               <div style={{ padding: 16, borderRadius: 12, background: theme.inputBg, border: `1px solid ${theme.border}`, marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: theme.text, marginBottom: 4 }}>Criar novo usuário</div>
-                <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 12 }}>Com email preenchido, enviamos um link de acesso para o usuário definir a senha.</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto auto", gap: 8, alignItems: "end" }}>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 12 }}>O acesso é por nome de usuário e senha. Combine a senha com a pessoa.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto auto", gap: 8, alignItems: "end" }}>
                   <div>
                     <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Usuário</div>
                     <input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} placeholder="usuario" style={{ ...inputStyle, width: "100%" }} />
@@ -584,10 +575,6 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
                   <div>
                     <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Nome</div>
                     <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome Completo" style={{ ...inputStyle, width: "100%" }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Email</div>
-                    <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="email@exemplo.com" type="email" style={{ ...inputStyle, width: "100%" }} />
                   </div>
                   <div>
                     <div style={{ fontSize: 10, color: theme.textMuted, marginBottom: 4, fontWeight: 600, textTransform: "uppercase" }}>Senha</div>
@@ -609,7 +596,6 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
               {users.map((user) => (
                 <UserRow key={user.id} user={user} currentUser={currentUser} theme={theme}
                   onResetPassword={(pwd: string) => resetPassword(user.id, pwd)}
-                  onSendReset={() => sendResetEmail(user.id)}
                   onChangeRole={(r: Role) => changeRole(user.id, r)}
                   onChangeAvatar={(seed: string) => changeAvatar(user.id, seed)}
                   onToggleContentAccess={(next: boolean) => toggleContentAccess(user.id, next)}
@@ -919,14 +905,13 @@ interface UserRowProps {
   currentUser: User;
   theme: Theme;
   onResetPassword: (password: string) => void;
-  onSendReset: () => void;
   onChangeRole: (role: Role) => void;
   onChangeAvatar: (avatar: string) => void;
   onToggleContentAccess: (next: boolean) => void;
   onDelete: () => void;
 }
 
-function UserRow({ user, currentUser, theme, onResetPassword, onSendReset, onChangeRole, onChangeAvatar, onToggleContentAccess, onDelete }: UserRowProps) {
+function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onChangeAvatar, onToggleContentAccess, onDelete }: UserRowProps) {
   const [showReset, setShowReset] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [newPwd, setNewPwd] = useState("");
@@ -992,14 +977,6 @@ function UserRow({ user, currentUser, theme, onResetPassword, onSendReset, onCha
         <button onClick={() => setShowReset(true)}
           style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>
           🔑 Reset
-        </button>
-      )}
-
-      {user.email && (
-        <button onClick={onSendReset}
-          title={`Enviar email de redefinição para ${user.email}`}
-          style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "5px 12px", color: theme.textSecondary, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>
-          ✉️ Email
         </button>
       )}
 

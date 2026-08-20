@@ -10,7 +10,6 @@ export interface User {
   id: string;
   username: string;
   name: string;
-  email?: string;
   role: Role;
   avatar: string;
   canAccessContent?: boolean;
@@ -162,10 +161,8 @@ export interface DashboardPayload {
 export interface CreateUserPayload {
   username: string;
   name?: string;
-  email?: string;
   password: string;
   role: Role;
-  sendAccessEmail?: boolean;
 }
 
 export interface CreateProjectPayload {

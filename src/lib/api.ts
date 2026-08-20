@@ -92,20 +92,6 @@ export const api = {
     return !!getToken();
   },
 
-  // Reset de senha
-  forgotPassword: (identifier: string) =>
-    request<{ success: boolean; message: string }>("/auth/forgot-password", {
-      method: "POST",
-      body: JSON.stringify({ identifier }),
-    }),
-  resetPasswordWithToken: (token: string, password: string) =>
-    request<{ success: boolean }>("/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ token, password }),
-    }),
-  sendResetEmail: (id: string) =>
-    request<{ success: boolean }>(`/users/${id}/reset-email`, { method: "POST" }),
-
   // Users
   getUsers: () => request<User[]>("/users"),
   createUser: (data: CreateUserPayload) =>
