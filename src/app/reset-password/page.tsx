@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 
 export default function ResetPasswordPage() {
@@ -52,7 +53,7 @@ export default function ResetPasswordPage() {
           <div style={{ textAlign: "center" }}>
             <h1 style={title}>Senha redefinida</h1>
             <p style={subtitle}>Sua nova senha já está valendo. Você já pode entrar.</p>
-            <a href="/" style={{ ...btn, display: "inline-flex", textDecoration: "none" }}>Ir para o login</a>
+            <Link href="/" style={{ ...btn, display: "inline-flex", textDecoration: "none" }}>Ir para o login</Link>
           </div>
         ) : (
           <form onSubmit={submit}>

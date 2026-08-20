@@ -33,7 +33,7 @@ export function SkeletonList({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Skeleton width={20} height={20} rounded={6} />
-          <Skeleton width={`${40 + Math.random() * 40}%`} />
+          <Skeleton width={`${40 + ((i * 17) % 5) * 10}%`} />
           <Skeleton width={80} height={22} rounded={20} style={{ marginLeft: "auto" }} />
         </div>
       ))}
