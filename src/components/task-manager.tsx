@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { markdownToHtml } from "@/lib/utils";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -1044,11 +1045,20 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
     onChange(el.innerHTML);
   };
 
-  // Colar limpo: sempre como texto puro (sem lixo de HTML de outras fontes)
+  // Colar limpo: descarta o HTML da origem, mas entende o markdown que
+  // ChatGPT/Claude/Gemini produzem — títulos, listas, negrito e links viram
+  // formatação de verdade em vez de "###" e "**" no meio do texto.
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
     const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    if (!text) return;
+    const looksLikeMarkdown = /(^|\n)\s*(#{1,6}\s|[-*•]\s|\d+[.)]\s|>\s)|\*\*[^*]+\*\*/.test(text);
+    const multiline = text.includes("\n");
+    if (looksLikeMarkdown || multiline) {
+      document.execCommand("insertHTML", false, markdownToHtml(text));
+    } else {
+      document.execCommand("insertText", false, text);
+    }
     if (editorRef.current) onChange(editorRef.current.innerHTML);
   };
 
@@ -1155,6 +1165,9 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
         [contenteditable] a { color: var(--primary-hover); text-decoration: underline; }
         [contenteditable] h2 { font-size: 18px; font-weight: 700; margin: 10px 0 4px; }
         [contenteditable] h3 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; }
+        [contenteditable] h4 { font-size: 14px; font-weight: 700; margin: 8px 0 4px; }
+        [contenteditable] p { margin: 0 0 8px; }
+        [contenteditable] code { font-family: var(--font-mono, monospace); font-size: 13px; background: var(--primary-soft); padding: 1px 5px; border-radius: 4px; }
         [contenteditable] ul, [contenteditable] ol { margin: 6px 0 6px 22px; }
         [contenteditable] li { margin: 2px 0; }
         [contenteditable] blockquote { margin: 8px 0; padding: 6px 14px; border-left: 3px solid var(--primary); background: var(--primary-soft); color: var(--text-secondary); border-radius: 0 6px 6px 0; }
