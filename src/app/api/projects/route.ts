@@ -101,7 +101,16 @@ export const POST = withErrorHandling(async (request) => {
       .maybeSingle();
     if (!ws) throw new ApiError("NOT_FOUND", "Workspace não encontrado");
     if (user.role !== "admin" && ws.owner_id !== user.id) {
-      throw new ApiError("FORBIDDEN", "Você não pode criar projeto neste workspace.");
+      // Editor cria grupo em qualquer workspace de que participe.
+      const { data: member } = await supabase
+        .from("workspace_members")
+        .select("user_id")
+        .eq("workspace_id", targetWorkspaceId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!member) {
+        throw new ApiError("FORBIDDEN", "Você não participa deste workspace.");
+      }
     }
   } else if (user.role !== "admin") {
     throw new ApiError("VALIDATION_ERROR", "Selecione um workspace.");

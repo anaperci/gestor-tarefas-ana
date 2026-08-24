@@ -3242,7 +3242,7 @@ export default function TaskManager() {
 
   const addProject = async (nameArg?: string) => {
     const rawName = (nameArg ?? newProjectName).trim();
-    if (!rawName || !isAdmin || !currentUser) return;
+    if (!rawName || !canEdit || !currentUser) return;
     const colors = ["#0F4C5C", "#15708C", "#E07A52", "#00C875", "#FDAB3D", "#579BFC", "#FF78CB", "#1ABC9C"];
     const icons = ["📌", "⚡", "💡", "🎯", "🔥", "🌟", "🚀", "🌐"];
     const color = colors[Math.floor(Math.random() * colors.length)];
@@ -3760,7 +3760,7 @@ export default function TaskManager() {
             </SortableContext>
           </DndContext>
 
-          {isAdmin && (
+          {canEdit && (
             showNewGroup ? (
               <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 14px", borderRadius: 12, border: `1px dashed ${theme.borderStrong}`, background: theme.surface, marginBottom: 24 }}>
                 <input autoFocus value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
