@@ -383,3 +383,19 @@ export const api = {
   getRoutineHistory: (days: number = 7) =>
     request<{ history: RoutineHistoryDay[] }>(`/routines/history?days=${days}`),
 };
+
+/**
+ * Abre o documento da tarefa (cabeçalho + conteúdo + checklist) numa aba nova
+ * já com a janela de impressão — o usuário salva em PDF pelo próprio navegador.
+ * Vai por fetch porque a rota exige o token, que uma aba nova não carregaria.
+ */
+export async function exportarTarefa(taskId: string): Promise<void> {
+  const res = await fetch(`/api/tasks/${taskId}/export?print=1`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("taskhub-token") ?? ""}` },
+  });
+  if (!res.ok) throw new Error("Não foi possível gerar o documento");
+  const url = URL.createObjectURL(new Blob([await res.text()], { type: "text/html" }));
+  const win = window.open(url, "_blank");
+  if (!win) throw new Error("Libere os pop-ups para exportar");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

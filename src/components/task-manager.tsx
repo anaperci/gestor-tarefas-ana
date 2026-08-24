@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { markdownToHtml } from "@/lib/utils";
+import { exportarTarefa } from "@/lib/api";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -1430,6 +1431,11 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
               readOnly={!canEdit}
               style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "inherit", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <button onClick={() => exportarTarefa(task.id)}
+                title="Exportar conteúdo em PDF"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+                <FileText size={14} aria-hidden /> Exportar
+              </button>
               {assignee && (
                 <div title={assignee.name} style={{ width: 34, height: 34, borderRadius: "50%", background: theme.badgeBg("#579BFC"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, border: `2px solid ${theme.border}` }}>
                   {assignee.avatar}
