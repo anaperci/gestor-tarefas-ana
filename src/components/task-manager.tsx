@@ -1865,9 +1865,10 @@ interface TaskRowProps {
   canEdit: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (id: string) => void;
+  onDelete?: (task: Task) => void;
 }
 
-function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand }: TaskRowProps) {
+function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand, onDelete }: TaskRowProps) {
   const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
   const stDone = (task.subtasks || []).filter((s) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
@@ -1962,7 +1963,16 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
         <LinkCell task={task} theme={theme} canEdit={canEdit} onUpdate={onUpdate} />
       )}
 
-      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", alignItems: "center" }}>
+        {canEdit && onDelete && !isSubtask && (
+          <button onClick={(e) => { e.stopPropagation(); onDelete(task); }}
+            className="task-delete-btn"
+            aria-label={`Excluir tarefa ${task.title}`}
+            title="Excluir tarefa"
+            style={{ background: "none", border: "none", color: "#E2445C", borderRadius: 6, padding: "4px 6px", cursor: "pointer", fontSize: 13, opacity: 0, transition: "opacity 0.15s", lineHeight: 1 }}>
+            <Trash2 size={15} aria-hidden />
+          </button>
+        )}
         <button onClick={(e) => { e.stopPropagation(); onOpen(task); }}
           style={{ background: theme.inputBg, border: "none", color: theme.textSecondary, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 14 }}>❯</button>
       </div>
@@ -2999,6 +3009,8 @@ export default function TaskManager() {
   const [search, setSearch] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
   const [expandedWs, setExpandedWs] = useState<Set<string>>(new Set());
   const [editingProjName, setEditingProjName] = useState(false);
   const [projNameDraft, setProjNameDraft] = useState("");
@@ -3172,6 +3184,27 @@ export default function TaskManager() {
     }
   };
 
+  const deleteTask = (task: Task) => {
+    if (!canEdit) return;
+    setConfirm({
+      title: `Excluir "${task.title}"?`,
+      description: "A tarefa sai da lista. Ela fica recuperável no banco.",
+      onConfirm: async () => {
+        setConfirm(null);
+        const backup = tasks;
+        setTasks((prev) => prev.filter((t) => t.id !== task.id));
+        if (detailTask?.id === task.id) setDetailTask(null);
+        try {
+          await api.deleteTask(task.id);
+          showToast("Tarefa excluída", "success");
+        } catch (err) {
+          setTasks(backup);
+          showToast(err instanceof Error ? err.message : "Erro ao excluir tarefa");
+        }
+      },
+    });
+  };
+
   const addTask = async () => {
     if (!canEdit || !currentUser) return;
     const projectId = activeProject === "all" ? visibleProjects[0]?.id : activeProject;
@@ -3207,22 +3240,25 @@ export default function TaskManager() {
     } catch { showToast("Erro ao criar tarefa"); }
   };
 
-  const addProject = async () => {
-    if (!newProjectName.trim() || !isAdmin || !currentUser) return;
+  const addProject = async (nameArg?: string) => {
+    const rawName = (nameArg ?? newProjectName).trim();
+    if (!rawName || !isAdmin || !currentUser) return;
     const colors = ["#0F4C5C", "#15708C", "#E07A52", "#00C875", "#FDAB3D", "#579BFC", "#FF78CB", "#1ABC9C"];
     const icons = ["📌", "⚡", "💡", "🎯", "🔥", "🌟", "🚀", "🌐"];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const icon = icons[Math.floor(Math.random() * icons.length)];
     try {
       const np = await api.createProject({
-        name: newProjectName.trim(),
+        name: rawName,
         color,
         icon,
         workspaceId: activeWorkspace !== "all" ? activeWorkspace : undefined,
       });
       setProjects((prev) => [...prev, { ...np, ownerId: np.ownerId || currentUser.id, sharedWith: np.sharedWith || [] }]);
-    } catch { showToast("Erro ao criar projeto"); }
+      showToast(`Grupo "${rawName}" criado`, "success");
+    } catch (err) { showToast(err instanceof Error ? err.message : "Erro ao criar grupo"); }
     setNewProjectName(""); setShowNewProject(false);
+    setNewGroupName(""); setShowNewGroup(false);
   };
 
   const renameProjectName = async () => {
@@ -3304,6 +3340,13 @@ export default function TaskManager() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
         .task-row:hover { background: var(--surface-hover) !important; }
+        @media (hover: hover) and (pointer: fine) {
+          .task-row:hover .task-delete-btn { opacity: 0.65 !important; }
+          .task-delete-btn:hover { opacity: 1 !important; }
+        }
+        @media not all and (hover: hover) {
+          .task-delete-btn { opacity: 0.5 !important; }
+        }
         .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
         .sidebar-item { position: relative; }
         .sidebar-item:hover { background: rgba(244, 239, 226, 0.14) !important; box-shadow: inset 3px 0 0 var(--accent); }
@@ -3459,9 +3502,9 @@ export default function TaskManager() {
                         {isAdmin && (
                           (showNewProject && activeWorkspace === ws.id) ? (
                             <div style={{ display: "flex", gap: 4, marginTop: 6, padding: "0 4px" }}>
-                              <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addProject()} placeholder="Nome do projeto"
+                              <input autoFocus value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addProject(); }} placeholder="Nome do projeto"
                                 style={{ flex: 1, background: "var(--sidebar-input-bg)", border: `1px solid var(--sidebar-border)`, borderRadius: 6, padding: "5px 9px", color: "var(--sidebar-text)", fontSize: 12, outline: "none", fontFamily: "inherit" }} />
-                              <button onClick={addProject} style={{ background: "var(--sidebar-active-bg)", border: "none", color: "var(--sidebar-text)", borderRadius: 6, padding: "5px 9px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                              <button onClick={() => addProject()} style={{ background: "var(--sidebar-active-bg)", border: "none", color: "var(--sidebar-text)", borderRadius: 6, padding: "5px 9px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
                               <button onClick={() => setShowNewProject(false)} style={{ background: "var(--sidebar-input-bg)", border: "none", color: "var(--sidebar-text-secondary)", borderRadius: 6, padding: "5px 7px", cursor: "pointer", fontSize: 12 }}>✕</button>
                             </div>
                           ) : (
@@ -3691,7 +3734,7 @@ export default function TaskManager() {
                               <MobileTaskCard key={task.id} task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} />
                             ) : (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
-                              <TaskRow task={task} projects={visibleProjects} users={users} tags={tags} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} />
+                              <TaskRow task={task} projects={visibleProjects} users={users} tags={tags} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} onDelete={deleteTask} />
                               {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => {
                                 const stAsTask: Task = { ...task, id: st.id, title: st.title, status: st.status, checked: st.checked, subtasks: [], checklist: [] };
                                 return (
@@ -3716,6 +3759,31 @@ export default function TaskManager() {
               ))}
             </SortableContext>
           </DndContext>
+
+          {isAdmin && (
+            showNewGroup ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 14px", borderRadius: 12, border: `1px dashed ${theme.borderStrong}`, background: theme.surface, marginBottom: 24 }}>
+                <input autoFocus value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addProject(newGroupName);
+                    if (e.key === "Escape") { setNewGroupName(""); setShowNewGroup(false); }
+                  }}
+                  placeholder="Nome do grupo — ex: Criação"
+                  style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "9px 12px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={() => addProject(newGroupName)} disabled={!newGroupName.trim()}
+                  style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8, padding: "9px 18px", cursor: newGroupName.trim() ? "pointer" : "default", opacity: newGroupName.trim() ? 1 : 0.5, fontSize: 13, fontWeight: 700, fontFamily: "inherit" }}>Criar grupo</button>
+                <button onClick={() => { setNewGroupName(""); setShowNewGroup(false); }}
+                  style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Cancelar</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowNewGroup(true)}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 14px", marginBottom: 24, borderRadius: 12, border: `1px dashed ${theme.borderStrong}`, background: "transparent", color: theme.textSecondary, cursor: "pointer", fontSize: 14, fontWeight: 600, fontFamily: "inherit", transition: "all 0.15s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = theme.textSecondary; }}>
+                <Plus size={16} aria-hidden /> Novo grupo
+              </button>
+            )
+          )}
         </div>
         )}
           </div>
