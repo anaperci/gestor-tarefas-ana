@@ -15,7 +15,7 @@ import {
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, ApiRequestError } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton, SkeletonList } from "@/components/ui/skeleton";
@@ -3164,12 +3164,29 @@ export default function TaskManager() {
     } catch { showToast("Erro ao carregar dados"); }
   }, []);
 
-  // Auto-login from saved token
+  // Auto-login from saved token.
+  // Só descarta a sessão se o servidor disser que o token não presta (401/403).
+  // Servidor reiniciando, deploy no ar ou wifi oscilando não podem deslogar
+  // ninguém: nesses casos espera e tenta de novo.
   useEffect(() => {
     if (currentUser) return;
-    if (api.hasToken()) {
-      api.me().then((u) => { setCurrentUser(u); }).catch(() => api.logout());
-    }
+    if (!api.hasToken()) return;
+    let cancelado = false;
+    let tentativa = 0;
+
+    const tentar = () => {
+      api.me()
+        .then((u) => { if (!cancelado) setCurrentUser(u); })
+        .catch((err) => {
+          if (cancelado) return;
+          const status = err instanceof ApiRequestError ? err.status : 0;
+          if (status === 401 || status === 403) { api.logout(); return; }
+          tentativa += 1;
+          if (tentativa <= 6) setTimeout(tentar, Math.min(1000 * 2 ** tentativa, 15_000));
+        });
+    };
+    tentar();
+    return () => { cancelado = true; };
   }, [currentUser]);
 
   useEffect(() => { if (currentUser) loadData(); }, [currentUser, loadData]);
