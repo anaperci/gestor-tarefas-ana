@@ -1411,7 +1411,10 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
             <button onClick={onClose} style={{ background: "none", border: "none", color: theme.textSecondary, cursor: "pointer", fontSize: 20, padding: 4, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, flexShrink: 0 }}
               onMouseEnter={(e) => e.currentTarget.style.background = theme.surfaceHover}
               onMouseLeave={(e) => e.currentTarget.style.background = "none"}>✕</button>
-            <input value={task.title} onChange={(e) => canEdit && onUpdate({ ...task, title: e.target.value })} readOnly={!canEdit}
+            <input value={task.title}
+              onChange={(e) => canEdit && onUpdate({ ...task, title: e.target.value })}
+              onBlur={(e) => { if (canEdit && !e.target.value.trim()) onUpdate({ ...task, title: "Nova tarefa" }); }}
+              readOnly={!canEdit}
               style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "inherit", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               {assignee && (
@@ -2038,7 +2041,10 @@ function LinkCell({ task, theme, canEdit, onUpdate }: { task: Task; theme: Theme
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
 
   const save = () => {
-    const v = value.trim();
+    // Colar "www.figma.com/..." sem protocolo era rejeitado pela API (Invalid URL).
+    const raw = value.trim();
+    const v = raw && !/^https?:\/\//i.test(raw) ? `https://${raw}` : raw;
+    if (v !== value) setValue(v);
     if (v !== (task.link || "")) onUpdate({ ...task, link: v });
     setEditing(false);
   };
@@ -3141,6 +3147,9 @@ export default function TaskManager() {
     if (!canEdit) return;
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     if (detailTask && detailTask.id === updated.id) setDetailTask(updated);
+    // Título vazio = usuário apagou pra reescrever. Mantém na tela e espera
+    // ele terminar; a API rejeitaria com 400 a cada tecla.
+    if (!updated.title.trim()) return;
     try {
       await api.updateTask(updated.id, {
         title: updated.title,
@@ -3158,7 +3167,9 @@ export default function TaskManager() {
         checklist: updated.checklist,
         subtasks: updated.subtasks,
       });
-    } catch { showToast("Erro ao salvar tarefa"); }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Erro ao salvar tarefa");
+    }
   };
 
   const addTask = async () => {

@@ -42,6 +42,39 @@ function clearToken() {
   localStorage.removeItem("taskhub-token");
 }
 
+// Rótulos em PT dos campos que a API valida — usados pra transformar
+// "Dados inválidos" numa mensagem que diz QUAL campo está errado.
+const FIELD_LABELS: Record<string, string> = {
+  title: "Título",
+  description: "Descrição",
+  deadline: "Prazo",
+  startDate: "Data de início",
+  estimateHours: "Estimativa de horas",
+  link: "Link",
+  projectId: "Projeto",
+  assignedTo: "Responsável",
+  checklist: "Checklist",
+  subtasks: "Subtarefas",
+  tagIds: "Etiquetas",
+  password: "Senha",
+  username: "Usuário",
+  name: "Nome",
+};
+
+interface ApiErrorBody {
+  error?: string;
+  details?: { fieldErrors?: Record<string, string[]> };
+}
+
+/** Junta o erro geral com os campos inválidos: "Dados inválidos — Link, Prazo". */
+function describeApiError(data: ApiErrorBody): string {
+  const base = data.error || "";
+  const fields = Object.keys(data.details?.fieldErrors ?? {});
+  if (!fields.length) return base;
+  const labels = fields.map((f) => FIELD_LABELS[f] ?? f).join(", ");
+  return base ? `${base} — verifique: ${labels}` : `Verifique: ${labels}`;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -54,7 +87,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Erro desconhecido" }));
-    throw new Error(data.error || `HTTP ${res.status}`);
+    throw new Error(describeApiError(data) || `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
