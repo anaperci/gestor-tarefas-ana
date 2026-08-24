@@ -100,7 +100,7 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 // 9 colunas: check · título · status · projeto · prazo · prioridade · pessoa · link · chevron
 // 10 colunas — coluna Tarefa limitada para não esticar demais em monitores largos
 // Tarefa = 1fr (fluida) pra o grid sempre caber no container; demais colunas enxutas
-const GRID_COLUMNS = "24px minmax(72px, 1fr) 84px 92px 106px 76px 92px 70px 40px 24px";
+const GRID_COLUMNS = "24px minmax(160px, 1fr) 84px 92px 100px 76px 84px 64px 40px 64px";
 const GRID_COLUMNS_SUBTASK = "24px 1fr 108px 100px 48px";
 
 /** Estilo dos botões de ícone na régua (sidebar recolhida). */
@@ -1969,7 +1969,7 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
             className="task-delete-btn"
             aria-label={`Excluir tarefa ${task.title}`}
             title="Excluir tarefa"
-            style={{ background: "none", border: "none", color: "#E2445C", borderRadius: 6, padding: "4px 6px", cursor: "pointer", fontSize: 13, opacity: 0, transition: "opacity 0.15s", lineHeight: 1 }}>
+            style={{ background: "none", border: "none", color: "#E2445C", borderRadius: 6, padding: "4px 6px", cursor: "pointer", fontSize: 13, opacity: 0.35, transition: "opacity 0.15s", lineHeight: 1 }}>
             <Trash2 size={15} aria-hidden />
           </button>
         )}
@@ -3340,13 +3340,8 @@ export default function TaskManager() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
         .task-row:hover { background: var(--surface-hover) !important; }
-        @media (hover: hover) and (pointer: fine) {
-          .task-row:hover .task-delete-btn { opacity: 0.65 !important; }
-          .task-delete-btn:hover { opacity: 1 !important; }
-        }
-        @media not all and (hover: hover) {
-          .task-delete-btn { opacity: 0.5 !important; }
-        }
+        .task-row:hover .task-delete-btn { opacity: 1 !important; }
+        .task-delete-btn:hover { opacity: 1 !important; transform: scale(1.15); }
         .sidebar-item { transition: all 0.15s; border: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
         .sidebar-item { position: relative; }
         .sidebar-item:hover { background: rgba(244, 239, 226, 0.14) !important; box-shadow: inset 3px 0 0 var(--accent); }
@@ -3703,7 +3698,7 @@ export default function TaskManager() {
             }}
           />
         ) : (
-        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "16px 28px", WebkitOverflowScrolling: "touch" }}>
+        <div className="board-list-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "16px 28px", WebkitOverflowScrolling: "touch" }}>
           {filteredTasks.length === 0 && (
             <EmptyState
               icon={ListChecks}
