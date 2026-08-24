@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import { ApiError, withErrorHandling } from "@/lib/api-error";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
+/** Logo embutida como data URI — o documento abre por blob e não resolveria /logos/... */
+async function logoDataUri(): Promise<string> {
+  try {
+    const svg = await readFile(path.join(process.cwd(), "public/logos/clareza-lockup-egeu.svg"), "utf8");
+    return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+  } catch {
+    return "";
+  }
+}
 
 /** Documento de uma linha do cabeçalho. */
 function campo(rotulo: string, valor: string): string {
@@ -46,21 +58,10 @@ export const GET = withErrorHandling(async (request, ctx) => {
     ? await supabase.from("users").select("name").eq("id", task.assigned_to).maybeSingle()
     : { data: null };
 
-  const { data: checklist } = await supabase
-    .from("checklist_items")
-    .select("text, done, sort_order")
-    .eq("task_id", id)
-    .order("sort_order");
-
   const escapar = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const titulo = escapar(task.title);
 
-  const listaChecklist = (checklist ?? []).length
-    ? `<section class="checklist">
-         <h2>Checklist</h2>
-         <ul>${(checklist ?? []).map((c) => `<li class="${c.done ? "feito" : ""}"><span class="box">${c.done ? "✓" : ""}</span>${escapar(c.text)}</li>`).join("")}</ul>
-       </section>`
-    : "";
+  const logo = await logoDataUri();
 
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
@@ -72,6 +73,7 @@ export const GET = withErrorHandling(async (request, ctx) => {
          color: #1a1a1a; line-height: 1.65; font-size: 11.5pt; margin: 0; }
   .doc { max-width: 760px; margin: 0 auto; padding: 24px; }
   header { border-bottom: 3px solid #0F4C5C; padding-bottom: 14px; margin-bottom: 20px; }
+  header img.logo { height: 30px; width: auto; display: block; margin-bottom: 14px; }
   header h1 { font-size: 19pt; margin: 0 0 4px; color: #0F4C5C; letter-spacing: -0.3px; }
   table.meta { width: 100%; border-collapse: collapse; margin-bottom: 26px; }
   table.meta th { text-align: left; width: 150px; padding: 5px 10px 5px 0; color: #5a6a6f;
@@ -89,14 +91,6 @@ export const GET = withErrorHandling(async (request, ctx) => {
                          background: #f2f7f8; color: #3d4d52; }
   .conteudo a { color: #0F4C5C; }
   .conteudo hr { border: none; border-top: 1px solid #dde3e4; margin: 16px 0; }
-  .checklist { margin-top: 26px; page-break-before: auto; }
-  .checklist h2 { font-size: 13.5pt; color: #0F4C5C; border-top: 1px solid #e4e8e9; padding-top: 10px; }
-  .checklist ul { list-style: none; padding: 0; margin: 8px 0 0; }
-  .checklist li { display: flex; gap: 9px; align-items: baseline; margin: 5px 0; }
-  .checklist .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #7d8f95;
-                    border-radius: 3px; text-align: center; line-height: 12px; font-size: 10px;
-                    color: #0F4C5C; flex-shrink: 0; }
-  .checklist li.feito { color: #6b7a7f; text-decoration: line-through; }
   footer { margin-top: 34px; padding-top: 10px; border-top: 1px solid #e4e8e9;
            font-size: 8.5pt; color: #8a999e; display: flex; justify-content: space-between; }
   @media print { .doc { padding: 0; } a { text-decoration: none; } }
@@ -104,6 +98,7 @@ export const GET = withErrorHandling(async (request, ctx) => {
 <body>
   <div class="doc">
     <header>
+      ${logo ? `<img class="logo" src="${logo}" alt="Clareza">` : ""}
       <h1>${titulo}</h1>
     </header>
     <table class="meta">
@@ -114,7 +109,6 @@ export const GET = withErrorHandling(async (request, ctx) => {
       ${campo("Responsável", escapar(assignee?.name ?? ""))}
     </table>
     <div class="conteudo">${task.description || "<p>Sem conteúdo.</p>"}</div>
-    ${listaChecklist}
     <footer>
       <span>Clareza · ${escapar(workspace?.name ?? "")}</span>
       <span>${new Date().toLocaleDateString("pt-BR")}</span>
