@@ -92,8 +92,16 @@ export const GET = withErrorHandling(async (request, ctx) => {
   .conteudo a { color: #0F4C5C; }
   .conteudo hr { border: none; border-top: 1px solid #dde3e4; margin: 16px 0; }
   footer { margin-top: 34px; padding-top: 10px; border-top: 1px solid #e4e8e9;
-           font-size: 8.5pt; color: #8a999e; display: flex; justify-content: space-between; }
-  @media print { .doc { padding: 0; } a { text-decoration: none; } }
+           font-size: 8.5pt; color: #8a999e; display: flex; justify-content: space-between; gap: 16px; }
+  @media print {
+    .doc { padding: 0; }
+    a { text-decoration: none; }
+    /* repete em todas as páginas do PDF */
+    footer { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; background: #fff; }
+    .conteudo { padding-bottom: 26px; }
+    h2, h3, h4 { break-after: avoid; }
+    p, li { break-inside: avoid; }
+  }
 </style></head>
 <body>
   <div class="doc">
@@ -110,8 +118,8 @@ export const GET = withErrorHandling(async (request, ctx) => {
     </table>
     <div class="conteudo">${task.description || "<p>Sem conteúdo.</p>"}</div>
     <footer>
-      <span>Clareza · ${escapar(workspace?.name ?? "")}</span>
-      <span>${new Date().toLocaleDateString("pt-BR")}</span>
+      <span>${escapar(project?.name ?? "")} · ${titulo}</span>
+      <span>Gerado em ${new Date().toLocaleDateString("pt-BR")}</span>
     </footer>
   </div>
   <script>
