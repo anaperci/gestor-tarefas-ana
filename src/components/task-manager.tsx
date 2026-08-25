@@ -3199,26 +3199,33 @@ export default function TaskManager() {
 
   useEffect(() => { if (currentUser) loadData(); }, [currentUser, loadData]);
 
-  // URL por tarefa: /?tarefa=<id> abre o painel direto. Mantém a barra de
-  // endereço em dia pra copiar/compartilhar (inclusive no Slack).
+  // URL por tarefa: /?tarefa=<id> abre o painel direto.
+  // O alvo é lido UMA vez, na primeira render — antes que o efeito de
+  // sincronia abaixo limpe o parâmetro por ainda não haver tarefa aberta.
+  const [alvoDoLink] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : new URL(window.location.href).searchParams.get("tarefa")
+  );
+  const linkResolvidoRef = useRef(!alvoDoLink);
+
+  // Abre a tarefa apontada pela URL assim que a lista chega.
   useEffect(() => {
+    if (linkResolvidoRef.current || !alvoDoLink || !tasks.length) return;
+    const t = tasks.find((x) => x.id === alvoDoLink);
+    linkResolvidoRef.current = true;
+    if (t) setDetailTask(t);
+    else showToast("Tarefa do link não encontrada (pode ter sido excluída)");
+  }, [tasks, alvoDoLink]);
+
+  // Mantém a barra de endereço em dia pra copiar/compartilhar. Só age depois
+  // que o link inicial foi resolvido, senão apagaria o parâmetro antes da hora.
+  useEffect(() => {
+    if (!linkResolvidoRef.current) return;
     const url = new URL(window.location.href);
-    const atual = url.searchParams.get("tarefa");
-    if (detailTask?.id === atual) return;
+    if (detailTask?.id === url.searchParams.get("tarefa")) return;
     if (detailTask) url.searchParams.set("tarefa", detailTask.id);
     else url.searchParams.delete("tarefa");
     window.history.replaceState(null, "", url.toString());
   }, [detailTask]);
-
-  // Abre a tarefa apontada pela URL assim que a lista carrega.
-  const linkAbertoRef = useRef(false);
-  useEffect(() => {
-    if (linkAbertoRef.current || !tasks.length) return;
-    const alvo = new URL(window.location.href).searchParams.get("tarefa");
-    if (!alvo) { linkAbertoRef.current = true; return; }
-    const t = tasks.find((x) => x.id === alvo);
-    if (t) { setDetailTask(t); linkAbertoRef.current = true; }
-  }, [tasks]);
 
   const updateTask = async (updated: Task) => {
     if (!canEdit) return;
