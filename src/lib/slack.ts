@@ -6,13 +6,15 @@ import { supabase } from "./supabase";
  * Suporte...). Sem configuração para o grupo, cai no webhook geral do
  * ambiente; sem nenhum dos dois, nada é enviado.
  */
-async function webhookDoProjeto(projectId: string): Promise<string | null> {
+async function webhookDoProjeto(projectId: string): Promise<{ url: string; canal: string } | null> {
   const { data } = await supabase
     .from("slack_channels")
-    .select("webhook_url")
+    .select("webhook_url, canal_nome")
     .eq("project_id", projectId)
     .maybeSingle();
-  return data?.webhook_url || process.env.SLACK_WEBHOOK_URL || null;
+  const url = data?.webhook_url || process.env.SLACK_WEBHOOK_URL || "";
+  if (!url) return null;
+  return { url, canal: (data?.canal_nome || "").replace(/^#/, "").trim() };
 }
 
 function appUrl(): string {
@@ -25,10 +27,10 @@ export function taskUrl(taskId: string): string {
 }
 
 const PRIORIDADES: Record<string, string> = {
-  critical: "🔴 Crítica",
-  high: "🟠 Alta",
-  medium: "🟡 Média",
-  low: "🟢 Baixa",
+  critical: "Crítica",
+  high: "Alta",
+  medium: "Média",
+  low: "Baixa",
 };
 
 function formatarData(iso: string): string {
@@ -68,25 +70,27 @@ export async function notificarTarefaCriada(t: TarefaCriada): Promise<void> {
         : Promise.resolve({ data: null }),
     ]);
 
-    const campos = [
-      `*Grupo:* ${projeto?.name ?? "—"}`,
-      `*Responsável:* ${responsavel?.name ?? "—"}`,
-      `*Prioridade:* ${PRIORIDADES[t.priority] ?? t.priority}`,
-    ];
-    if (t.deadline) campos.push(`*Prazo:* ${formatarData(t.deadline)}`);
-
     const url = taskUrl(t.id);
+    const setor = webhook.canal || projeto?.name || "";
+    const abertura = setor
+      ? `Tem uma nova tarefa de ${setor} liberada.`
+      : "Tem uma nova tarefa liberada.";
+
+    const linhas = [
+      "Oi time,",
+      "",
+      abertura,
+      "",
+      `*Tarefa:* <${url}|${t.title}>`,
+      `*Responsável:* ${responsavel?.name ?? "—"}`,
+      `*Urgência:* ${PRIORIDADES[t.priority] ?? t.priority}`,
+    ];
+    if (t.deadline) linhas.push(`*Prazo:* ${formatarData(t.deadline)}`);
+
     const payload = {
-      text: `Nova tarefa: ${t.title}`, // fallback (notificação do celular)
+      text: `Nova tarefa: ${t.title}`, // fallback da notificação do celular
       blocks: [
-        {
-          type: "section",
-          text: { type: "mrkdwn", text: `*<${url}|${t.title}>*` },
-        },
-        {
-          type: "context",
-          elements: [{ type: "mrkdwn", text: `${campos.join("  ·  ")}  ·  criada por ${t.autorNome}` }],
-        },
+        { type: "section", text: { type: "mrkdwn", text: linhas.join("\n") } },
         {
           type: "actions",
           elements: [
@@ -101,7 +105,7 @@ export async function notificarTarefaCriada(t: TarefaCriada): Promise<void> {
       ],
     };
 
-    const res = await fetch(webhook, {
+    const res = await fetch(webhook.url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
