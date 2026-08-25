@@ -1431,6 +1431,14 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
               readOnly={!canEdit}
               style={{ flex: 1, background: "transparent", border: "none", color: theme.text, fontSize: 24, fontWeight: 700, outline: "none", fontFamily: "inherit", padding: 0, letterSpacing: -0.1, cursor: canEdit ? "text" : "default" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <button onClick={() => {
+                  const url = `${window.location.origin}/?tarefa=${task.id}`;
+                  navigator.clipboard?.writeText(url);
+                }}
+                title="Copiar link da tarefa"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+                <Link2 size={14} aria-hidden /> Copiar link
+              </button>
               <button onClick={() => exportarTarefa(task.id)}
                 title="Exportar conteúdo em PDF"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
@@ -3190,6 +3198,27 @@ export default function TaskManager() {
   }, [currentUser]);
 
   useEffect(() => { if (currentUser) loadData(); }, [currentUser, loadData]);
+
+  // URL por tarefa: /?tarefa=<id> abre o painel direto. Mantém a barra de
+  // endereço em dia pra copiar/compartilhar (inclusive no Slack).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const atual = url.searchParams.get("tarefa");
+    if (detailTask?.id === atual) return;
+    if (detailTask) url.searchParams.set("tarefa", detailTask.id);
+    else url.searchParams.delete("tarefa");
+    window.history.replaceState(null, "", url.toString());
+  }, [detailTask]);
+
+  // Abre a tarefa apontada pela URL assim que a lista carrega.
+  const linkAbertoRef = useRef(false);
+  useEffect(() => {
+    if (linkAbertoRef.current || !tasks.length) return;
+    const alvo = new URL(window.location.href).searchParams.get("tarefa");
+    if (!alvo) { linkAbertoRef.current = true; return; }
+    const t = tasks.find((x) => x.id === alvo);
+    if (t) { setDetailTask(t); linkAbertoRef.current = true; }
+  }, [tasks]);
 
   const updateTask = async (updated: Task) => {
     if (!canEdit) return;

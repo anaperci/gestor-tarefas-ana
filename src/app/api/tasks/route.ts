@@ -14,6 +14,7 @@ import {
   titleSchema,
 } from "@/lib/validation";
 import { enrichTask, enrichTasksBatch, TaskRow } from "@/lib/tasks";
+import { notificarTarefaCriada } from "@/lib/slack";
 
 const createTaskSchema = z.object({
   title: titleSchema,
@@ -136,5 +137,17 @@ export const POST = withErrorHandling(async (request) => {
 
   const { data: task } = await supabase.from("tasks").select("*").eq("id", id).single();
   const enriched = await enrichTask(task as TaskRow);
+
+  // Slack: avisa o canal. Não bloqueia a resposta nem derruba a criação.
+  void notificarTarefaCriada({
+    id,
+    title: body.title,
+    priority: body.priority ?? "medium",
+    deadline: body.deadline ?? "",
+    projectId: body.projectId,
+    assignedTo: finalAssignee,
+    autorNome: user.name || user.username,
+  });
+
   return NextResponse.json(enriched, { status: 201 });
 });
