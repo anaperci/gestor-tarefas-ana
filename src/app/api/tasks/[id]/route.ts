@@ -19,6 +19,7 @@ import {
   titleSchema,
 } from "@/lib/validation";
 import { enrichTask, TaskRow } from "@/lib/tasks";
+import { userCanAccessProject } from "@/lib/access";
 
 const updateTaskSchema = z.object({
   title: titleSchema.optional(),
@@ -37,25 +38,6 @@ const updateTaskSchema = z.object({
   subtasks: z.array(subtaskSchema).max(MAX_SUBTASKS).optional(),
 });
 
-async function userCanAccessProject(user: AuthUser, projectId: string): Promise<boolean> {
-  if (user.role === "admin") return true;
-  const { data: proj } = await supabase
-    .from("projects")
-    .select("owner_id")
-    .eq("id", projectId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (!proj) return false;
-  if (proj.owner_id === user.id) return true;
-
-  const { data: share } = await supabase
-    .from("project_shares")
-    .select("user_id")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  return !!share;
-}
 
 export const PUT = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {

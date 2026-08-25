@@ -14,6 +14,7 @@ import {
   titleSchema,
 } from "@/lib/validation";
 import { enrichTask, enrichTasksBatch, TaskRow } from "@/lib/tasks";
+import { userCanAccessProject } from "@/lib/access";
 import { notificarTarefaCriada } from "@/lib/slack";
 
 const createTaskSchema = z.object({
@@ -30,35 +31,6 @@ const createTaskSchema = z.object({
   link: linkSchema.optional().or(z.literal("").optional()),
 });
 
-async function userCanAccessProject(user: AuthUser, projectId: string): Promise<boolean> {
-  if (user.role === "admin") return true;
-  const { data: proj } = await supabase
-    .from("projects")
-    .select("owner_id")
-    .eq("id", projectId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (!proj) return false;
-  if (proj.owner_id === user.id) return true;
-
-  const { data: share } = await supabase
-    .from("project_shares")
-    .select("user_id")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (share) return true;
-
-  const { data: assigned } = await supabase
-    .from("tasks")
-    .select("id")
-    .eq("project_id", projectId)
-    .eq("assigned_to", user.id)
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-  return !!assigned;
-}
 
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
