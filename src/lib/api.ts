@@ -408,3 +408,18 @@ export async function exportarTarefa(taskId: string): Promise<void> {
   if (!win) throw new Error("Libere os pop-ups para exportar");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+export interface SlackChannelConfig {
+  projectId: string;
+  canalNome: string;
+  configurado: boolean;
+}
+
+export const slackApi = {
+  list: () => request<SlackChannelConfig[]>("/slack-channels"),
+  save: (projectId: string, webhookUrl: string, canalNome?: string) =>
+    request<{ success: boolean; configurado: boolean }>("/slack-channels", {
+      method: "PUT",
+      body: JSON.stringify({ projectId, webhookUrl, canalNome }),
+    }),
+};

@@ -15,7 +15,7 @@ import {
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
 } from "lucide-react";
-import { api, ApiRequestError } from "@/lib/api";
+import { api, ApiRequestError, slackApi } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton, SkeletonList } from "@/components/ui/skeleton";
@@ -543,7 +543,7 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
         </div>
 
         <div style={{ display: "flex", gap: 4, padding: "16px 28px 0", borderBottom: `1px solid ${theme.border}` }}>
-          {[{ key: "users", label: "👥 Usuários" }, { key: "workspaces", label: "🗂️ Workspaces" }, { key: "permissions", label: "🔐 Permissões" }, { key: "tags", label: "🏷️ Etiquetas" }].map((t) => (
+          {[{ key: "users", label: "👥 Usuários" }, { key: "workspaces", label: "🗂️ Workspaces" }, { key: "permissions", label: "🔐 Permissões" }, { key: "tags", label: "🏷️ Etiquetas" }, { key: "slack", label: "💬 Slack" }].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               padding: "10px 20px", border: "none", borderBottom: tab === t.key ? "2px solid var(--primary)" : "2px solid transparent",
               background: "transparent", color: tab === t.key ? "var(--primary)" : theme.textSecondary,
@@ -748,6 +748,10 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
 
           {tab === "tags" && (
             <TagsManagement tags={tags} onUpdate={onUpdateTags} theme={theme} />
+          )}
+
+          {tab === "slack" && (
+            <SlackChannels projects={projects} workspaces={workspaces} theme={theme} />
           )}
         </div>
       </div>
@@ -1875,6 +1879,87 @@ function TaskComments({ taskId, users, theme, canEdit }: { taskId: string; users
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ——— Canais do Slack por grupo ———
+function SlackChannels({ projects, workspaces, theme }: { projects: Project[]; workspaces: Workspace[]; theme: Theme }) {
+  const inputStyle: CSSProperties = { width: "100%", padding: "8px 11px", background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 8, color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" };
+  const [config, setConfig] = useState<Record<string, { canalNome: string; configurado: boolean }>>({});
+  const [rascunho, setRascunho] = useState<Record<string, string>>({});
+  const [nomes, setNomes] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState<string | null>(null);
+
+  useEffect(() => {
+    slackApi.list()
+      .then((rows) => {
+        const map: Record<string, { canalNome: string; configurado: boolean }> = {};
+        const nomeMap: Record<string, string> = {};
+        rows.forEach((r) => { map[r.projectId] = { canalNome: r.canalNome, configurado: r.configurado }; nomeMap[r.projectId] = r.canalNome; });
+        setConfig(map);
+        setNomes(nomeMap);
+      })
+      .catch(() => setMsg("Não foi possível carregar os canais"));
+  }, []);
+
+  const salvar = async (projectId: string) => {
+    setSalvando(projectId);
+    try {
+      const url = (rascunho[projectId] ?? "").trim();
+      const r = await slackApi.save(projectId, url, nomes[projectId]);
+      setConfig((prev) => ({ ...prev, [projectId]: { canalNome: nomes[projectId] ?? "", configurado: r.configurado } }));
+      setRascunho((prev) => ({ ...prev, [projectId]: "" }));
+      setMsg(r.configurado ? "Canal salvo" : "Canal removido");
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Falha ao salvar");
+    }
+    setSalvando(null);
+  };
+
+  const visiveis = projects.filter((p) => !p.id.startsWith("personal-"));
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
+        Cada grupo avisa no seu canal quando uma tarefa é criada — manualmente ou por outro sistema, como o de copy.
+        Pegue a URL em <strong>Slack → Apps → Incoming Webhooks → Add to Slack</strong>, escolhendo o canal.
+        A URL fica só no servidor e não volta pra esta tela depois de salva.
+      </div>
+      {msg && (
+        <div style={{ fontSize: 12, color: "var(--primary)", background: "var(--primary-soft)", padding: "8px 12px", borderRadius: 8, marginBottom: 14 }}>{msg}</div>
+      )}
+      {visiveis.map((p) => {
+        const ws = workspaces.find((w) => w.id === p.workspaceId);
+        const atual = config[p.id];
+        return (
+          <div key={p.id} style={{ display: "grid", gridTemplateColumns: "minmax(140px, 1fr) 2fr 150px auto", gap: 10, alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${theme.border}` }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: theme.text, display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+              </div>
+              <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{ws?.name ?? "sem workspace"}</div>
+            </div>
+            <input
+              value={rascunho[p.id] ?? ""}
+              onChange={(e) => setRascunho((prev) => ({ ...prev, [p.id]: e.target.value }))}
+              placeholder={atual?.configurado ? "•••• configurado — cole outra URL para trocar" : "https://hooks.slack.com/services/..."}
+              style={{ ...inputStyle, width: "100%", fontSize: 12 }} />
+            <input
+              value={nomes[p.id] ?? ""}
+              onChange={(e) => setNomes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+              placeholder="#canal (opcional)"
+              style={{ ...inputStyle, width: "100%", fontSize: 12 }} />
+            <button onClick={() => salvar(p.id)} disabled={salvando === p.id}
+              style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", whiteSpace: "nowrap", opacity: salvando === p.id ? 0.6 : 1 }}>
+              {atual?.configurado && !(rascunho[p.id] ?? "").trim() ? "Remover" : "Salvar"}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

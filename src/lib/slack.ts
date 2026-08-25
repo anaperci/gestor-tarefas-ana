@@ -1,8 +1,18 @@
 import { supabase } from "./supabase";
 
-/** Configurado? Sem webhook, o sistema segue normal e nada é enviado. */
-export function isSlackConfigured(): boolean {
-  return !!process.env.SLACK_WEBHOOK_URL;
+/**
+ * Webhook do canal certo para o grupo. Incoming Webhook do Slack é por
+ * canal, então cada grupo aponta pro seu (Criação, Edição, Tráfego,
+ * Suporte...). Sem configuração para o grupo, cai no webhook geral do
+ * ambiente; sem nenhum dos dois, nada é enviado.
+ */
+async function webhookDoProjeto(projectId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("slack_channels")
+    .select("webhook_url")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  return data?.webhook_url || process.env.SLACK_WEBHOOK_URL || null;
 }
 
 function appUrl(): string {
@@ -43,13 +53,14 @@ interface TarefaCriada {
  * criação da tarefa — só vira log.
  */
 export async function notificarTarefaCriada(t: TarefaCriada): Promise<void> {
-  const webhook = process.env.SLACK_WEBHOOK_URL;
-  if (!webhook) return;
   // O quick-add cria linhas vazias "Nova tarefa" que só ganham nome depois —
   // avisar o canal a cada uma delas seria puro ruído.
   if (t.title.trim().toLowerCase() === "nova tarefa") return;
 
   try {
+    const webhook = await webhookDoProjeto(t.projectId);
+    if (!webhook) return;
+
     const [{ data: projeto }, { data: responsavel }] = await Promise.all([
       supabase.from("projects").select("name").eq("id", t.projectId).maybeSingle(),
       t.assignedTo
