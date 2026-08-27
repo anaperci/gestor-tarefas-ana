@@ -27,6 +27,7 @@ const createTaskSchema = z.object({
   estimateHours: z.number().min(0).max(9999).nullable().optional(),
   tagIds: z.array(idSchema).max(20).optional(),
   projectId: idSchema,
+  groupId: idSchema.nullable().optional(),
   assignedTo: idSchema.optional(),
   link: linkSchema.optional().or(z.literal("").optional()),
 });
@@ -68,6 +69,19 @@ export const POST = withErrorHandling(async (request) => {
   const hasAccess = await userCanAccessProject(user, body.projectId);
   if (!hasAccess) throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
 
+  // Grupo precisa pertencer ao projeto informado.
+  if (body.groupId) {
+    const { data: group } = await supabase
+      .from("task_groups")
+      .select("id, project_id")
+      .eq("id", body.groupId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!group || group.project_id !== body.projectId) {
+      throw new ApiError("VALIDATION_ERROR", "Grupo inválido para este projeto");
+    }
+  }
+
   // FASE1.9 — assignedTo precisa ter acesso ao projeto
   const finalAssignee = body.assignedTo || user.id;
   if (finalAssignee !== user.id) {
@@ -96,6 +110,7 @@ export const POST = withErrorHandling(async (request) => {
     estimate_hours: body.estimateHours ?? null,
     tag_ids: body.tagIds ?? [],
     project_id: body.projectId,
+    group_id: body.groupId ?? null,
     assigned_to: finalAssignee,
     created_by: user.id,
     link: body.link ?? "",

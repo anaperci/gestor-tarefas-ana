@@ -20,6 +20,7 @@ import type {
   Tag,
   Task,
   TaskAttachment,
+  TaskGroup,
   TaskComment,
   Transcription,
   UpdateContentItemPayload,
@@ -203,6 +204,17 @@ export const api = {
     }),
 
   // Tasks
+  // ─── Grupos de tarefas (dentro do projeto) ───────────────────────
+  getTaskGroups: () => request<TaskGroup[]>("/task-groups"),
+  createTaskGroup: (data: { projectId: string; name: string; color?: string }) =>
+    request<TaskGroup>("/task-groups", { method: "POST", body: JSON.stringify(data) }),
+  updateTaskGroup: (id: string, data: { name?: string; color?: string }) =>
+    request<{ success: boolean }>(`/task-groups/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteTaskGroup: (id: string) =>
+    request<{ success: boolean }>(`/task-groups/${id}`, { method: "DELETE" }),
+  reorderTaskGroups: (projectId: string, ids: string[]) =>
+    request<{ success: boolean }>("/task-groups", { method: "PATCH", body: JSON.stringify({ projectId, ids }) }),
+
   getTasks: () => request<Task[]>("/tasks"),
   createTask: (data: CreateTaskPayload) =>
     request<Task>("/tasks", { method: "POST", body: JSON.stringify(data) }),

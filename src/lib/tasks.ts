@@ -11,6 +11,7 @@ export interface TaskRow {
   estimate_hours?: number | string | null;
   tag_ids?: string[] | null;
   project_id: string;
+  group_id?: string | null;
   assigned_to: string | null;
   created_by: string;
   link: string;
@@ -49,6 +50,7 @@ export interface EnrichedTask {
   link: string;
   checked: boolean;
   projectId: string;
+  groupId: string | null;
   assignedTo: string | null;
   createdBy: string;
   createdAt: string;
@@ -81,6 +83,7 @@ function toEnriched(
     link: task.link,
     checked: !!task.checked,
     projectId: task.project_id,
+    groupId: task.group_id ?? null,
     assignedTo: task.assigned_to,
     createdBy: task.created_by,
     createdAt: task.created_at,

@@ -45,6 +45,7 @@ import type {
   Task,
   TaskAttachment,
   TaskComment,
+  TaskGroup,
   Transcription,
   User,
   Workspace,
@@ -64,6 +65,12 @@ interface Group {
   color: string;
   icon: string;
   tasks: Task[];
+  /** Projeto dono do grupo — usado no quick add e no drag de tarefa. */
+  projectId: string;
+  /** "project" = agrupado por projeto (visão Todos). "group" = task_group de verdade. */
+  kind: "project" | "group";
+  /** Bucket das tarefas sem grupo — não pode ser renomeado nem excluído. */
+  ungrouped?: boolean;
 }
 
 const ROLES: Record<string, { label: string; color: string; icon: string; desc: string }> = {
@@ -1978,9 +1985,11 @@ interface TaskRowProps {
   isExpanded?: boolean;
   onToggleExpand?: (id: string) => void;
   onDelete?: (task: Task) => void;
+  /** Quando presente, a coluna "Projeto" vira "Grupo" (visão de um projeto só). */
+  groupOptions?: { id: string; name: string; color: string }[];
 }
 
-function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand, onDelete }: TaskRowProps) {
+function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand, onDelete, groupOptions }: TaskRowProps) {
   const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
   const stDone = (task.subtasks || []).filter((s) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
@@ -2025,8 +2034,18 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
 
       {!isSubtask && (
         <div onClick={(e) => e.stopPropagation()}>
-          <Dropdown options={projects.map((p) => ({ value: p.id, label: p.name, color: p.color, icon: p.icon, name: p.name }))} value={task.projectId} onChange={(v: string) => onUpdate({ ...task, projectId: v })} theme={theme} disabled={!canEdit}
-            renderOption={(o) => <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: o.color || theme.textSecondary }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color || theme.textMuted, flexShrink: 0 }} />{o.label || o.name}</span>} />
+          {groupOptions ? (
+            <Dropdown
+              options={[{ value: "", label: "Sem grupo", color: theme.textMuted, name: "Sem grupo" }, ...groupOptions.map((g) => ({ value: g.id, label: g.name, color: g.color, name: g.name }))]}
+              value={task.groupId || ""}
+              onChange={(v: string) => onUpdate({ ...task, groupId: v || null })}
+              theme={theme}
+              disabled={!canEdit}
+              renderOption={(o) => <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: o.color || theme.textSecondary }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color || theme.textMuted, flexShrink: 0 }} />{o.label || o.name}</span>} />
+          ) : (
+            <Dropdown options={projects.map((p) => ({ value: p.id, label: p.name, color: p.color, icon: p.icon, name: p.name }))} value={task.projectId} onChange={(v: string) => onUpdate({ ...task, projectId: v })} theme={theme} disabled={!canEdit}
+              renderOption={(o) => <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: o.color || theme.textSecondary }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color || theme.textMuted, flexShrink: 0 }} />{o.label || o.name}</span>} />
+          )}
         </div>
       )}
 
@@ -2241,7 +2260,7 @@ function LinkCell({ task, theme, canEdit, onUpdate }: { task: Task; theme: Theme
 }
 
 // ——— Group Header ———
-function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleProps, canEdit, onQuickAdd }: {
+function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleProps, canEdit, onQuickAdd, onRename, onDelete }: {
   group: Group;
   collapsed: boolean;
   onToggle: () => void;
@@ -2250,7 +2269,20 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleP
   dragHandleProps?: Record<string, unknown>;
   canEdit?: boolean;
   onQuickAdd?: () => void;
+  onRename?: (name: string) => void;
+  onDelete?: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(group.name);
+  const editable = !!onRename && !!canEdit;
+
+  const commit = () => {
+    setEditing(false);
+    const name = draft.trim();
+    if (name && name !== group.name) onRename?.(name);
+    else setDraft(group.name);
+  };
+
   return (
     <div onClick={onToggle} style={{
       display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
@@ -2265,7 +2297,26 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleP
       )}
       <span style={{ fontSize: 10, color: group.color, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", fontWeight: 700 }}>▶</span>
       <span style={{ width: 10, height: 10, borderRadius: "50%", background: group.color, flexShrink: 0 }} />
-      <span style={{ fontSize: 15, fontWeight: 700, color: group.color }}>{group.name}</span>
+      {editing ? (
+        <input
+          autoFocus value={draft}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") { setDraft(group.name); setEditing(false); }
+          }}
+          style={{ fontSize: 15, fontWeight: 700, color: group.color, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 6, padding: "2px 8px", outline: "none", fontFamily: "inherit" }}
+        />
+      ) : (
+        <span
+          onDoubleClick={(e) => { if (editable) { e.stopPropagation(); setDraft(group.name); setEditing(true); } }}
+          title={editable ? "Clique duas vezes para renomear" : undefined}
+          style={{ fontSize: 15, fontWeight: 700, color: group.color }}
+        >{group.name}</span>
+      )}
       <span style={{ fontSize: 12, color: theme.textMuted, background: theme.inputBg, padding: "2px 8px", borderRadius: 10 }}>{taskCount}</span>
 
       {canEdit && onQuickAdd && (
@@ -2282,6 +2333,21 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleP
           }}
         >
           + tarefa
+        </button>
+      )}
+
+      {canEdit && onDelete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          aria-label={`Excluir grupo ${group.name}`}
+          title="Excluir grupo"
+          style={{
+            marginLeft: onQuickAdd ? 0 : "auto",
+            background: "transparent", border: `1px solid ${theme.border}`, color: theme.textMuted,
+            padding: "4px 9px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: "inherit",
+          }}
+        >
+          ✕
         </button>
       )}
     </div>
@@ -2306,7 +2372,7 @@ function SortableGroup({ id, children }: { id: string; children: (dragHandleProp
 }
 
 // ——— Inline Add Row ———
-function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string; theme: Theme; onAdd: (title: string, projectId: string) => void }) {
+function InlineAddRow({ groupProjectId, groupId, theme, onAdd }: { groupProjectId: string; groupId?: string | null; theme: Theme; onAdd: (title: string, projectId: string, groupId: string | null) => void }) {
   const [active, setActive] = useState(false);
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -2317,7 +2383,7 @@ function InlineAddRow({ groupProjectId, theme, onAdd }: { groupProjectId: string
 
   const submit = () => {
     if (value.trim()) {
-      onAdd(value.trim(), groupProjectId);
+      onAdd(value.trim(), groupProjectId, groupId ?? null);
       setValue("");
       setActive(false);
     }
@@ -2409,7 +2475,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
     myTasks.forEach((t) => {
       const proj = projects.find((p) => p.id === t.projectId);
       if (!proj) return;
-      if (!map.has(proj.id)) map.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [] });
+      if (!map.has(proj.id)) map.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [], projectId: proj.id, kind: "project" });
       map.get(proj.id)!.tasks.push(t);
     });
     return Array.from(map.values());
@@ -3113,6 +3179,7 @@ export default function TaskManager() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [taskGroups, setTaskGroups] = useState<TaskGroup[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState("all");
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -3185,18 +3252,52 @@ export default function TaskManager() {
     return true;
   });
 
+  /** Grupos do projeto aberto, na ordem salva. */
+  const activeProjectGroups = useMemo(
+    () => taskGroups.filter((g) => g.projectId === activeProject).sort((a, b) => a.position - b.position),
+    [taskGroups, activeProject]
+  );
+
   const groups: Group[] = useMemo(() => {
+    // Dentro de um projeto: os grupos são os task_groups dele.
     if (activeProject !== "all") {
       const proj = projects.find((p) => p.id === activeProject);
       if (!proj) return [];
-      return [{ id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: filteredTasks }];
+      const byGroup = new Map<string, Task[]>();
+      const semGrupo: Task[] = [];
+      filteredTasks.forEach((t) => {
+        if (t.groupId) {
+          const list = byGroup.get(t.groupId) ?? [];
+          list.push(t);
+          byGroup.set(t.groupId, list);
+        } else {
+          semGrupo.push(t);
+        }
+      });
+      const result: Group[] = activeProjectGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        color: g.color,
+        icon: proj.icon,
+        tasks: byGroup.get(g.id) ?? [],
+        projectId: proj.id,
+        kind: "group" as const,
+      }));
+      // Projeto sem nenhum grupo ainda: cai no comportamento antigo (uma lista só).
+      if (result.length === 0) {
+        return [{ id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: filteredTasks, projectId: proj.id, kind: "project" as const, ungrouped: true }];
+      }
+      if (semGrupo.length > 0) {
+        result.push({ id: `__ungrouped__${proj.id}`, name: "Sem grupo", color: "#9AA5B1", icon: proj.icon, tasks: semGrupo, projectId: proj.id, kind: "group" as const, ungrouped: true });
+      }
+      return result;
     }
     const groupMap = new Map<string, Group>();
     filteredTasks.forEach((t) => {
       const proj = projects.find((p) => p.id === t.projectId);
       if (!proj) return;
       if (!groupMap.has(proj.id)) {
-        groupMap.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [] });
+        groupMap.set(proj.id, { id: proj.id, name: proj.name, color: proj.color, icon: proj.icon, tasks: [], projectId: proj.id, kind: "project" });
       }
       groupMap.get(proj.id)!.tasks.push(t);
     });
@@ -3210,7 +3311,7 @@ export default function TaskManager() {
       if (bi === -1) return -1;
       return ai - bi;
     });
-  }, [filteredTasks, activeProject, projects, groupOrder]);
+  }, [filteredTasks, activeProject, projects, groupOrder, activeProjectGroups]);
 
   const handleGroupDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -3220,6 +3321,21 @@ export default function TaskManager() {
     const newIndex = ids.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
     const newOrder = arrayMove(ids, oldIndex, newIndex);
+
+    // Dentro de um projeto a ordem é dos grupos de verdade — vai pro banco.
+    if (activeProject !== "all") {
+      const persistidos = newOrder.filter((id) => activeProjectGroups.some((g) => g.id === id));
+      if (persistidos.length === 0) return;
+      setTaskGroups((prev) =>
+        prev.map((g) => {
+          const i = persistidos.indexOf(g.id);
+          return i === -1 ? g : { ...g, position: i };
+        })
+      );
+      api.reorderTaskGroups(activeProject, persistidos).catch(() => showToast("Erro ao reordenar grupos"));
+      return;
+    }
+
     setGroupOrder(newOrder);
     localStorage.setItem("nexia-group-order", JSON.stringify(newOrder));
   };
@@ -3242,18 +3358,20 @@ export default function TaskManager() {
 
   const loadData = useCallback(async () => {
     try {
-      const [u, p, t, tg, ws] = await Promise.all([
+      const [u, p, t, tg, ws, grp] = await Promise.all([
         api.getUsers(),
         api.getProjects(),
         api.getTasks(),
         api.getTags(),
         api.getWorkspaces(),
+        api.getTaskGroups(),
       ]);
       setUsers(u);
       setProjects(p.map((x) => ({ ...x, sharedWith: x.sharedWith || [] })));
       setTasks(t);
       setTags(tg);
       setWorkspaces(ws);
+      setTaskGroups(grp);
     } catch { showToast("Erro ao carregar dados"); }
   }, []);
 
@@ -3330,6 +3448,7 @@ export default function TaskManager() {
         estimateHours: updated.estimateHours,
         tagIds: updated.tagIds,
         projectId: updated.projectId,
+        groupId: updated.groupId,
         assignedTo: updated.assignedTo,
         link: updated.link,
         checked: updated.checked,
@@ -3373,28 +3492,80 @@ export default function TaskManager() {
     } catch { showToast("Erro ao criar tarefa"); }
   };
 
-  const addTaskInline = async (title: string, projectId: string) => {
+  const addTaskInline = async (title: string, projectId: string, groupId: string | null) => {
     if (!canEdit || !currentUser) return;
     try {
-      const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
+      const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, groupId, assignedTo: currentUser.id });
       setTasks((prev) => [...prev, nt]);
     } catch { showToast("Erro ao criar tarefa"); }
   };
 
-  /** Cria "Nova tarefa" no projeto e abre o drawer pra editar imediatamente. */
-  const addTaskInGroup = async (projectId: string) => {
+  /** Cria "Nova tarefa" no grupo e abre o drawer pra editar imediatamente. */
+  const addTaskInGroup = async (projectId: string, groupId: string | null, collapseKey?: string) => {
     if (!canEdit || !currentUser) return;
     try {
-      const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
+      const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, groupId, assignedTo: currentUser.id });
       setTasks((prev) => [nt, ...prev]);
       // Garante que o grupo correspondente fica expandido
       setCollapsedGroups((prev) => {
         const next = new Set(prev);
-        next.delete(projectId);
+        next.delete(collapseKey ?? groupId ?? projectId);
         return next;
       });
       setDetailTask(nt);
     } catch { showToast("Erro ao criar tarefa"); }
+  };
+
+  /** Cria um grupo DENTRO do projeto aberto (não um projeto novo na sidebar). */
+  const addTaskGroup = async (nameArg?: string) => {
+    const rawName = (nameArg ?? newGroupName).trim();
+    if (!rawName || !canEdit) return;
+    // Na visão "Todos" não existe projeto dono — cai no fluxo antigo de projeto.
+    if (activeProject === "all") { await addProject(rawName); return; }
+    try {
+      const ng = await api.createTaskGroup({ projectId: activeProject, name: rawName });
+      setTaskGroups((prev) => [...prev, ng]);
+      showToast(`Grupo "${rawName}" criado`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Erro ao criar grupo");
+    }
+    setNewGroupName(""); setShowNewGroup(false);
+  };
+
+  const renameTaskGroup = async (id: string, name: string) => {
+    const backup = taskGroups;
+    setTaskGroups((prev) => prev.map((g) => (g.id === id ? { ...g, name } : g)));
+    try {
+      await api.updateTaskGroup(id, { name });
+    } catch (err) {
+      setTaskGroups(backup);
+      showToast(err instanceof Error ? err.message : "Erro ao renomear grupo");
+    }
+  };
+
+  const deleteTaskGroup = (group: Group) => {
+    if (!canEdit) return;
+    setConfirm({
+      title: `Excluir o grupo "${group.name}"?`,
+      description: group.tasks.length > 0
+        ? `As ${group.tasks.length} tarefas continuam no projeto, em "Sem grupo".`
+        : "O grupo some do quadro.",
+      onConfirm: async () => {
+        setConfirm(null);
+        const backupGroups = taskGroups;
+        const backupTasks = tasks;
+        setTaskGroups((prev) => prev.filter((g) => g.id !== group.id));
+        setTasks((prev) => prev.map((t) => (t.groupId === group.id ? { ...t, groupId: null } : t)));
+        try {
+          await api.deleteTaskGroup(group.id);
+          showToast("Grupo excluído", "success");
+        } catch (err) {
+          setTaskGroups(backupGroups);
+          setTasks(backupTasks);
+          showToast(err instanceof Error ? err.message : "Erro ao excluir grupo");
+        }
+      },
+    });
   };
 
   const addProject = async (nameArg?: string) => {
@@ -3871,22 +4042,33 @@ export default function TaskManager() {
                 <SortableGroup key={group.id} id={group.id}>
                   {(dragHandleProps) => (
                     <div className="board-group" style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
-                      <GroupHeader group={group} collapsed={collapsedGroups.has(group.id)} onToggle={() => toggleCollapseGroup(group.id)} taskCount={group.tasks.length} theme={theme} dragHandleProps={dragHandleProps} canEdit={canEdit} onQuickAdd={() => addTaskInGroup(group.id)} />
+                      <GroupHeader
+                        group={group}
+                        collapsed={collapsedGroups.has(group.id)}
+                        onToggle={() => toggleCollapseGroup(group.id)}
+                        taskCount={group.tasks.length}
+                        theme={theme}
+                        dragHandleProps={dragHandleProps}
+                        canEdit={canEdit}
+                        onQuickAdd={() => addTaskInGroup(group.projectId, group.kind === "group" && !group.ungrouped ? group.id : null, group.id)}
+                        onRename={group.kind === "group" && !group.ungrouped ? (name) => renameTaskGroup(group.id, name) : undefined}
+                        onDelete={group.kind === "group" && !group.ungrouped ? () => deleteTaskGroup(group) : undefined}
+                      />
                       {!collapsedGroups.has(group.id) && (
                         <>
                           {!isMobile && (
                             <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 14px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 0.8, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
-                              <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
+                              <div></div><div>Tarefa</div><div>Status</div><div>{activeProject !== "all" ? "Grupo" : "Projeto"}</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
                             </div>
                           )}
                           {/* Quick add no TOPO do grupo (estilo monday): clica e digita — desktop */}
-                          {canEdit && !isMobile && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.id} theme={theme} onAdd={addTaskInline} /></div>}
+                          {canEdit && !isMobile && <div style={{ borderLeft: `4px solid ${group.color}` }}><InlineAddRow groupProjectId={group.projectId} groupId={group.kind === "group" && !group.ungrouped ? group.id : null} theme={theme} onAdd={addTaskInline} /></div>}
                           {group.tasks.map((task) => (
                             isMobile ? (
                               <MobileTaskCard key={task.id} task={task} projects={visibleProjects} users={users} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} />
                             ) : (
                             <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
-                              <TaskRow task={task} projects={visibleProjects} users={users} tags={tags} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} onDelete={deleteTask} />
+                              <TaskRow task={task} projects={visibleProjects} users={users} tags={tags} onUpdate={updateTask} onOpen={setDetailTask} theme={theme} canEdit={canEdit} isExpanded={expandedTasks.has(task.id)} onToggleExpand={toggleExpandTask} onDelete={deleteTask} groupOptions={activeProject !== "all" && activeProjectGroups.length > 0 ? activeProjectGroups : undefined} />
                               {expandedTasks.has(task.id) && (task.subtasks || []).map((st) => {
                                 const stAsTask: Task = { ...task, id: st.id, title: st.title, status: st.status, checked: st.checked, subtasks: [], checklist: [] };
                                 return (
@@ -3917,12 +4099,12 @@ export default function TaskManager() {
               <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 14px", borderRadius: 12, border: `1px dashed ${theme.borderStrong}`, background: theme.surface, marginBottom: 24 }}>
                 <input autoFocus value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") addProject(newGroupName);
+                    if (e.key === "Enter") addTaskGroup(newGroupName);
                     if (e.key === "Escape") { setNewGroupName(""); setShowNewGroup(false); }
                   }}
                   placeholder="Nome do grupo — ex: Criação"
                   style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.border}`, borderRadius: 8, padding: "9px 12px", color: theme.text, fontSize: 14, outline: "none", fontFamily: "inherit" }} />
-                <button onClick={() => addProject(newGroupName)} disabled={!newGroupName.trim()}
+                <button onClick={() => addTaskGroup(newGroupName)} disabled={!newGroupName.trim()}
                   style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: 8, padding: "9px 18px", cursor: newGroupName.trim() ? "pointer" : "default", opacity: newGroupName.trim() ? 1 : 0.5, fontSize: 13, fontWeight: 700, fontFamily: "inherit" }}>Criar grupo</button>
                 <button onClick={() => { setNewGroupName(""); setShowNewGroup(false); }}
                   style={{ background: theme.inputBg, border: `1px solid ${theme.border}`, color: theme.textSecondary, borderRadius: 8, padding: "9px 14px", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Cancelar</button>

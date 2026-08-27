@@ -31,6 +31,7 @@ const updateTaskSchema = z.object({
   estimateHours: z.number().min(0).max(9999).nullable().optional(),
   tagIds: z.array(idSchema).max(20).optional(),
   projectId: idSchema.optional(),
+  groupId: idSchema.nullable().optional(),
   assignedTo: idSchema.nullable().optional(),
   link: linkSchema.optional().or(z.literal("").optional()),
   checked: z.boolean().optional(),
@@ -68,6 +69,25 @@ export const PUT = withErrorHandling(
       }
     }
 
+    // Grupo: precisa pertencer ao projeto de destino. Se a tarefa muda de
+    // projeto sem grupo informado, ela sai do grupo antigo.
+    let targetGroupId: string | null =
+      body.groupId !== undefined ? body.groupId : (task.group_id ?? null);
+    if (body.projectId && body.projectId !== task.project_id && body.groupId === undefined) {
+      targetGroupId = null;
+    }
+    if (targetGroupId) {
+      const { data: group } = await supabase
+        .from("task_groups")
+        .select("id, project_id")
+        .eq("id", targetGroupId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!group || group.project_id !== targetProjectId) {
+        throw new ApiError("VALIDATION_ERROR", "Grupo inválido para este projeto");
+      }
+    }
+
     if (body.assignedTo !== undefined && body.assignedTo !== null && body.assignedTo !== task.assigned_to) {
       const { data: assignee } = await supabase
         .from("users")
@@ -94,6 +114,7 @@ export const PUT = withErrorHandling(
         estimate_hours: body.estimateHours !== undefined ? body.estimateHours : task.estimate_hours,
         tag_ids: body.tagIds ?? task.tag_ids,
         project_id: targetProjectId,
+        group_id: targetGroupId,
         assigned_to: body.assignedTo ?? task.assigned_to,
         link: body.link ?? task.link,
         checked: body.checked ?? task.checked,

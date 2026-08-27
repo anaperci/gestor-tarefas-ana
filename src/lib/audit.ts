@@ -17,7 +17,10 @@ export type AuditAction =
   | "workspace.update"
   | "workspace.delete"
   | "workspace.members"
-  | "task.delete";
+  | "task.delete"
+  | "task_group.create"
+  | "task_group.update"
+  | "task_group.delete";
 
 interface AuditEntry {
   action: AuditAction;

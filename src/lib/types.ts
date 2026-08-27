@@ -34,6 +34,15 @@ export interface Project {
   sharedWith: string[];
 }
 
+/** Grupo de tarefas DENTRO de um projeto (estilo monday). */
+export interface TaskGroup {
+  id: string;
+  projectId: string;
+  name: string;
+  color: string;
+  position: number;
+}
+
 export interface ChecklistItem {
   id: string;
   text: string;
@@ -60,6 +69,7 @@ export interface Task {
   link: string;
   checked: boolean;
   projectId: string;
+  groupId: string | null;
   assignedTo: string | null;
   createdBy: string;
   createdAt: string;
@@ -185,6 +195,7 @@ export interface CreateTaskPayload {
   priority?: TaskPriority;
   deadline?: string;
   projectId: string;
+  groupId?: string | null;
   assignedTo?: string;
   link?: string;
 }
@@ -321,6 +332,7 @@ export interface UpdateTaskPayload {
   estimateHours?: number | null;
   tagIds?: string[];
   projectId?: string;
+  groupId?: string | null;
   assignedTo?: string | null;
   link?: string;
   checked?: boolean;
