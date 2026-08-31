@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -120,6 +120,43 @@ function SortableSlide({
   onUpdate: (patch: Partial<Pick<ContentSlide, "title" | "body" | "notes">>) => void;
   onRemove: () => void;
 }) {
+  // Campos controlados com auto-save. Antes eram `defaultValue` salvos só no
+  // blur: trocar de ideia, arrastar o slide ou fechar a aba sem tirar o foco
+  // jogava fora o que tinha sido escrito.
+  const [campos, setCampos] = useState({ title: slide.title, body: slide.body, notes: slide.notes });
+  const camposRef = useRef(campos);
+  camposRef.current = campos;
+  const sujoRef = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Só aceita a versão do servidor quando não há nada digitado pendente.
+  useEffect(() => {
+    if (sujoRef.current) return;
+    setCampos({ title: slide.title, body: slide.body, notes: slide.notes });
+  }, [slide.title, slide.body, slide.notes]);
+
+  const salvar = useCallback(() => {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+    if (!sujoRef.current) return;
+    sujoRef.current = false;
+    onUpdate({ ...camposRef.current });
+  }, [onUpdate]);
+
+  const salvarRef = useRef(salvar);
+  salvarRef.current = salvar;
+
+  const setCampo = (campo: "title" | "body" | "notes", valor: string) => {
+    sujoRef.current = true;
+    setCampos((prev) => ({ ...prev, [campo]: valor }));
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => salvarRef.current(), 800);
+  };
+
+  const salvarAgora = () => salvarRef.current();
+
+  // Desmontar (trocar de ideia, excluir slide) não pode engolir o rascunho.
+  useEffect(() => () => salvarRef.current(), []);
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -143,8 +180,9 @@ function SortableSlide({
         </button>
       </div>
       <input
-        defaultValue={slide.title}
-        onBlur={(e) => { if (e.target.value !== slide.title) onUpdate({ title: e.target.value }); }}
+        value={campos.title}
+        onChange={(e) => setCampo("title", e.target.value)}
+        onBlur={salvarAgora}
         placeholder="Título do slide..."
         style={{
           width: "100%", padding: "6px 0", marginBottom: 8,
@@ -154,8 +192,9 @@ function SortableSlide({
         onFocus={(e) => (e.currentTarget.style.borderBottomColor = "var(--primary)")}
       />
       <textarea
-        defaultValue={slide.body}
-        onBlur={(e) => { if (e.target.value !== slide.body) onUpdate({ body: e.target.value }); }}
+        value={campos.body}
+        onChange={(e) => setCampo("body", e.target.value)}
+        onBlur={salvarAgora}
         placeholder="Conteúdo do slide..."
         rows={3}
         style={{
@@ -166,8 +205,9 @@ function SortableSlide({
         }}
       />
       <textarea
-        defaultValue={slide.notes}
-        onBlur={(e) => { if (e.target.value !== slide.notes) onUpdate({ notes: e.target.value }); }}
+        value={campos.notes}
+        onChange={(e) => setCampo("notes", e.target.value)}
+        onBlur={salvarAgora}
         placeholder="Notas visuais (pra Ariel/designer)..."
         rows={2}
         style={{

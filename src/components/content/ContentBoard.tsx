@@ -93,12 +93,11 @@ export function ContentBoard({
 
   const { items = [], mutate: mutateList, isLoading: listLoading } = useContentItems(listFilters);
 
-  // Auto-seleciona primeiro item quando lista muda
+  // Auto-seleciona o primeiro item só quando não há nada aberto. Antes o
+  // editor pulava de ideia sozinho: bastava o título mudar e a ideia sair
+  // do filtro pra lista revalidar e trocar o que estava sendo escrito.
   useEffect(() => {
     if (!selectedId && items.length > 0) setSelectedId(items[0].id);
-    if (selectedId && items.length > 0 && !items.find((i) => i.id === selectedId)) {
-      setSelectedId(items[0].id);
-    }
   }, [items, selectedId]);
 
   const createNew = useCallback(async () => {
@@ -419,59 +418,131 @@ function ContentEditor({
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Espelho dos rascunhos sempre atual. O auto-save roda dentro de um
+  // setTimeout — sem isso ele leria os valores congelados de quando foi
+  // agendado e gravaria texto velho por cima do que acabou de ser digitado.
+  const drafts = {
+    title: draftTitle,
+    body: draftBody,
+    hook: draftHook,
+    cta: draftCta,
+    subjectLine: draftSubject,
+    previewText: draftPreview,
+    durationSeconds: draftDuration === "" ? null : parseInt(draftDuration, 10),
+    publishedUrl: draftPubUrl,
+  };
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+
+  /** Há texto digitado ainda não confirmado pelo servidor. */
+  const dirtyRef = useRef(false);
+  /** Item já carregado nos campos — evita recarregar por cima da digitação. */
+  const loadedIdRef = useRef<string | null>(null);
+  const lastSyncedAtRef = useRef<string | null>(null);
+
+  const syncFromServer = useCallback((source: ContentItem) => {
+    setDraftTitle(source.title);
+    setDraftBody(source.body);
+    setDraftHook(source.hook);
+    setDraftCta(source.cta);
+    setDraftSubject(source.subjectLine);
+    setDraftPreview(source.previewText);
+    setDraftDuration(source.durationSeconds?.toString() ?? "");
+    setDraftPubUrl(source.publishedUrl);
+    lastSyncedAtRef.current = source.updatedAt;
+  }, []);
+
   useEffect(() => {
     if (!item) return;
-    setDraftTitle(item.title);
-    setDraftBody(item.body);
-    setDraftHook(item.hook);
-    setDraftCta(item.cta);
-    setDraftSubject(item.subjectLine);
-    setDraftPreview(item.previewText);
-    setDraftDuration(item.durationSeconds?.toString() ?? "");
-    setDraftPubUrl(item.publishedUrl);
-  }, [item]);
+    // Primeira carga da ideia: preenche os campos.
+    if (loadedIdRef.current !== item.id) {
+      loadedIdRef.current = item.id;
+      dirtyRef.current = false;
+      syncFromServer(item);
+      return;
+    }
+    // Revalidação do SWR (voltar pra aba, salvar, refresh da lista): só
+    // aceita a versão do servidor se não houver nada sendo digitado, senão
+    // o texto do editor era apagado no meio da frase.
+    if (dirtyRef.current) return;
+    if (item.updatedAt !== lastSyncedAtRef.current) syncFromServer(item);
+  }, [item, syncFromServer]);
 
   const flush = useCallback(async (overrides: Partial<ContentItem> = {}) => {
     if (!item) return;
-    setSavingState("saving");
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+
+    const snapshot = draftsRef.current;
     const payload: Record<string, unknown> = {};
-    if (draftTitle !== item.title) payload.title = draftTitle;
-    if (draftBody !== item.body) payload.body = draftBody;
-    if (draftHook !== item.hook) payload.hook = draftHook;
-    if (draftCta !== item.cta) payload.cta = draftCta;
-    if (draftSubject !== item.subjectLine) payload.subjectLine = draftSubject;
-    if (draftPreview !== item.previewText) payload.previewText = draftPreview;
-    const dur = draftDuration === "" ? null : parseInt(draftDuration, 10);
+    if (snapshot.title !== item.title) payload.title = snapshot.title;
+    if (snapshot.body !== item.body) payload.body = snapshot.body;
+    if (snapshot.hook !== item.hook) payload.hook = snapshot.hook;
+    if (snapshot.cta !== item.cta) payload.cta = snapshot.cta;
+    if (snapshot.subjectLine !== item.subjectLine) payload.subjectLine = snapshot.subjectLine;
+    if (snapshot.previewText !== item.previewText) payload.previewText = snapshot.previewText;
+    const dur = Number.isNaN(snapshot.durationSeconds as number) ? null : snapshot.durationSeconds;
     if (dur !== item.durationSeconds) payload.durationSeconds = dur;
-    if (draftPubUrl !== item.publishedUrl) payload.publishedUrl = draftPubUrl;
+    if (snapshot.publishedUrl !== item.publishedUrl) payload.publishedUrl = snapshot.publishedUrl;
     Object.assign(payload, overrides);
 
-    if (Object.keys(payload).length === 0) { setSavingState("idle"); return; }
+    if (Object.keys(payload).length === 0) { dirtyRef.current = false; setSavingState("idle"); return; }
+
+    setSavingState("saving");
     const updated = await api.updateContentItem(item.id, payload);
+    lastSyncedAtRef.current = updated.updatedAt;
     await mutateItem(updated, false);
     refreshLists();
+
+    // Se digitou enquanto salvava, o rascunho segue à frente do servidor:
+    // mantém sujo e agenda outra rodada em vez de perder as últimas letras.
+    const atual = draftsRef.current;
+    const aindaMudou = (Object.keys(payload) as (keyof typeof atual)[]).some(
+      (k) => k in atual && atual[k] !== (snapshot as Record<string, unknown>)[k]
+    );
+    if (aindaMudou) {
+      dirtyRef.current = true;
+      saveTimer.current = setTimeout(() => flushRef.current(), 800);
+    } else {
+      dirtyRef.current = false;
+    }
+
     setSavingState("saved");
     setTimeout(() => setSavingState("idle"), 1400);
-  }, [draftTitle, draftBody, draftHook, draftCta, draftSubject, draftPreview, draftDuration, draftPubUrl, item, mutateItem, refreshLists]);
+  }, [item, mutateItem, refreshLists]);
+
+  // Referência estável pro flush — usada dentro dos timers.
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
 
   // Auto-save 800ms debounce
   const scheduleSave = useCallback(() => {
+    dirtyRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => flush(), 800);
-  }, [flush]);
+    saveTimer.current = setTimeout(() => flushRef.current(), 800);
+  }, []);
 
   // Cmd/Ctrl+S
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-        flush();
+        flushRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flush]);
+  }, []);
+
+  // Trocar de ideia (ou sair da tela) não pode engolir o que ficou no debounce.
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+        void flushRef.current();
+      }
+    };
+  }, []);
 
   if (!item) return null;
 
@@ -563,17 +634,18 @@ function ContentEditor({
 
       {/* Body principal (não-carousel) */}
       {!showCarousel && (
-        <textarea
+        <AutoGrowTextarea
           value={draftBody}
-          onChange={(e) => { setDraftBody(e.target.value); scheduleSave(); }}
+          onChange={(v) => { setDraftBody(v); scheduleSave(); }}
           onBlur={() => flush()}
           placeholder="Comece a escrever sua ideia..."
-          rows={Math.max(8, draftBody.split("\n").length + 1)}
+          minRows={8}
           style={{
             width: "100%", padding: "12px 0",
             background: "transparent", border: "none",
             color: "var(--text)", fontSize: 16, lineHeight: 1.7,
             outline: "none", fontFamily: "inherit", resize: "none",
+            display: "block", overflow: "hidden",
           }}
         />
       )}
@@ -792,6 +864,42 @@ function MetaAndComments({
         onChange={() => mutateComments()}
       />
     </div>
+  );
+}
+
+/**
+ * Textarea que acompanha a altura do texto de verdade (conta as linhas
+ * quebradas pelo wrap, não só os \n). Antes o campo tinha altura fixa por
+ * `rows` e o texto sumia embaixo da borda em parágrafos longos.
+ */
+function AutoGrowTextarea({ value, onChange, onBlur, placeholder, minRows = 3, style }: {
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  minRows?: number;
+  style?: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const linha = parseFloat(getComputedStyle(el).lineHeight) || 24;
+    el.style.height = `${Math.max(el.scrollHeight, linha * minRows)}px`;
+  }, [value, minRows]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      rows={minRows}
+      style={style}
+    />
   );
 }
 
