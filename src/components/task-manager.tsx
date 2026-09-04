@@ -3793,7 +3793,8 @@ export default function TaskManager() {
             <div style={{ padding: "0 8px", marginTop: 8 }}>
               <div style={{ fontSize: 12, color: "var(--sidebar-text-muted)", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Workspaces</div>
               {workspaces.map((ws) => {
-                const wsProjects = visibleProjects.filter((p) => p.workspaceId === ws.id);
+                // Não usar visibleProjects: ele já filtra pelo workspace ativo e zeraria os outros grupos.
+                const wsProjects = projects.filter((p) => p.workspaceId === ws.id);
                 const isOpen = expandedWs.has(ws.id);
                 return (
                   <div key={ws.id}>
