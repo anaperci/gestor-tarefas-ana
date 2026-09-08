@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-08",
+  "functionalCommit": "f73c251",
+  "cause": "Webhook de criação vinculado a projeto excluído; roteamento por projeto e descarte de Nova tarefa.",
+  "unitAndRouteTests": 12,
+  "browserTests": 10,
+  "databaseTests": "passed",
+  "typecheck": "passed",
+  "lint": "passed",
+  "production": [
+    {
+      "stage": "created_and_renamed",
+      "taskId": "task-6895db50-c546-4a18-819e-14bb297eb4f5",
+      "projectId": "proj-rotina-perci",
+      "groupId": "tg-rotina-criacao"
+    },
+    {
+      "stage": "verified",
+      "taskId": "task-6895db50-c546-4a18-819e-14bb297eb4f5",
+      "taskCompleted": true,
+      "status": "sent",
+      "attempts": 1,
+      "last_error": null,
+      "delivered_at": "2026-09-08T15:36:30.752+00:00"
+    }
+  ],
+  "newSecurityAdvisorFindings": 0
+}

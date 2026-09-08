@@ -22,3 +22,11 @@ O worker recebe somente o segredo de acesso ao endpoint interno. Consultas e cre
 A fila evita duplicação normal por tarefa e usa leases para recuperar processos interrompidos. Incoming webhooks não oferecem uma confirmação transacional junto ao nosso banco: se o Slack aceitar a mensagem e a confirmação local falhar, uma nova tentativa pode duplicá-la. O sistema preserva o envio pendente em vez de descartá-lo silenciosamente.
 
 Documentação consultada: [Incoming webhooks](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/) e [limites e Retry-After](https://docs.slack.dev/apis/web-api/rate-limits/).
+
+## Verificação em produção — 08/09/2026
+
+O webhook de “criação” foi recuperado do projeto excluído “Lancamento Academy” e conectado à regra global. Publicação funcional `f73c251`, migração registrada e worker ativo.
+
+A tarefa `task-6895db50-c546-4a18-819e-14bb297eb4f5` foi criada como “Nova tarefa” em Criação/Rotina, renomeada para “Teste automático da integração Slack — Criação”, enviada e depois concluída. O Slack respondeu positivamente; a fila registrou `sent`, uma tentativa e confirmação em `2026-09-08T15:36:30.752Z`. Não é necessário cadastrar outro webhook para ativar a regra.
+
+Lint, TypeScript, 12 testes unitários/de rotas, os testes PostgreSQL e 10 testes de navegador passaram. O endpoint interno recusou chamadas sem o segredo (401), a saúde pública respondeu normalmente e não surgiram novos alertas de segurança do Supabase.
