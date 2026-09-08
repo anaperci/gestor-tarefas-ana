@@ -1,3 +1,4 @@
+import { safeHtml } from "@/lib/html";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -32,7 +33,7 @@ export const PUT = withErrorHandling(
       .from("notes")
       .update({
         title: body.title ?? note.title,
-        content: body.content ?? note.content,
+        content: safeHtml(body.content ?? note.content),
         pinned: body.pinned ?? note.pinned,
         updated_at: new Date().toISOString(),
       })

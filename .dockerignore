@@ -18,3 +18,7 @@ coverage
 docs
 *.md
 !CLAUDE.md
+
+audit
+tests
+.env.production

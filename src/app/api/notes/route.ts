@@ -1,3 +1,4 @@
+import { safeHtml } from "@/lib/html";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -42,7 +43,7 @@ export const POST = withErrorHandling(async (request) => {
     id,
     user_id: user.id,
     title: title?.trim() || "Sem título",
-    content: content || "",
+    content: safeHtml(content || ""),
   });
 
   if (error) {

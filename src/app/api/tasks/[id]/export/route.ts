@@ -1,6 +1,7 @@
+import { safeHtml } from "@/lib/html";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, assertTaskAccess } from "@/lib/auth";
 import { ApiError, withErrorHandling } from "@/lib/api-error";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -33,8 +34,10 @@ function formatarData(iso: string): string {
  * salva em PDF — sem depender de biblioteca de PDF no servidor.
  */
 export const GET = withErrorHandling(async (request, ctx) => {
-  await requireAuth(request);
+  const user = await requireAuth(request);
   const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+
+  await assertTaskAccess(user, id);
 
   const { data: task } = await supabase
     .from("tasks")
@@ -63,6 +66,9 @@ export const GET = withErrorHandling(async (request, ctx) => {
 
   const logo = await logoDataUri();
 
+  const { data: checklist } = await supabase.from("checklist_items").select("text, done").eq("task_id", id).order("sort_order");
+  const checklistHtml = checklist?.length ? `<h2>Checklist</h2><ul>${checklist.map(c=>`<li>${c.done ? "✓" : "☐"} ${escapar(c.text)}</li>`).join("")}</ul>` : "";
+  const shouldPrint=new URL(request.url).searchParams.get("print")==="1";
   const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>${titulo}</title>
@@ -116,14 +122,14 @@ export const GET = withErrorHandling(async (request, ctx) => {
       ${campo("Data de Entrega", formatarData(task.deadline || ""))}
       ${campo("Responsável", escapar(assignee?.name ?? ""))}
     </table>
-    <div class="conteudo">${task.description || "<p>Sem conteúdo.</p>"}</div>
+    <div class="conteudo">${safeHtml(task.description || "<p>Sem conteúdo.</p>")}${checklistHtml}</div>
     <footer>
       <span>${escapar(project?.name ?? "")} · ${titulo}</span>
       <span>Gerado em ${new Date().toLocaleDateString("pt-BR")}</span>
     </footer>
   </div>
   <script>
-    if (new URLSearchParams(location.search).get("print") === "1") {
+    if (${shouldPrint}) {
       window.addEventListener("load", () => window.print());
     }
   </script>

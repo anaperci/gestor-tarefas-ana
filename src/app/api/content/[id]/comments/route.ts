@@ -1,3 +1,4 @@
+import { assertContentItemAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertContentAccess } from "@/lib/auth";
@@ -11,6 +12,7 @@ export const GET = withErrorHandling(
     const { id } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertContentItemAccess(user, id);
 
     const { data } = await supabase
       .from("content_comments")
@@ -27,6 +29,7 @@ export const POST = withErrorHandling(
     const { id } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertContentItemAccess(user, id);
 
     const { body } = await parseJson(request, commentSchema);
 

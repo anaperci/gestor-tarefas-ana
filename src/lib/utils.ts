@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
 export function genId(): string {
-  return crypto.randomBytes(4).toString("hex");
+  return crypto.randomUUID();
 }
 
 /** Escapa HTML antes de qualquer conversão — o texto colado é conteúdo, não markup. */
@@ -9,7 +9,7 @@ function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 /** Formatação inline: **negrito**, *itálico*, `código` e URLs soltas. */

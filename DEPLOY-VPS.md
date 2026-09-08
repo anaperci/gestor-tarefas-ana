@@ -55,3 +55,21 @@ docker compose --env-file .env.production up -d --build
 ## Notas
 - Migrations SQL rodam no Supabase (SQL Editor), não na VPS.
 - O acesso é por nome de usuário e senha. Não há recuperação por email: quem esquecer a senha depende de um admin redefinir na tela de usuários.
+
+## Correções de setembro de 2026
+
+Runtime: Node 22. As credenciais entram somente no runtime, pelo `.env.production`; o Docker não copia arquivos de ambiente para a imagem.
+
+Antes de publicar, execute `npm ci`, `npm run lint`, `npm test`, `npm run test:db`, `npm run build` e `npm run test:e2e`. O teste de banco usa PostgreSQL descartável (PGlite) e o navegador usa dados fictícios, sem chamar integrações externas. Chrome é necessário para o Playwright.
+
+A migração `supabase/migrations/20260908124122_audit_reliability.sql` inclui o esquema do aplicativo, sem usuários ou senhas pré-definidas. Faça backup e aplique-a no projeto vinculado antes do novo container:
+
+```sh
+supabase db query --linked --file supabase/migrations/20260908124122_audit_reliability.sql
+```
+
+O SQL pode ser reaplicado. `ALLOW_SETUP=false` é o padrão; habilite apenas para criar o primeiro administrador em banco vazio. Sessões antigas exigem novo login após esta atualização, devido à mudança para cookie HttpOnly e revogação após troca de senha.
+
+Links permanentes: `/grupos/<id>` e `/projetos/<id>`. Eles exigem login e respeitam as permissões do recurso. Renomear um grupo mantém seu endereço.
+
+Gravações conflitantes mantêm o rascunho no navegador, por usuário. O botão “Revisar e tentar novamente” permite reaplicar explicitamente a edição após consultar a versão atual. Datas históricas de conclusão que não foram registradas anteriormente não são inventadas; a contagem semanal passa a usar conclusões registradas após a migração. Alterações futuras de dias da rotina passam a ter histórico próprio.

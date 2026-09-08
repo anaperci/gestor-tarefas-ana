@@ -14,21 +14,16 @@ interface QuickTaskPopoverProps {
   onCreated: (task: Task) => void;
 }
 
-export function QuickTaskPopover({ open, projects, defaultProjectId, onClose, onCreated }: QuickTaskPopoverProps) {
+export function QuickTaskPopover(props:QuickTaskPopoverProps) { return props.open ? <QuickTaskForm {...props}/> : null; }
+
+function QuickTaskForm({ open, projects, defaultProjectId, onClose, onCreated }: QuickTaskPopoverProps) {
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string>(defaultProjectId ?? projects[0]?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open) {
-      setTitle("");
-      setError(null);
-      setProjectId(defaultProjectId ?? projects[0]?.id ?? "");
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [open, defaultProjectId, projects]);
+  useEffect(()=>{ inputRef.current?.focus(); },[]);
 
   useEffect(() => {
     if (!open) return;

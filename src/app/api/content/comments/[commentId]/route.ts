@@ -1,3 +1,4 @@
+import { assertContentItemAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertContentAccess } from "@/lib/auth";
@@ -12,10 +13,11 @@ export const PUT = withErrorHandling(
 
     const { data: existing } = await supabase
       .from("content_comments")
-      .select("user_id")
+      .select("user_id, content_item_id")
       .eq("id", commentId)
       .maybeSingle();
     if (!existing) throw new ApiError("NOT_FOUND", "Comentário não encontrado");
+    await assertContentItemAccess(user, existing.content_item_id);
     if (existing.user_id !== user.id) {
       throw new ApiError("FORBIDDEN", "Você só pode editar seus próprios comentários");
     }
@@ -42,10 +44,11 @@ export const DELETE = withErrorHandling(
 
     const { data: existing } = await supabase
       .from("content_comments")
-      .select("user_id")
+      .select("user_id, content_item_id")
       .eq("id", commentId)
       .maybeSingle();
     if (!existing) throw new ApiError("NOT_FOUND", "Comentário não encontrado");
+    await assertContentItemAccess(user, existing.content_item_id);
     if (existing.user_id !== user.id) {
       throw new ApiError("FORBIDDEN", "Você só pode excluir seus próprios comentários");
     }

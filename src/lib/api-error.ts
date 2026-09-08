@@ -46,7 +46,13 @@ type Handler<Ctx> = (request: Request, context: Ctx) => Promise<Response> | Resp
 export function withErrorHandling<Ctx = unknown>(handler: Handler<Ctx>): Handler<Ctx> {
   return async (request, context) => {
     try {
-      return await handler(request, context);
+      const origin = request.headers.get("origin");
+      if (!["GET", "HEAD", "OPTIONS"].includes(request.method) &&
+          (request.headers.get("sec-fetch-site") === "cross-site" || (origin && origin !== new URL(request.url).origin && origin !== process.env.NEXT_PUBLIC_APP_URL)))
+        throw new ApiError("FORBIDDEN", "Origem não permitida");
+      const response = await handler(request, context);
+      response.headers.set("Cache-Control", "no-store");
+      return response;
     } catch (err) {
       if (err instanceof ApiError) {
         return apiError(err.code, err.message, err.details);

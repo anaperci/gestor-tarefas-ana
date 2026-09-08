@@ -1,3 +1,4 @@
+import { assertSlideAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -15,15 +16,8 @@ export const POST = withErrorHandling(async (request) => {
 
   const { ids } = await parseJson(request, reorderSchema);
 
-  // Upsert posições
-  const updates = ids.map((id, idx) =>
-    supabase.from("content_slides").update({ sort_order: idx, slide_number: idx + 1 }).eq("id", id)
-  );
-  const results = await Promise.all(updates);
-  const failed = results.find((r) => r.error);
-  if (failed?.error) {
-    console.error("[slides.reorder] failed:", failed.error);
-    throw new ApiError("INTERNAL_ERROR", "Falha ao reordenar slides");
-  }
+  const parents = await Promise.all(ids.map(id => assertSlideAccess(user, id)));
+  if (new Set(parents).size > 1 || new Set(ids).size !== ids.length) throw new ApiError("VALIDATION_ERROR", "Slides inválidos para reordenação");
+  if(ids.length) await supabase.rpc("reorder_content_slides",{p_content_id:parents[0],p_ids:ids});
   return NextResponse.json({ success: true });
 });

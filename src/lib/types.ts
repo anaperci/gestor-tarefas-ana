@@ -323,6 +323,7 @@ export interface UpdateContentItemPayload {
 }
 
 export interface UpdateTaskPayload {
+  expectedUpdatedAt?: string;
   title?: string;
   description?: string;
   status?: TaskStatus | string;

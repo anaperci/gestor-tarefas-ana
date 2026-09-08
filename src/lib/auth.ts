@@ -1,3 +1,6 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { NextResponse } from "next/server";
+import { userCanAccessProject } from "./access";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
@@ -50,38 +53,40 @@ export async function upgradePasswordIfNeeded(userId: string, pwd: string, store
   }
 }
 
-export function generateToken(user: { id: string; username: string; role: string }): string {
+function passwordVersion(hash: string): string { return createHmac("sha256", getJwtSecret()).update(hash).digest("hex"); }
+export function sessionResponse(user: Record<string, unknown>, status = 200): NextResponse {
+  const response = NextResponse.json({ user: { id: user.id, username: user.username, name: user.name, role: user.role, avatar: user.avatar, canAccessContent: !!user.can_access_content } }, { status });
+  response.cookies.set("clareza-session", generateToken(user as {id:string;username:string;role:string;password_hash:string}), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 7 * 86400 });
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
+export function generateToken(user: { id: string; username: string; role: string; password_hash: string }): string {
   return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    { id: user.id, username: user.username, role: user.role, ver: passwordVersion(user.password_hash) },
     getJwtSecret(),
-    { expiresIn: "30d" }
+    { expiresIn: "7d" }
   );
 }
 
 /**
- * Lê o Bearer token, valida assinatura e devolve o usuário.
+ * Lê o cookie HttpOnly, valida assinatura e devolve o usuário.
  * Lança ApiError em qualquer falha — handlers só precisam chamar isso.
  */
 export async function requireAuth(request: Request | NextRequest): Promise<AuthUser> {
-  const header = request.headers.get("authorization");
-  if (!header || !header.startsWith("Bearer ")) {
-    throw new ApiError("AUTH_REQUIRED", "Token não fornecido");
+  const cookie = request.headers.get("cookie")?.split(";").map(x => x.trim()).find(x => x.startsWith("clareza-session="))?.slice("clareza-session=".length);
+  if (!cookie) throw new ApiError("AUTH_REQUIRED", "Sessão não fornecida");
+  let decoded: { id: string; ver: string };
+  try { decoded = jwt.verify(cookie, getJwtSecret(), { algorithms: ["HS256"] }) as typeof decoded; }
+  catch { throw new ApiError("AUTH_REQUIRED", "Sessão expirada. Entre novamente."); }
+  const { data: user, error } = await supabase.from("users")
+    .select("id, username, name, role, avatar, can_access_content, password_hash")
+    .eq("id", decoded.id).is("deleted_at", null).maybeSingle();
+  if (error) throw new ApiError("INTERNAL_ERROR", "Não foi possível verificar a sessão. Tente novamente.");
+  if (user) {
+    const expected = passwordVersion(user.password_hash);
+    if (typeof decoded.ver !== "string" || decoded.ver.length !== expected.length || !timingSafeEqual(Buffer.from(decoded.ver), Buffer.from(expected)))
+      throw new ApiError("AUTH_REQUIRED", "A senha foi alterada. Entre novamente.");
   }
-
-  let decoded: { id: string };
-  try {
-    decoded = jwt.verify(header.split(" ")[1], getJwtSecret()) as { id: string };
-  } catch {
-    throw new ApiError("AUTH_REQUIRED", "Token inválido");
-  }
-
-  const { data: user } = await supabase
-    .from("users")
-    .select("id, username, name, role, avatar, can_access_content")
-    .eq("id", decoded.id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
   if (!user) throw new ApiError("AUTH_REQUIRED", "Usuário não encontrado");
   return {
     id: user.id,
@@ -121,56 +126,22 @@ export function assertContentAccess(user: AuthUser): void {
 
 /**
  * Garante que o usuário tem acesso à tarefa (e a recursos vinculados a ela,
- * como anexos/menções). Admin sempre; senão: dono do projeto, membro do
- * workspace do projeto, share do projeto, ou responsável pela tarefa.
+ * como anexos/menções), usando a mesma regra central da listagem de projetos.
  */
 export async function assertTaskAccess(user: AuthUser, taskId: string): Promise<void> {
-  if (user.role === "admin") return;
-
-  const { data: task } = await supabase
-    .from("tasks")
-    .select("project_id, assigned_to")
-    .eq("id", taskId)
-    .is("deleted_at", null)
-    .maybeSingle();
+  const { data: task } = await supabase.from("tasks").select("project_id").eq("id", taskId).is("deleted_at", null).maybeSingle();
   if (!task) throw new ApiError("NOT_FOUND", "Tarefa não encontrada");
-  if (task.assigned_to === user.id) return;
-
-  const { data: proj } = await supabase
-    .from("projects")
-    .select("owner_id, workspace_id")
-    .eq("id", task.project_id)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (proj) {
-    if (proj.owner_id === user.id) return;
-    if (proj.workspace_id) {
-      const { data: member } = await supabase
-        .from("workspace_members")
-        .select("user_id")
-        .eq("workspace_id", proj.workspace_id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (member) return;
-    }
-    const { data: share } = await supabase
-      .from("project_shares")
-      .select("user_id")
-      .eq("project_id", task.project_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (share) return;
-  }
-
-  throw new ApiError("FORBIDDEN", "Você não tem acesso a esta tarefa.");
+  if (!(await userCanAccessProject(user, task.project_id))) throw new ApiError("FORBIDDEN", "Sem acesso a esta tarefa.");
 }
 
-/** IDs dos workspaces que o usuário pode ver. Admin → null (todos). */
-export async function getAccessibleWorkspaceIds(user: AuthUser): Promise<string[] | null> {
-  if (user.role === "admin") return null;
-  const { data } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id);
-  return (data ?? []).map((r) => r.workspace_id as string);
+/** Active workspaces only; ownership also grants access without a membership row. */
+export async function getAccessibleWorkspaceIds(user:AuthUser):Promise<string[]> {
+ const {data:members}=await supabase.from("workspace_members").select("workspace_id").eq("user_id",user.id);
+ let query=supabase.from("workspaces").select("id").is("deleted_at",null);
+ if(user.role!=="admin") {
+  const ids=(members??[]).map(m=>m.workspace_id);
+  query=query.or(`owner_id.eq.${user.id}${ids.length?`,id.in.(${ids.join(",")})`:""}`);
+ }
+ const {data}=await query;
+ return (data??[]).map(w=>w.id);
 }

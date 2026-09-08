@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { consumeRateLimit, clientIp } from "@/lib/rate-limit";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { verifyPassword, upgradePasswordIfNeeded, generateToken } from "@/lib/auth";
+import { verifyPassword, upgradePasswordIfNeeded, sessionResponse } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 
 const loginSchema = z.object({
@@ -11,8 +11,10 @@ const loginSchema = z.object({
 });
 
 export const POST = withErrorHandling(async (request) => {
+  await consumeRateLimit(clientIp(request), { key: "login-ip", limit: 30, windowMs: 900_000 });
   const { username, password } = await parseJson(request, loginSchema);
   const login = username.toLowerCase().trim();
+  await consumeRateLimit(login, { key: "login-account", limit: 15, windowMs: 900_000 });
 
   const { data: user } = await supabase
     .from("users")
@@ -33,16 +35,6 @@ export const POST = withErrorHandling(async (request) => {
 
   await upgradePasswordIfNeeded(user.id, password, user.password_hash);
 
-  const token = generateToken(user);
-  return NextResponse.json({
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      role: user.role,
-      avatar: user.avatar,
-      canAccessContent: !!user.can_access_content,
-    },
-  });
+  const { data: refreshed } = await supabase.from("users").select("*").eq("id", user.id).single();
+  return sessionResponse(refreshed!);
 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { requireAuth, hashPassword, verifyPassword } from "@/lib/auth";
+import { requireAuth, hashPassword, verifyPassword, sessionResponse } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { audit } from "@/lib/audit";
 import { passwordSchema } from "@/lib/password-policy";
@@ -43,11 +43,12 @@ export const PUT = withErrorHandling(
       if (!ok) throw new ApiError("AUTH_REQUIRED", "Senha atual incorreta");
     }
 
-    const { error } = await supabase
+    const { data: updatedUser, error } = await supabase
       .from("users")
       .update({ password_hash: await hashPassword(password) })
-      .eq("id", id);
+      .eq("id", id).is("deleted_at", null).select("*").maybeSingle();
 
+    if (!updatedUser && !error) throw new ApiError("NOT_FOUND", "Usuário não encontrado");
     if (error) {
       console.error("[users.password.PUT] failed:", error);
       throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar senha");
@@ -62,6 +63,6 @@ export const PUT = withErrorHandling(
       metadata: { self: isSelf },
       request,
     });
-    return NextResponse.json({ success: true });
+    return isSelf ? sessionResponse(updatedUser!) : NextResponse.json({ success: true });
   }
 );

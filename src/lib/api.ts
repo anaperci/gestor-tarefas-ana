@@ -30,18 +30,11 @@ import type {
 
 const API_BASE = "/api";
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("taskhub-token");
-}
-
-function setToken(token: string) {
-  localStorage.setItem("taskhub-token", token);
-}
-
-function clearToken() {
-  localStorage.removeItem("taskhub-token");
-}
+// Authentication lives in an HttpOnly cookie. This marker only scopes client caches.
+export function sessionKey(): string { return typeof window === "undefined" ? "anonymous" : localStorage.getItem("clareza-session-id") ?? "anonymous"; }
+export function dataChanged(): void { if (typeof window !== "undefined") window.dispatchEvent(new Event("clareza-data-changed")); }
+function clearToken() { localStorage.removeItem("taskhub-token"); localStorage.removeItem("clareza-session-id"); }
+function getToken(): null { return null; }
 
 // Rótulos em PT dos campos que a API valida — usados pra transformar
 // "Dados inválidos" numa mensagem que diz QUAL campo está errado.
@@ -99,11 +92,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const data = await res.json().catch(() => ({ error: "Erro desconhecido" }));
     throw new ApiRequestError(describeApiError(data) || `HTTP ${res.status}`, res.status);
   }
-  return res.json() as Promise<T>;
+  const data = await res.json() as T;
+  if (options.method && options.method !== "GET" && !path.startsWith("/auth/")) dataChanged();
+  return data;
 }
 
 interface LoginResponse {
-  token: string;
   user: User;
 }
 
@@ -118,7 +112,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
-    setToken(data.token);
+    clearToken();
+    localStorage.setItem("clareza-session-id", data.user.id);
     return data.user;
   },
 
@@ -127,12 +122,13 @@ export const api = {
     return data.user;
   },
 
-  logout() {
+  async logout() {
+    await request("/auth/logout", { method: "POST" });
     clearToken();
   },
 
   hasToken() {
-    return !!getToken();
+    return typeof window !== "undefined";
   },
 
   // Users
@@ -318,7 +314,7 @@ export const api = {
     request<{ success: boolean }>(`/notes/${id}`, { method: "DELETE" }),
 
   // Content
-  getContentItems: (params: {
+  getContentItems: async (params: {
     status?: string[];
     format?: string[];
     platform?: string;
@@ -334,7 +330,11 @@ export const api = {
     if (params.workspaceId) search.set("workspaceId", params.workspaceId);
     if (params.search) search.set("search", params.search);
     const qs = search.toString();
-    return request<ContentItem[]>(`/content${qs ? `?${qs}` : ""}`);
+    const result: ContentItem[] = [];
+    for (let offset=0;;offset+=100) {
+      const page=await request<ContentItem[]>(`/content?${qs}&limit=100&offset=${offset}`);
+      result.push(...page); if(page.length<100) return result;
+    }
   },
   createContentItem: (data: CreateContentItemPayload = {}) =>
     request<ContentItem>("/content", { method: "POST", body: JSON.stringify(data) }),
@@ -411,14 +411,16 @@ export const api = {
  * Vai por fetch porque a rota exige o token, que uma aba nova não carregaria.
  */
 export async function exportarTarefa(taskId: string): Promise<void> {
-  const res = await fetch(`/api/tasks/${taskId}/export?print=1`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("taskhub-token") ?? ""}` },
-  });
-  if (!res.ok) throw new Error("Não foi possível gerar o documento");
-  const url = URL.createObjectURL(new Blob([await res.text()], { type: "text/html" }));
-  const win = window.open(url, "_blank");
+  const win = window.open("about:blank", "_blank");
   if (!win) throw new Error("Libere os pop-ups para exportar");
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  win.opener = null;
+  try {
+    const res = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/export?print=1`);
+    if (!res.ok) throw new Error("Não foi possível gerar o documento");
+    const url=URL.createObjectURL(new Blob([await res.text()],{type:"text/html"}));
+    win.location.href=url;
+    setTimeout(()=>URL.revokeObjectURL(url),60_000);
+  } catch(error) {win.close();throw error;}
 }
 
 export interface SlackChannelConfig {

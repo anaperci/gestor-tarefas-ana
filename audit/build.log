@@ -1,0 +1,83 @@
+
+> gestor-tarefas-ana@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.3s
+  Running TypeScript ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/29) ...
+  Generating static pages using 10 workers (7/29) 
+  Generating static pages using 10 workers (14/29) 
+  Generating static pages using 10 workers (21/29) 
+✓ Generating static pages using 10 workers (29/29) in 102.9ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/assets
+├ ƒ /api/assets/[id]
+├ ƒ /api/attachments/[id]
+├ ƒ /api/auth/login
+├ ƒ /api/auth/me
+├ ƒ /api/content
+├ ƒ /api/content/[id]
+├ ƒ /api/content/[id]/comments
+├ ƒ /api/content/[id]/slides
+├ ƒ /api/content/[id]/transform-to-task
+├ ƒ /api/content/comments/[commentId]
+├ ƒ /api/content/slides/[slideId]
+├ ƒ /api/content/slides/reorder
+├ ƒ /api/dashboard
+├ ƒ /api/health
+├ ƒ /api/notes
+├ ƒ /api/notes/[id]
+├ ƒ /api/notifications
+├ ƒ /api/notifications/read
+├ ƒ /api/personal/tasks
+├ ƒ /api/personal/tasks/[id]
+├ ƒ /api/projects
+├ ƒ /api/projects/[id]
+├ ƒ /api/projects/[id]/share
+├ ƒ /api/routines
+├ ƒ /api/routines/[id]
+├ ƒ /api/routines/[id]/check
+├ ƒ /api/routines/history
+├ ƒ /api/setup
+├ ƒ /api/slack-channels
+├ ƒ /api/tags
+├ ƒ /api/tags/[id]
+├ ƒ /api/task-groups
+├ ƒ /api/task-groups/[id]
+├ ƒ /api/tasks
+├ ƒ /api/tasks/[id]
+├ ƒ /api/tasks/[id]/attachments
+├ ƒ /api/tasks/[id]/comments
+├ ƒ /api/tasks/[id]/export
+├ ƒ /api/tasks/[id]/mention
+├ ƒ /api/tasks/[id]/notify
+├ ƒ /api/transcriptions
+├ ƒ /api/transcriptions/[id]
+├ ƒ /api/transcriptions/[id]/summarize
+├ ƒ /api/users
+├ ƒ /api/users/[id]
+├ ƒ /api/users/[id]/avatar
+├ ƒ /api/users/[id]/content-access
+├ ƒ /api/users/[id]/password
+├ ƒ /api/users/[id]/profile
+├ ƒ /api/users/[id]/role
+├ ƒ /api/voice/process
+├ ƒ /api/workspaces
+├ ƒ /api/workspaces/[id]
+├ ƒ /api/workspaces/[id]/members
+├ ○ /content
+└ ○ /setup
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

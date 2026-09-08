@@ -1,5 +1,6 @@
 "use client";
 
+import { isOverdueDate } from "@/lib/dates";
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import type { Project, Task, User } from "@/lib/types";
@@ -55,7 +56,7 @@ export function TaskListItem({
 }: TaskListItemProps) {
   const project = projects.find((p) => p.id === task.projectId);
   const assignee = users.find((u) => u.id === task.assignedTo);
-  const isOverdue = showOverdue && task.deadline && new Date(task.deadline) < new Date();
+  const isOverdue = showOverdue && task.deadline && isOverdueDate(task.deadline,task.status);
   const showPrioBadge = showPriority && (task.priority === "high" || task.priority === "critical");
 
   return (

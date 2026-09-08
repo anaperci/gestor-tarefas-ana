@@ -1,3 +1,4 @@
+import { todayDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -24,7 +25,7 @@ export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
   const url = new URL(request.url);
   const dateParam = dateQuerySchema.parse(url.searchParams.get("date") ?? undefined);
-  const date = dateParam ?? new Date().toLocaleDateString("en-CA");
+  const date = dateParam ?? todayDate();
 
   const [{ data: items }, { data: checks }] = await Promise.all([
     supabase

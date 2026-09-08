@@ -1,3 +1,5 @@
+import { visibleProjectRows, visibleTaskRows } from "@/lib/collections";
+import { todayDate, dayOfWeek, APP_TIMEZONE } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
@@ -15,14 +17,14 @@ import type {
 } from "@/lib/types";
 
 function greetingPeriod(): "manhã" | "tarde" | "noite" {
-  const h = new Date().getHours();
+  const h = Number(new Intl.DateTimeFormat("en-US",{hour:"numeric",hourCycle:"h23",timeZone:APP_TIMEZONE}).format(new Date()));
   if (h < 12) return "manhã";
   if (h < 18) return "tarde";
   return "noite";
 }
 
 function todayStr(): string {
-  return new Date().toLocaleDateString("en-CA");
+  return todayDate();
 }
 
 function isOverdue(t: Task): boolean {
@@ -45,16 +47,9 @@ export const GET = withErrorHandling(async (request) => {
     notesRes,
     routinesRes,
     checksRes,
-    weeklyRes,
   ] = await Promise.all([
-    // tasks visíveis ao user (RPC já filtra deleted_at e visibilidade)
-    user.role === "admin"
-      ? supabase.from("tasks").select("*").is("deleted_at", null)
-      : supabase.rpc("get_user_tasks", { p_user_id: user.id }),
-    // projects visíveis
-    user.role === "admin"
-      ? supabase.from("projects").select("id, name, color, icon, owner_id, workspace_id").is("deleted_at", null)
-      : supabase.rpc("get_user_projects", { p_user_id: user.id }),
+    visibleTaskRows(user.id),
+    visibleProjectRows(user.id),
     // todos os shares (pra mapear)
     supabase.from("project_shares").select("project_id, user_id"),
     // últimas 5 notas do user
@@ -78,17 +73,9 @@ export const GET = withErrorHandling(async (request) => {
       .select("routine_item_id")
       .eq("user_id", user.id)
       .eq("check_date", todayStr()),
-    // estatística semanal — tasks visíveis criadas/atualizadas nos últimos 7 dias
-    user.role === "admin"
-      ? supabase
-          .from("tasks")
-          .select("id, status, updated_at, deleted_at")
-          .is("deleted_at", null)
-          .gte("updated_at", new Date(Date.now() - 7 * 86400_000).toISOString())
-      : supabase.rpc("get_user_tasks", { p_user_id: user.id }),
   ]);
 
-  const allTasks = (tasksRes.data ?? []) as TaskRow[];
+  const allTasks = tasksRes as TaskRow[];
   const enriched = await enrichTasksBatch(allTasks);
 
   // Mapeia shares por projeto
@@ -99,14 +86,14 @@ export const GET = withErrorHandling(async (request) => {
     sharesByProject.set(row.project_id, list);
   }
 
-  const projectsRaw = (projectsRes.data ?? []) as Array<{
+  const projectsRaw = projectsRes as Array<{
     id: string; name: string; color: string; icon: string; owner_id: string; workspace_id?: string | null;
   }>;
 
   // Today: minhas atribuídas com deadline hoje OU status=doing
   const todayTasks = enriched
     .filter((t) => t.assignedTo === user.id && t.status !== "done" && isToday(t))
-    .slice(0, 7);
+    ;
 
   // Overdue: minhas (admin: minhas OR criei) atrasadas
   const overdueTasks = enriched
@@ -115,7 +102,7 @@ export const GET = withErrorHandling(async (request) => {
       return t.assignedTo === user.id || (user.role === "admin" && t.createdBy === user.id);
     })
     .sort((a, b) => (a.deadline < b.deadline ? -1 : 1))
-    .slice(0, 5);
+    ;
 
   // Review: status=review (admin: criei OR sou owner do projeto; editor: criei)
   const reviewTasks = enriched
@@ -128,7 +115,7 @@ export const GET = withErrorHandling(async (request) => {
       if (user.role === "editor") return t.createdBy === user.id;
       return false;
     })
-    .slice(0, 5);
+    ;
 
   // Delegated: criei + atribuí pra alguém ≠ eu, não concluído
   const delegatedTasks = user.role === "viewer"
@@ -167,7 +154,7 @@ export const GET = withErrorHandling(async (request) => {
   const checkedSet = new Set(
     ((checksRes.data ?? []) as Array<{ routine_item_id: string }>).map((c) => c.routine_item_id)
   );
-  const todayDow = new Date().getDay();
+  const todayDow = dayOfWeek();
   const todayRoutines: DashboardRoutine[] = ((routinesRes.data ?? []) as Array<RoutineItem & { user_id: string; sort_order: number; days: number[] | null }>)
     .filter((r) => {
       const days = r.days && r.days.length ? r.days : [0, 1, 2, 3, 4, 5, 6];
@@ -185,9 +172,10 @@ export const GET = withErrorHandling(async (request) => {
     }));
 
   // Weekly stats
-  const weeklyData = (weeklyRes.data ?? []) as Array<{ status: string; updated_at?: string }>;
-  const weeklyDone = weeklyData.filter((t) => t.status === "done").length;
-  const weeklyTotal = weeklyData.length;
+  const weekStart=Date.now()-7*86400_000;
+  const weeklyData=allTasks.filter(t=>(user.role==="admin" || t.assigned_to===user.id));
+  const weeklyDone=weeklyData.filter(t=>t.status==="done" && t.completed_at && Date.parse(t.completed_at)>=weekStart).length;
+  const weeklyTotal=weeklyData.filter(t=>Date.parse(t.created_at)>=weekStart || (t.completed_at && Date.parse(t.completed_at)>=weekStart)).length;
 
   const recentNotes: Note[] = ((notesRes.data ?? []) as Array<Note & { user_id: string; created_at: string; updated_at: string }>).map((n) => ({
     id: n.id,

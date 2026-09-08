@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useLayoutEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import {
   Archive, Copy, FolderInput, Plus, Search, Sparkles, Trash2,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { reportError } from "@/lib/ui-error";
+import { api,sessionKey } from "@/lib/api";
 import type { ContentFormat, ContentItem, ContentPlatform, ContentStatus, Project, User } from "@/lib/types";
 import { useContentItem, useContentItems } from "@/lib/use-content";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -48,24 +49,23 @@ export interface ContentBoardProps {
   onBackHome?: () => void;
 }
 
-export function ContentBoard({
+export function ContentBoard(props:ContentBoardProps) {return <ContentBoardInner key={`${props.currentUser.id}:${props.workspaceId??"all"}`} {...props} />;}
+
+function ContentBoardInner({
   currentUser, users, projects, workspaceId, workspaceName, embedded, initialItemId, onBackHome,
 }: ContentBoardProps) {
   const [selectedId, setSelectedId] = useState<string | null>(initialItemId ?? null);
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<Filters>(()=>{
+    try {
+      const raw=localStorage.getItem(`${FILTERS_STORAGE_KEY_PREFIX}${currentUser.id}:${workspaceId??"all"}`);
+      const parsed=raw?JSON.parse(raw):null;
+      if(parsed && Array.isArray(parsed.status) && Array.isArray(parsed.format) && typeof parsed.search==="string" && typeof parsed.assignedTo==="string" && typeof parsed.platform==="string") return {...DEFAULT_FILTERS,...parsed};
+    }catch { /* Optional preferences never block opening content. */ }
+    return DEFAULT_FILTERS;
+  });
   const searchRef = useRef<HTMLInputElement>(null);
 
   const storageKey = `${FILTERS_STORAGE_KEY_PREFIX}${currentUser.id}:${workspaceId ?? "all"}`;
-
-  // Restaura filtros do localStorage (por usuário + workspace)
-  useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try { setFilters(JSON.parse(saved)); } catch {}
-    } else {
-      setFilters(DEFAULT_FILTERS);
-    }
-  }, [storageKey]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(filters));
@@ -97,6 +97,7 @@ export function ContentBoard({
   // editor pulava de ideia sozinho: bastava o título mudar e a ideia sair
   // do filtro pra lista revalidar e trocar o que estava sendo escrito.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize externally loaded data with the editable local view.
     if (!selectedId && items.length > 0) setSelectedId(items[0].id);
   }, [items, selectedId]);
 
@@ -124,7 +125,6 @@ export function ContentBoard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, selectedId, createNew]);
 
   return (
@@ -413,7 +413,7 @@ function ContentEditor({
   const [draftPreview, setDraftPreview] = useState("");
   const [draftDuration, setDraftDuration] = useState<string>("");
   const [draftPubUrl, setDraftPubUrl] = useState("");
-  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved">("idle");
+  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -432,10 +432,11 @@ function ContentEditor({
     publishedUrl: draftPubUrl,
   };
   const draftsRef = useRef(drafts);
-  draftsRef.current = drafts;
+  useLayoutEffect(()=>{draftsRef.current = drafts;});
 
   /** Há texto digitado ainda não confirmado pelo servidor. */
   const dirtyRef = useRef(false);
+  const savingRef=useRef(false);
   /** Item já carregado nos campos — evita recarregar por cima da digitação. */
   const loadedIdRef = useRef<string | null>(null);
   const lastSyncedAtRef = useRef<string | null>(null);
@@ -459,6 +460,11 @@ function ContentEditor({
       loadedIdRef.current = item.id;
       dirtyRef.current = false;
       syncFromServer(item);
+      try {
+        const raw=localStorage.getItem(`clareza-content-draft:${currentUser.id}:${contentId}`);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore a persisted draft once, before editing; server refresh cannot replace a dirty draft.
+        if(raw){const draft=JSON.parse(raw);setDraftTitle(draft.title??item.title);setDraftBody(draft.body??item.body);setDraftHook(draft.hook??item.hook);setDraftCta(draft.cta??item.cta);setDraftSubject(draft.subjectLine??item.subjectLine);setDraftPreview(draft.previewText??item.previewText);setDraftDuration(draft.durationSeconds?.toString()??"");setDraftPubUrl(draft.publishedUrl??item.publishedUrl);dirtyRef.current=true;}
+      }catch{ /* Ignore malformed optional recovery data. */ }
       return;
     }
     // Revalidação do SWR (voltar pra aba, salvar, refresh da lista): só
@@ -466,10 +472,12 @@ function ContentEditor({
     // o texto do editor era apagado no meio da frase.
     if (dirtyRef.current) return;
     if (item.updatedAt !== lastSyncedAtRef.current) syncFromServer(item);
-  }, [item, syncFromServer]);
+  }, [item, syncFromServer, currentUser.id, contentId]);
 
+  const flushRef = useRef<(overrides?: Partial<ContentItem>) => Promise<void>>(async()=>{});
   const flush = useCallback(async (overrides: Partial<ContentItem> = {}) => {
-    if (!item) return;
+    if (!item || sessionKey()!==currentUser.id) return;
+    if(savingRef.current) {saveTimer.current=setTimeout(()=>{void flushRef.current(overrides);},800);return;}
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
 
     const snapshot = draftsRef.current;
@@ -487,7 +495,9 @@ function ContentEditor({
 
     if (Object.keys(payload).length === 0) { dirtyRef.current = false; setSavingState("idle"); return; }
 
+    savingRef.current=true;
     setSavingState("saving");
+    try {
     const updated = await api.updateContentItem(item.id, payload);
     lastSyncedAtRef.current = updated.updatedAt;
     await mutateItem(updated, false);
@@ -504,19 +514,24 @@ function ContentEditor({
       saveTimer.current = setTimeout(() => flushRef.current(), 800);
     } else {
       dirtyRef.current = false;
+      localStorage.removeItem(`clareza-content-draft:${currentUser.id}:${contentId}`);
     }
 
     setSavingState("saved");
-    setTimeout(() => setSavingState("idle"), 1400);
-  }, [item, mutateItem, refreshLists]);
+    setTimeout(() => setSavingState(state=>state==="saved"?"idle":state), 1400);
+    } catch(error) { dirtyRef.current=true;setSavingState("error");reportError(error); }
+    finally {savingRef.current=false;}
+  }, [item, mutateItem, refreshLists, currentUser.id, contentId]);
 
   // Referência estável pro flush — usada dentro dos timers.
-  const flushRef = useRef(flush);
-  flushRef.current = flush;
+  useLayoutEffect(()=>{flushRef.current = flush;});
+
+  useLayoutEffect(()=>{if(dirtyRef.current) localStorage.setItem(`clareza-content-draft:${currentUser.id}:${contentId}`,JSON.stringify(drafts));});
 
   // Auto-save 800ms debounce
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true;
+
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => flushRef.current(), 800);
   }, []);
@@ -554,11 +569,13 @@ function ContentEditor({
 
   const updateMeta = async (patch: Record<string, unknown>) => {
     setSavingState("saving");
+    try {
     const updated = await api.updateContentItem(item.id, patch);
     await mutateItem(updated, false);
     refreshLists();
     setSavingState("saved");
     setTimeout(() => setSavingState("idle"), 1200);
+    } catch(error) {setSavingState("error");reportError(error);}
   };
 
   return (
@@ -567,6 +584,7 @@ function ContentEditor({
       background: isPublished ? "color-mix(in srgb, var(--status-done) 3%, transparent)" : undefined,
       padding: isPublished ? 16 : 0, borderRadius: 12,
     }}>
+      {savingState==="error" && <div role="alert">Não foi possível salvar. Seu texto permanece aqui. <button onClick={()=>void flush()}>Tentar novamente</button></div>}
       {/* Título */}
       <input
         value={draftTitle}

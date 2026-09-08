@@ -9,6 +9,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "audit/**", // Historical reproductions preserve the pre-fix defects.
+    "supabase/.temp/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

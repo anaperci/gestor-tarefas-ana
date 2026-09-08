@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, assertTaskAccess } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 
@@ -40,7 +40,8 @@ async function assertTaskExists(id: string) {
 export const GET = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    await requireAuth(request);
+    const user = await requireAuth(request);
+    await assertTaskAccess(user, id);
 
     const { data } = await supabase
       .from("task_comments")
@@ -56,6 +57,7 @@ export const POST = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const user = await requireAuth(request);
+    await assertTaskAccess(user, id);
     await assertTaskExists(id);
 
     const { body } = await parseJson(request, commentSchema);

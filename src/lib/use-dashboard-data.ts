@@ -1,15 +1,13 @@
 "use client";
 
 import useSWR from "swr";
+import { sessionKey } from "./api";
 import type { DashboardPayload } from "./types";
 
 const API_BASE = "/api";
 
 async function fetcher(path: string): Promise<DashboardPayload> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("taskhub-token") : null;
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "Erro" }));
     throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -18,7 +16,7 @@ async function fetcher(path: string): Promise<DashboardPayload> {
 }
 
 export function useDashboardData() {
-  return useSWR<DashboardPayload>("/dashboard", fetcher, {
+  return useSWR<DashboardPayload>(["/dashboard", sessionKey()], () => fetcher("/dashboard"), {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     refreshInterval: 60_000, // refresh em background a cada 60s

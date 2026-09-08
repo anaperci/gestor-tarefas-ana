@@ -1,3 +1,4 @@
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
@@ -8,6 +9,7 @@ export const POST = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
     const user = await requireAuth(request);
+  await consumeRateLimit(user.id, { key: "ai", limit: 20, windowMs: 3600_000 });
 
     if (!isOpenAIConfigured()) {
       throw new ApiError("INTERNAL_ERROR", "IA não configurada (falta OPENAI_API_KEY no servidor).");

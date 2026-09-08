@@ -71,7 +71,7 @@ export function DashboardView({
 
   const handleToggleDone = async (task: Task) => {
     const next = !task.checked;
-    await api.updateTask(task.id, { checked: next, status: next ? "done" : task.status });
+    await api.updateTask(task.id, { checked: next, status: next ? "done" : "todo" });
     mutate();
   };
 

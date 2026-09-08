@@ -1,3 +1,4 @@
+import { todayDate } from "@/lib/dates";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -29,7 +30,7 @@ export const POST = withErrorHandling(
       // body vazio é aceitável
     }
     const body = checkBodySchema.parse(raw ?? {});
-    const checkDate = body.date ?? new Date().toLocaleDateString("en-CA");
+    const checkDate = body.date ?? todayDate();
 
     const { data: existing } = await supabase
       .from("routine_checks")

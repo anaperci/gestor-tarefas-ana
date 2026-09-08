@@ -2,7 +2,7 @@
 
 import useSWR, { useSWRConfig } from "swr";
 import { useCallback } from "react";
-import { api } from "./api";
+import { api, sessionKey } from "./api";
 import type { ContentComment, ContentItem, ContentSlide } from "./types";
 
 interface ListFilters {
@@ -17,7 +17,7 @@ interface ListFilters {
 const LIST_KEY = "content:list";
 
 function listKey(filters: ListFilters) {
-  return [LIST_KEY, JSON.stringify(filters)] as const;
+  return [LIST_KEY, sessionKey(), JSON.stringify(filters)] as const;
 }
 
 export function useContentItems(filters: ListFilters) {
@@ -33,17 +33,17 @@ export function useContentItem(id: string | null) {
   const { mutate: mutateAll } = useSWRConfig();
 
   const itemSwr = useSWR<ContentItem>(
-    id ? `content:item:${id}` : null,
+    id ? `content:item:${sessionKey()}:${id}` : null,
     () => api.getContentItem(id!),
     { revalidateOnFocus: true }
   );
   const slidesSwr = useSWR<ContentSlide[]>(
-    id ? `content:slides:${id}` : null,
+    id ? `content:slides:${sessionKey()}:${id}` : null,
     () => api.getContentSlides(id!),
     { revalidateOnFocus: false }
   );
   const commentsSwr = useSWR<ContentComment[]>(
-    id ? `content:comments:${id}` : null,
+    id ? `content:comments:${sessionKey()}:${id}` : null,
     () => api.getContentComments(id!),
     { revalidateOnFocus: true, refreshInterval: 10_000 }
   );

@@ -1,9 +1,9 @@
+import { assertContentItemAccess, userCanAccessProject } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { requireAuth, assertContentAccess } from "@/lib/auth";
+import { requireAuth, assertContentAccess, assertEditorOrAdmin } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
-import { genId } from "@/lib/utils";
 import { idSchema } from "@/lib/validation";
 import { rowToItem, type ContentRow } from "@/lib/content";
 
@@ -20,6 +20,8 @@ export const POST = withErrorHandling(
     const { id } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    assertEditorOrAdmin(user);
+    await assertContentItemAccess(user, id);
 
     const { data: contentRow } = await supabase
       .from("content_items")
@@ -38,7 +40,7 @@ export const POST = withErrorHandling(
         .eq("id", content.linkedTaskId)
         .is("deleted_at", null)
         .maybeSingle();
-      if (existing) {
+      if (existing && await userCanAccessProject(user, content.linkedProjectId!)) {
         return NextResponse.json({ taskId: existing.id, alreadyLinked: true });
       }
     }
@@ -49,35 +51,12 @@ export const POST = withErrorHandling(
       throw new ApiError("VALIDATION_ERROR", "Vincule a um projeto ou envie projectId");
     }
 
-    const taskTitle = content.title.trim() || (content.body.replace(/\s+/g, " ").slice(0, 80) || "Nova tarefa");
-    const taskId = "task-" + genId();
-
-    const { error: taskErr } = await supabase.from("tasks").insert({
-      id: taskId,
-      title: taskTitle,
-      description: content.body || "",
-      status: "todo",
-      priority: "medium",
-      deadline: "",
-      project_id: projectId,
-      assigned_to: content.assignedTo ?? user.id,
-      created_by: user.id,
-      link: "",
-      checked: false,
-    });
-
-    if (taskErr) {
-      console.error("[content.transform-to-task] failed:", taskErr);
-      throw new ApiError("INTERNAL_ERROR", "Falha ao criar tarefa");
+    if (!(await userCanAccessProject(user, projectId))) throw new ApiError("FORBIDDEN", "Sem acesso ao projeto de destino");
+    if (content.assignedTo) {
+      const { data: assignee } = await supabase.from("users").select("id, role").eq("id", content.assignedTo).is("deleted_at", null).maybeSingle();
+      if (!assignee || !(await userCanAccessProject(assignee, projectId))) throw new ApiError("VALIDATION_ERROR", "Responsável sem acesso ao destino");
     }
-
-    await supabase.from("content_items").update({
-      linked_task_id: taskId,
-      linked_project_id: projectId,
-      updated_at: new Date().toISOString(),
-      last_edited_by: user.id,
-    }).eq("id", id);
-
-    return NextResponse.json({ taskId, alreadyLinked: false }, { status: 201 });
+    const { data } = await supabase.rpc("transform_content_task", { p_content_id: id, p_project_id: projectId, p_user_id: user.id });
+    return NextResponse.json(data, { status: data.alreadyLinked ? 200 : 201 });
   }
 );

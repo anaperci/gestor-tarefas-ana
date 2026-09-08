@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PanelRightClose, StickyNote, Trash2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { reportError } from "@/lib/ui-error";
+import { api,sessionKey } from "@/lib/api";
 import type { Note } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -32,6 +33,7 @@ export function NotesColumn({ notes: initialNotes, onMutate, onCollapse }: Notes
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Note | null>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize externally loaded data with the editable local view.
   useEffect(() => { setNotes(initialNotes); }, [initialNotes]);
 
   const handleCreate = async (content: string) => {
@@ -49,10 +51,10 @@ export function NotesColumn({ notes: initialNotes, onMutate, onCollapse }: Notes
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
-    await api.deleteNote(confirmDelete.id);
+    try { await api.deleteNote(confirmDelete.id);
     setNotes((prev) => prev.filter((n) => n.id !== confirmDelete.id));
     setConfirmDelete(null);
-    onMutate();
+    onMutate(); }catch(error){reportError(error);}
   };
 
   return (
@@ -151,11 +153,7 @@ function QuickCapture({ onCreate }: { onCreate: (content: string) => Promise<voi
   const submit = async () => {
     if (!value.trim() || saving) return;
     setSaving(true);
-    await onCreate(value.trim());
-    setValue("");
-    setSaving(false);
-    setFocused(false);
-    ref.current?.blur();
+    try {await onCreate(value.trim());setValue("");setFocused(false);ref.current?.blur();}catch(error){reportError(error);}finally{setSaving(false);}
   };
 
   return (
@@ -227,45 +225,41 @@ function NoteCard({
   onDelete: () => void;
 }) {
   const [draft, setDraft] = useState(note.content);
-  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved">("idle");
+  const [savingState, setSavingState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { setDraft(note.content); }, [note.content]);
-
-  useEffect(() => {
-    if (expanded) {
-      requestAnimationFrame(() => {
-        ref.current?.focus();
-        ref.current?.setSelectionRange(ref.current.value.length, ref.current.value.length);
-      });
-    }
-  }, [expanded]);
-
-  const scheduleSave = (next: string) => {
-    setDraft(next);
-    if (timer.current) clearTimeout(timer.current);
+  const pending = useRef<string|null>(null);
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const saveRef = useRef(onSave);
+  useLayoutEffect(()=>{saveRef.current=onSave;});
+  const draftKey=`clareza-note-draft:${note.userId}:${note.id}`;
+  useEffect(()=>{
+    const raw=localStorage.getItem(draftKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore a persisted draft once, before editing; server refresh cannot replace a dirty draft.
+    if(raw) {try {const recovered=JSON.parse(raw); if(typeof recovered.content==="string") {pending.current=recovered.content;setDraft(recovered.content);}}catch{ /* Malformed optional draft. */ }}
+  },[draftKey]);
+  useEffect(()=>{if(pending.current===null) setDraft(note.content);},[note.content]);
+  const flushRef=useRef<()=>Promise<void>>(async()=>{});
+  const flush=()=>{
+    if(timer.current) clearTimeout(timer.current);
+    const snapshot=pending.current;if(snapshot===null || sessionKey()!==note.userId)return Promise.resolve();
     setSavingState("saving");
-    timer.current = setTimeout(async () => {
-      if (next !== note.content) {
-        await onSave(next);
-        setSavingState("saved");
-        setTimeout(() => setSavingState("idle"), 1200);
-      } else {
-        setSavingState("idle");
-      }
-    }, 800);
+    const next=chain.current.catch(()=>{}).then(()=>{if(sessionKey()!==note.userId)throw new Error("Sessão encerrada; rascunho preservado.");return saveRef.current(snapshot);}).then(()=>{
+      if(pending.current===snapshot){pending.current=null;localStorage.removeItem(draftKey);setSavingState("saved");}
+    }).catch(error=>{setSavingState("error");reportError(error);});
+    chain.current=next;return next;
   };
-
-  const handleBlur = async () => {
-    if (timer.current) clearTimeout(timer.current);
-    if (draft !== note.content) {
-      setSavingState("saving");
-      await onSave(draft);
-      setSavingState("idle");
-    }
-    onCollapse();
+  useLayoutEffect(()=>{flushRef.current=flush;});
+  useEffect(()=>()=>{void flushRef.current();},[]);
+  useEffect(()=>{if(expanded) ref.current?.focus();},[expanded]);
+  const scheduleSave=(next:string)=>{
+    setDraft(next);pending.current=next;
+    localStorage.setItem(draftKey,JSON.stringify({...note,content:next}));
+    if(timer.current) clearTimeout(timer.current);
+    timer.current=setTimeout(()=>void flushRef.current(),800);
   };
+  const handleBlur=async()=>{await flushRef.current();onCollapse();};
 
   const preview = (note.content || "").replace(/<[^>]*>/g, "").trim();
   const title = note.title || preview.slice(0, 40) || "Sem título";

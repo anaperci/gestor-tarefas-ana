@@ -1,6 +1,14 @@
 "use client";
+import Link from "next/link";
+import Image from "next/image";
+import { safeClientHtml } from "@/lib/safe-html-client";
+import { isOverdueDate, todayDate } from "@/lib/dates";
+import { TaskSaveQueue } from "@/lib/task-save-queue";
+import { reportError } from "@/lib/ui-error";
+import { useSWRConfig } from "swr";
 
-import { useState, useEffect, useRef, useMemo, useLayoutEffect, createContext, useContext, useCallback, CSSProperties, ReactNode } from "react";
+
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback, CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { markdownToHtml } from "@/lib/utils";
 import { exportarTarefa } from "@/lib/api";
@@ -9,10 +17,10 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import {
   LogOut, Plus, Search, Settings, User as UserIcon,
-  LayoutGrid, Trash2, KeyRound, Shield, Pencil, Eye,
-  Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon, X,
-  Link2, LayoutDashboard, List, KanbanSquare,
-  ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
+  LayoutGrid, Trash2, Pencil,
+  Inbox, FileText, Repeat, ListChecks, Menu as MenuIcon,
+  Link2, List, KanbanSquare,
+  ChevronRight, PanelLeftClose, PanelLeftOpen,
   Quote, Eraser, Bell, Paperclip, Download,
 } from "lucide-react";
 import { api, ApiRequestError, slackApi } from "@/lib/api";
@@ -34,7 +42,6 @@ import { useKeyboardShortcuts, type Shortcut } from "@/lib/use-keyboard-shortcut
 import type {
   AppNotification,
   AssetLink,
-  ChecklistItem,
   Note,
   Project,
   Role,
@@ -56,7 +63,7 @@ function ClarezaLogo({ height = 28, forceWhite }: { height?: number; forceWhite?
   const src = forceWhite
     ? "/logos/clareza-lockup-cream.svg"
     : "/logos/clareza-lockup-egeu.svg";
-  return <img src={src} alt="Clareza" style={{ height, width: "auto", display: "block" }} />;
+  return <Image src={src} width={140} height={28} unoptimized alt="Clareza" style={{ height, width: "auto", display: "block" }} />;
 }
 
 interface Group {
@@ -143,7 +150,7 @@ interface Theme {
 }
 
 /** Sistema é light-only. `mode` só existe pra compat — qualquer valor vira light. */
-function getTheme(_mode?: unknown): Theme {
+function getTheme(): Theme {
   return {
     bg: "var(--bg)",
     sidebar: "var(--sidebar)",
@@ -330,53 +337,6 @@ function PriorityBadge({ value, onChange, theme, disabled }: PriorityBadgeProps)
   );
 }
 
-// ——— Checklist ———
-interface ChecklistComponentProps {
-  items: ChecklistItem[];
-  onChange: (items: ChecklistItem[]) => void;
-  theme: Theme;
-  disabled?: boolean;
-}
-
-function Checklist({ items, onChange, theme, disabled }: ChecklistComponentProps) {
-  const [newItem, setNewItem] = useState("");
-  const done = items.filter((i) => i.done).length;
-  const pct = items.length ? Math.round((done / items.length) * 100) : 0;
-  const toggle = (id: string) => { if (!disabled) onChange(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i))); };
-  const remove = (id: string) => { if (!disabled) onChange(items.filter((i) => i.id !== id)); };
-  const add = () => { if (!newItem.trim() || disabled) return; onChange([...items, { id: genId(), text: newItem.trim(), done: false }]); setNewItem(""); };
-
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 13, color: theme.textSecondary, fontWeight: 600 }}>Checklist</span>
-        <span style={{ fontSize: 11, color: theme.textMuted }}>{done}/{items.length}</span>
-        <div style={{ flex: 1, height: 4, borderRadius: 4, background: theme.inputBg }}>
-          <div style={{ width: pct + "%", height: "100%", borderRadius: 4, background: "#00C875", transition: "width 0.3s" }} />
-        </div>
-      </div>
-      {items.map((item) => (
-        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${theme.border}` }}>
-          <button onClick={() => toggle(item.id)} style={{
-            width: 18, height: 18, borderRadius: 4, border: `2px solid ${item.done ? "#00C875" : theme.textMuted}`,
-            background: item.done ? "#00C875" : "transparent", cursor: disabled ? "default" : "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0
-          }}>{item.done && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}</button>
-          <span style={{ flex: 1, fontSize: 13, color: item.done ? theme.textMuted : theme.text, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
-          {!disabled && <button onClick={() => remove(item.id)} style={{ background: "none", border: "none", color: theme.textMuted, cursor: "pointer", fontSize: 14, padding: "0 4px", opacity: 0.6 }}>×</button>}
-        </div>
-      ))}
-      {!disabled && (
-        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Adicionar item..."
-            style={{ flex: 1, background: theme.inputBg, border: `1px solid ${theme.inputBorder}`, borderRadius: 6, padding: "6px 10px", color: theme.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-          <button onClick={add} style={{ background: "var(--primary)", border: "none", borderRadius: 6, color: "#fff", padding: "6px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>+</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ——— Admin Panel ———
 interface AdminPanelProps {
   users: User[];
@@ -416,12 +376,12 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
       });
       onUpdateUsers([...users, { ...created }]);
       setFeedback(`Usuário "${created.username}" criado. Informe a senha a ele.`);
-    } catch {}
+    } catch (error) { reportError(error); }
     setNewUser({ username: "", name: "", password: "", role: "editor" });
   };
 
   const resetPassword = async (userId: string, newPwd: string) => {
-    try { await api.resetPassword(userId, newPwd); } catch {}
+    try { await api.resetPassword(userId, newPwd); } catch (error) { reportError(error); }
   };
 
 
@@ -481,7 +441,7 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
         try {
           await api.deleteUser(userId);
           onUpdateUsers(users.filter((u) => u.id !== userId));
-        } catch {}
+        } catch (error) { reportError(error); }
         setConfirm(null);
       },
     });
@@ -497,21 +457,21 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
         const isDefaultRoleAvatar = u.avatar === "👑" || u.avatar === "✏️" || u.avatar === "👁️";
         return { ...u, role: newRole, avatar: isDefaultRoleAvatar ? avatars[newRole] : u.avatar };
       }));
-    } catch {}
+    } catch (error) { reportError(error); }
   };
 
   const changeAvatar = async (userId: string, avatar: string) => {
     try {
       await api.updateAvatar(userId, avatar);
       onUpdateUsers(users.map((u) => u.id === userId ? { ...u, avatar } : u));
-    } catch {}
+    } catch (error) { reportError(error); }
   };
 
   const toggleContentAccess = async (userId: string, next: boolean) => {
     try {
       await api.setUserContentAccess(userId, next);
       onUpdateUsers(users.map((u) => u.id === userId ? { ...u, canAccessContent: next } : u));
-    } catch {}
+    } catch (error) { reportError(error); }
   };
 
   const toggleShare = async (projId: string, userId: string) => {
@@ -522,7 +482,7 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
     try {
       await api.updateShares(projId, newShared);
       onUpdateProjects(projects.map((p) => p.id === projId ? { ...p, sharedWith: newShared } : p));
-    } catch {}
+    } catch (error) { reportError(error); }
   };
 
   const inputStyle: CSSProperties = {
@@ -811,14 +771,14 @@ function TagsManagement({ tags, onUpdate, theme }: { tags: Tag[]; onUpdate: (tag
       await api.updateTag(t.id, { name: draft.name.trim(), color: draft.color });
       onUpdate(tags.map((x) => x.id === t.id ? { ...x, name: draft.name.trim(), color: draft.color } : x));
       setEditingId(null);
-    } catch {}
+    } catch (error) { reportError(error); }
   };
 
   const remove = async (t: Tag) => {
     try {
       await api.deleteTag(t.id);
       onUpdate(tags.filter((x) => x.id !== t.id));
-    } catch {}
+    } catch (error) { reportError(error); }
     setConfirmDeleteId(null);
   };
 
@@ -1012,6 +972,19 @@ function UserRow({ user, currentUser, theme, onResetPassword, onChangeRole, onCh
 }
 
 // ——— Rich Text Editor (Monday.com style) ———
+function EditorToolButton({label,action,title,opts,theme}: {label:ReactNode;action:()=>void;title:string;opts?:{bold?:boolean;italic?:boolean;strike?:boolean};theme:Theme}) { return (
+    <button onClick={action} title={title} type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 13, fontWeight: opts?.bold ? 700 : 600, fontStyle: opts?.italic ? "italic" : "normal", textDecoration: opts?.strike ? "line-through" : "none", fontFamily: "inherit", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = theme.textSecondary; }}>
+      {label}
+    </button>
+  );
+}
+
+
+
 function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMention }: { value: string; onChange: (v: string) => void; theme: Theme; readOnly?: boolean; placeholder?: string; users?: User[]; onMention?: (userId: string) => void }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1031,7 +1004,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
 
   useEffect(() => {
     if (editorRef.current && isInitialMount.current) {
-      editorRef.current.innerHTML = value || "";
+      editorRef.current.innerHTML = safeClientHtml(value || "");
       isInitialMount.current = false;
     }
   }, [value]);
@@ -1084,7 +1057,7 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
 
   const insertMention = (u: User) => {
     editorRef.current?.focus();
-    const first = u.name.split(" ")[0];
+    const first = u.name.split(" ")[0].replace(/[<>&"']/g, "");
     const html = `<span class="rt-mention" data-user-id="${u.id}">@${first}</span>&nbsp;`;
     document.execCommand("insertHTML", false, html);
     setShowMentions(false);
@@ -1097,39 +1070,29 @@ function RichEditor({ value, onChange, theme, readOnly, placeholder, users, onMe
     !mentionQuery || u.name.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
-  const toolBtn = (label: ReactNode, action: () => void, title: string, opts?: { bold?: boolean; italic?: boolean; strike?: boolean }) => (
-    <button onClick={action} title={title} type="button"
-      onMouseDown={(e) => e.preventDefault()}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 4, color: theme.textSecondary, fontSize: 13, fontWeight: opts?.bold ? 700 : 600, fontStyle: opts?.italic ? "italic" : "normal", textDecoration: opts?.strike ? "line-through" : "none", fontFamily: "inherit", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 28, height: 28 }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = theme.surfaceHover; e.currentTarget.style.color = theme.text; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = theme.textSecondary; }}>
-      {label}
-    </button>
-  );
-
   const sep = () => <div style={{ width: 1, height: 18, background: theme.border, margin: "0 3px" }} />;
 
   return (
     <div ref={containerRef} style={{ border: `1px solid ${theme.border}`, borderRadius: 8, overflow: "visible", position: "relative" }}>
       {!readOnly && (
         <div style={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", padding: "6px 10px", borderBottom: `1px solid ${theme.border}`, background: theme.inputBg }}>
-          {toolBtn("B", () => exec("bold"), "Negrito", { bold: true })}
-          {toolBtn("I", () => exec("italic"), "Itálico", { italic: true })}
-          {toolBtn("U", () => exec("underline"), "Sublinhado")}
-          {toolBtn("S", () => exec("strikeThrough"), "Tachado", { strike: true })}
+          <EditorToolButton theme={theme} label={"B"} action={() => exec("bold")} title={"Negrito"} opts={{ bold: true }} />
+          <EditorToolButton theme={theme} label={"I"} action={() => exec("italic")} title={"Itálico"} opts={{ italic: true }} />
+          <EditorToolButton theme={theme} label={"U"} action={() => exec("underline")} title={"Sublinhado"} />
+          <EditorToolButton theme={theme} label={"S"} action={() => exec("strikeThrough")} title={"Tachado"} opts={{ strike: true }} />
           {sep()}
-          {toolBtn("H2", () => exec("formatBlock", "h2"), "Título")}
-          {toolBtn("H3", () => exec("formatBlock", "h3"), "Subtítulo")}
+          <EditorToolButton theme={theme} label={"H2"} action={() => exec("formatBlock", "h2")} title={"Título"} />
+          <EditorToolButton theme={theme} label={"H3"} action={() => exec("formatBlock", "h3")} title={"Subtítulo"} />
           {sep()}
-          {toolBtn(<List size={15} />, () => exec("insertUnorderedList"), "Lista")}
-          {toolBtn(<ListChecks size={15} />, () => exec("insertOrderedList"), "Lista numerada")}
-          {toolBtn(<Quote size={15} />, () => exec("formatBlock", "blockquote"), "Citação")}
+          <EditorToolButton theme={theme} label={<List size={15} />} action={() => exec("insertUnorderedList")} title={"Lista"} />
+          <EditorToolButton theme={theme} label={<ListChecks size={15} />} action={() => exec("insertOrderedList")} title={"Lista numerada"} />
+          <EditorToolButton theme={theme} label={<Quote size={15} />} action={() => exec("formatBlock", "blockquote")} title={"Citação"} />
           {sep()}
-          {toolBtn(<Link2 size={15} />, insertLink, "Inserir link")}
-          {toolBtn("@", toggleMentions, "Mencionar (notifica no sistema)")}
-          {toolBtn("―", () => exec("insertHorizontalRule"), "Divisória (ou digite ---)")}
+          <EditorToolButton theme={theme} label={<Link2 size={15} />} action={insertLink} title={"Inserir link"} />
+          <EditorToolButton theme={theme} label={"@"} action={toggleMentions} title={"Mencionar (notifica no sistema)"} />
+          <EditorToolButton theme={theme} label={"―"} action={() => exec("insertHorizontalRule")} title={"Divisória (ou digite ---)"} />
           {sep()}
-          {toolBtn(<Eraser size={15} />, () => exec("removeFormat"), "Limpar formatação")}
+          <EditorToolButton theme={theme} label={<Eraser size={15} />} action={() => exec("removeFormat")} title={"Limpar formatação"} />
         </div>
       )}
 
@@ -1201,9 +1164,9 @@ function AssetsView({ theme }: { theme: Theme }) {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try { setItems(await api.getAssets()); } catch { /* noop */ } finally { setLoading(false); }
+    try { setItems(await api.getAssets()); } catch(error) {reportError(error);} finally { setLoading(false); }
   }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- The loader applies asynchronous API results; no render-derived state is computed here.
   useEffect(() => { load(); }, [load]);
 
   const add = async () => {
@@ -1308,10 +1271,11 @@ function NotificationBell({ theme, onOpenTask }: { theme: Theme; onOpenTask: (ta
       const r = await api.getNotifications();
       setItems(r.items);
       setUnread(r.unread);
-    } catch { /* silencioso */ }
+    } catch(error) {reportError(error);}
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- The loader applies asynchronous API results; no render-derived state is computed here.
     load();
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
@@ -1326,7 +1290,7 @@ function NotificationBell({ theme, onOpenTask }: { theme: Theme; onOpenTask: (ta
   const markAll = async () => {
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnread(0);
-    try { await api.markNotificationsRead(); } catch { /* noop */ }
+    try { await api.markNotificationsRead(); } catch(error) {reportError(error);}
   };
 
   const openNotif = async (n: AppNotification) => {
@@ -1334,7 +1298,7 @@ function NotificationBell({ theme, onOpenTask }: { theme: Theme; onOpenTask: (ta
     if (!n.read) {
       setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
       setUnread((u) => Math.max(0, u - 1));
-      api.markNotificationsRead([n.id]).catch(() => {});
+      api.markNotificationsRead([n.id]).catch(reportError);
     }
     if (n.taskId) onOpenTask(n.taskId);
   };
@@ -1407,9 +1371,9 @@ function DrawerField({ label, children }: { label: string; children: ReactNode }
 }
 
 function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, canEdit }: TaskDetailProps) {
+  const assignee = users?.find((u) => u.id === task.assignedTo);
   const [newCheckItem, setNewCheckItem] = useState("");
   const checkInputRef = useRef<HTMLInputElement>(null);
-  const assignee = users?.find((u) => u.id === task.assignedTo);
   const project = projects.find((p) => p.id === task.projectId);
   const checkDone = (task.checklist || []).filter((i) => i.done).length;
   const checkTotal = (task.checklist || []).length;
@@ -1485,7 +1449,7 @@ function TaskDetail({ task, projects, users, tags, onUpdate, onClose, theme, can
             readOnly={!canEdit}
             placeholder={canEdit ? "Escreva aqui... Use a barra de ferramentas para formatar" : "Sem descrição"}
             users={users}
-            onMention={(userId) => { api.notifyMention(task.id, userId).catch(() => {}); }}
+            onMention={(userId) => { api.notifyMention(task.id, userId).catch(reportError); }}
           />
 
           {/* Meta: timeline + estimativa + tags */}
@@ -1727,8 +1691,9 @@ function AttachmentsBlock({ taskId, theme }: { taskId: string; theme: Theme }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    try { setItems(await api.getTaskAttachments(taskId)); } catch { /* noop */ } finally { setLoading(false); }
+    try { setItems(await api.getTaskAttachments(taskId)); } catch(error) {reportError(error);} finally { setLoading(false); }
   }, [taskId]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- The loader applies asynchronous API results; no render-derived state is computed here.
   useEffect(() => { load(); }, [load]);
 
   const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1748,7 +1713,7 @@ function AttachmentsBlock({ taskId, theme }: { taskId: string; theme: Theme }) {
   };
 
   const openAtt = async (id: string) => {
-    try { const { url } = await api.getAttachmentUrl(id); window.open(url, "_blank", "noopener"); } catch { /* noop */ }
+    try { const { url } = await api.getAttachmentUrl(id); window.open(url, "_blank", "noopener"); } catch(error) {reportError(error);}
   };
 
   const removeAtt = async (id: string) => {
@@ -1822,7 +1787,7 @@ function TaskComments({ taskId, users, theme, canEdit }: { taskId: string; users
     let active = true;
     api.getTaskComments(taskId)
       .then((c) => { if (active) setComments(c); })
-      .catch(() => {})
+      .catch(reportError)
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [taskId]);
@@ -1835,7 +1800,7 @@ function TaskComments({ taskId, users, theme, canEdit }: { taskId: string; users
       const c = await api.addTaskComment(taskId, text);
       setComments((prev) => [...prev, c]);
       setBody("");
-    } catch { /* noop */ } finally { setSubmitting(false); }
+    } catch(error) {reportError(error);} finally { setSubmitting(false); }
   };
 
   return (
@@ -1990,10 +1955,9 @@ interface TaskRowProps {
 }
 
 function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, theme, canEdit, isExpanded, onToggleExpand, onDelete, groupOptions }: TaskRowProps) {
-  const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
+  const overdue = task.deadline && isOverdueDate(task.deadline, task.status) && task.status !== "done";
   const stDone = (task.subtasks || []).filter((s) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
-  const assignee = users?.find((u) => u.id === task.assignedTo);
 
   return (
     <div onClick={() => onOpen(task)} className="task-row"
@@ -2115,10 +2079,10 @@ function TaskRow({ task, projects, users, tags, onUpdate, onOpen, isSubtask, the
 function MobileTaskCard({ task, projects, users, onUpdate, onOpen, theme, canEdit }: {
   task: Task; projects: Project[]; users: User[]; onUpdate: (t: Task) => void; onOpen: (t: Task) => void; theme: Theme; canEdit: boolean;
 }) {
-  const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
+  const assignee = users?.find((u) => u.id === task.assignedTo);
+  const overdue = task.deadline && isOverdueDate(task.deadline, task.status) && task.status !== "done";
   const stDone = (task.subtasks || []).filter((s) => s.checked).length;
   const stTotal = (task.subtasks || []).length;
-  const assignee = users?.find((u) => u.id === task.assignedTo);
   const project = projects.find((p) => p.id === task.projectId);
   const isHigh = task.priority === "high" || task.priority === "critical";
 
@@ -2178,6 +2142,7 @@ function LinkCell({ task, theme, canEdit, onUpdate }: { task: Task; theme: Theme
   const [value, setValue] = useState(task.link || "");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize externally loaded data with the editable local view.
   useEffect(() => { setValue(task.link || ""); }, [task.link]);
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
 
@@ -2290,6 +2255,9 @@ function GroupHeader({ group, collapsed, onToggle, taskCount, theme, dragHandleP
       cursor: "pointer", userSelect: "none", borderBottom: `1px solid ${theme.border}`,
       borderRadius: "12px 12px 0 0"
     }}>
+      {group.kind === "group" && !group.ungrouped && <a href={`/grupos/${encodeURIComponent(group.id)}`} onClick={e=>e.stopPropagation()} aria-label={`Abrir grupo ${group.name}`} title="Link permanente do grupo" style={{color:group.color}}>↗</a>}
+      {group.kind === "project" && <a href={`/projetos/${encodeURIComponent(group.projectId)}`} onClick={e=>e.stopPropagation()} aria-label={`Abrir projeto ${group.name}`} style={{color:group.color}}>↗</a>}
+      {group.kind === "group" && !group.ungrouped && <button aria-label={`Copiar link do grupo ${group.name}`} onClick={e=>{e.stopPropagation();navigator.clipboard.writeText(`${location.origin}/grupos/${encodeURIComponent(group.id)}`).then(()=>window.dispatchEvent(new CustomEvent("clareza-error",{detail:"Link do grupo copiado"}))).catch(reportError);}}>Copiar link</button>}
       {dragHandleProps && (
         <span {...dragHandleProps} onClick={(e) => e.stopPropagation()} style={{ cursor: "grab", fontSize: 14, color: theme.textMuted, padding: "2px 4px", display: "flex", alignItems: "center", opacity: 0.5 }} title="Arrastar grupo">
           ⠿
@@ -2482,7 +2450,7 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
   }, [myTasks, projects]);
 
   const done = myTasks.filter((t) => t.status === "done").length;
-  const overdue = myTasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length;
+  const overdue = myTasks.filter((t) => t.deadline && isOverdueDate(t.deadline, t.status) && t.status !== "done").length;
   const doing = myTasks.filter((t) => t.status === "doing").length;
 
   return (
@@ -2517,14 +2485,14 @@ function MyTasksTab({ theme, currentUser, tasks, projects, users, tags, canEdit,
       )}
       {myGroups.map((group) => (
         <div key={group.id} style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${theme.border}`, overflow: "hidden", background: theme.surface }}>
-          <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); n.has(group.id) ? n.delete(group.id) : n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
+          <GroupHeader group={group} collapsed={myCollapsed.has(group.id)} onToggle={() => setMyCollapsed((prev) => { const n = new Set(prev); if(n.has(group.id)) n.delete(group.id); else n.add(group.id); return n; })} taskCount={group.tasks.length} theme={theme} />
           {!myCollapsed.has(group.id) && (<>
             <div style={{ display: "grid", gridTemplateColumns: GRID_COLUMNS, padding: "10px 14px", gap: 8, borderBottom: `1px solid ${theme.borderStrong}`, fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase", letterSpacing: 1.2, background: theme.surfaceHover, borderLeft: `4px solid ${group.color}` }}>
               <div></div><div>Tarefa</div><div>Status</div><div>Projeto</div><div>Prazo</div><div>Prioridade</div><div>Pessoa</div><div>Tags</div><div>Link</div><div></div>
             </div>
             {group.tasks.map((task) => (
               <div key={task.id} style={{ borderLeft: `4px solid ${group.color}` }}>
-                <TaskRow task={task} projects={projects} users={users} tags={tags} onUpdate={onUpdateTask} onOpen={onOpenTask} theme={theme} canEdit={canEdit} isExpanded={myExpanded.has(task.id)} onToggleExpand={(id: string) => setMyExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })} />
+                <TaskRow task={task} projects={projects} users={users} tags={tags} onUpdate={onUpdateTask} onOpen={onOpenTask} theme={theme} canEdit={canEdit} isExpanded={myExpanded.has(task.id)} onToggleExpand={(id: string) => setMyExpanded((prev) => { const n = new Set(prev); if(n.has(id)) n.delete(id); else n.add(id); return n; })} />
               </div>
             ))}
           </>)}
@@ -2549,7 +2517,7 @@ function RichTextToolbar({ theme }: { theme: Theme }) {
   return (
     <div style={{ padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
       {btns.map((b) => (
-        <button key={b.cmd} onMouseDown={(e) => { e.preventDefault(); b.cmd === "link" ? insertLink() : exec(b.cmd); }}
+        <button key={b.cmd} onMouseDown={(e) => { e.preventDefault(); if(b.cmd === "link") insertLink(); else exec(b.cmd); }}
           style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, cursor: "pointer", fontSize: 12, fontFamily: "inherit", ...b.s }}>
           {b.label}
         </button>
@@ -2558,7 +2526,7 @@ function RichTextToolbar({ theme }: { theme: Theme }) {
   );
 }
 
-function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
+function NotesTab({ theme, currentUser }: { theme: Theme; currentUser: User }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [searchNotes, setSearchNotes] = useState("");
@@ -2566,36 +2534,51 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const isDirtyRef = useRef(false);
+  const pendingNoteRef = useRef<Note | null>(null);
+  const saveNoteRef = useRef<(note:Note|null)=>Promise<void>>(async()=>{});
+  const noteQueues = useRef(new Map<string,Promise<void>>());
 
-  useEffect(() => { loadNotes(); return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }; }, []);
 
-  const loadNotes = async () => { setLoading(true); try { const data = await api.getNotes(); setNotes(data); } catch {} finally { setLoading(false); } };
+
+  const loadNotes = useCallback(async () => { try { const data = await api.getNotes(); setNotes(data.map(n=>{
+      try {const raw=localStorage.getItem(`clareza-note-draft:${currentUser.id}:${n.id}`);return raw?{...n,...JSON.parse(raw),id:n.id,userId:n.userId}:n;}catch{return n;}
+    })); } catch (error) { reportError(error); } finally { setLoading(false); } }, [currentUser.id]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- The loader applies asynchronous API results; no render-derived state is computed here.
+  useEffect(() => { void loadNotes(); return () => { if(saveTimerRef.current) clearTimeout(saveTimerRef.current); void saveNoteRef.current(pendingNoteRef.current); }; }, [loadNotes]);
 
   const createNote = async () => {
     try {
       const n = await api.createNote({ title: "Nova nota", content: "" });
       setNotes((prev) => [n, ...prev]);
-      setSelectedNote(n);
-    } catch {}
+      setSelectedNote(n); pendingNoteRef.current=n;
+    } catch (error) { reportError(error); }
   };
 
   const saveNote = async (note: Note | null) => {
-    if (!note || !isDirtyRef.current) return;
-    isDirtyRef.current = false;
-    try {
-      const updated = await api.updateNote(note.id, { title: note.title, content: note.content, pinned: note.pinned });
-      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
-    } catch {}
+    if (!note) return;
+    const key=`clareza-note-draft:${currentUser.id}:${note.id}`;
+    const previous=noteQueues.current.get(note.id) ?? Promise.resolve();
+    const save=previous.catch(()=>{}).then(async()=>{
+      const updated=await api.updateNote(note.id,{title:note.title,content:note.content,pinned:note.pinned});
+      setNotes(prev=>prev.map(n=>n.id===updated.id?updated:n));
+      if(pendingNoteRef.current===note) {pendingNoteRef.current=null;isDirtyRef.current=false;localStorage.removeItem(key);}
+    });
+    noteQueues.current.set(note.id,save);
+    try {await save;} catch(error) {reportError(error);}
   };
+  useLayoutEffect(()=>{saveNoteRef.current=saveNote;});
 
   const scheduleAutosave = (note: Note) => {
+    pendingNoteRef.current=note;
+    localStorage.setItem(`clareza-note-draft:${currentUser.id}:${note.id}`,JSON.stringify(note));
     isDirtyRef.current = true;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => saveNote(note), 1500);
   };
 
   const deleteNote = async (id: string) => {
-    try { await api.deleteNote(id); setNotes((prev) => prev.filter((n) => n.id !== id)); } catch {}
+    try { await api.deleteNote(id); setNotes((prev) => prev.filter((n) => n.id !== id)); } catch (error) { reportError(error); }
   };
 
   const togglePin = async (note: Note) => {
@@ -2604,7 +2587,7 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
       const updated = await api.updateNote(note.id, { pinned: newPinned });
       setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
       if (selectedNote?.id === note.id) setSelectedNote({ ...selectedNote, pinned: newPinned });
-    } catch {}
+    } catch (error) { reportError(error); }
   };
 
   const filteredNotes = notes.filter((n) => !searchNotes || n.title.toLowerCase().includes(searchNotes.toLowerCase()) || (n.content || "").replace(/<[^>]*>/g, "").toLowerCase().includes(searchNotes.toLowerCase()));
@@ -2623,9 +2606,9 @@ function NotesTab({ theme }: { theme: Theme; currentUser: User }) {
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#E2445C" }}>🗑️</button>
         </div>
         <RichTextToolbar theme={theme} />
-        <div ref={editorRef} contentEditable suppressContentEditableWarning
+        <div contentEditable suppressContentEditableWarning
           onInput={() => { if (editorRef.current) { const u = { ...selectedNote, content: editorRef.current.innerHTML }; setSelectedNote(u); scheduleAutosave(u); } }}
-          dangerouslySetInnerHTML={{ __html: selectedNote.content }}
+          ref={(el)=>{editorRef.current=el;if(el && el.dataset.noteId!==selectedNote.id){el.innerHTML=safeClientHtml(selectedNote.content);el.dataset.noteId=selectedNote.id;}}}
           style={{ padding: "20px 24px", flex: 1, outline: "none", color: theme.text, fontSize: 14, lineHeight: 1.8, fontFamily: "inherit", overflowY: "auto", minHeight: 200 }}
         />
       </div>
@@ -2722,17 +2705,21 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
   const [editDays, setEditDays] = useState<number[]>(ALL_DAYS);
   const [routineView, setRoutineView] = useState<"hoje" | "semana">("hoje");
 
-  const today = new Date().toLocaleDateString("en-CA");
+  const today = todayDate();
   const todayDow = new Date().getDay();
   const todayFormatted = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
-  useEffect(() => { loadRoutines(); loadHistory(); }, []);
 
-  const loadRoutines = async () => { setLoading(true); try { const data = await api.getRoutines(today); setItems(data.items); setChecks(data.checks); } catch {} finally { setLoading(false); } };
-  const loadHistory = async () => { try { const data = await api.getRoutineHistory(7); setHistory(data.history); } catch {} };
+
+  async function loadHistory() { try { const data = await api.getRoutineHistory(7); setHistory(data.history); } catch (error) { reportError(error); } };
 
   const isChecked = (itemId: string) => checks.some((c) => c.routineItemId === itemId);
   const daysOf = (item: RoutineItem) => (item.days && item.days.length ? item.days : ALL_DAYS);
+
+  useEffect(() => {
+    api.getRoutines(today).then(data=>{setItems(data.items);setChecks(data.checks);}).catch(reportError).finally(()=>setLoading(false));
+    api.getRoutineHistory(7).then(data=>setHistory(data.history)).catch(reportError);
+  },[today]);
 
   const toggleCheck = async (itemId: string) => {
     const wasChecked = isChecked(itemId);
@@ -2747,11 +2734,11 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
 
   const addItem = async () => {
     if (!newTitle.trim()) return;
-    try { const created = await api.createRoutineItem({ title: newTitle.trim(), days: newDays }); setItems([...items, created]); setNewTitle(""); setNewDays(ALL_DAYS); loadHistory(); } catch {}
+    try { const created = await api.createRoutineItem({ title: newTitle.trim(), days: newDays }); setItems([...items, created]); setNewTitle(""); setNewDays(ALL_DAYS); loadHistory(); } catch (error) { reportError(error); }
   };
 
   const deleteItem = async (id: string) => {
-    try { await api.deleteRoutineItem(id); setItems(items.filter((i) => i.id !== id)); setChecks(checks.filter((c) => c.routineItemId !== id)); loadHistory(); } catch {}
+    try { await api.deleteRoutineItem(id); setItems(items.filter((i) => i.id !== id)); setChecks(checks.filter((c) => c.routineItemId !== id)); loadHistory(); } catch (error) { reportError(error); }
   };
 
   const startEdit = (item: RoutineItem) => { setEditingId(item.id); setEditTitle(item.title); setEditDays(daysOf(item)); };
@@ -2759,7 +2746,7 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
 
   const saveEdit = async (id: string) => {
     if (!editTitle.trim()) { setEditingId(null); return; }
-    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim(), days: editDays }); setItems(items.map((i) => (i.id === updated.id ? updated : i))); } catch {}
+    try { const updated = await api.updateRoutineItem(id, { title: editTitle.trim(), days: editDays }); setItems(items.map((i) => (i.id === updated.id ? updated : i))); } catch (error) { reportError(error); }
     setEditingId(null);
   };
 
@@ -2927,21 +2914,6 @@ function RoutineTab({ theme }: { theme: Theme; currentUser: User }) {
   );
 }
 
-interface PersonalAreaProps {
-  theme: Theme;
-  currentUser: User;
-  tasks: Task[];
-  projects: Project[];
-  users: User[];
-  tags: Tag[];
-  personalTab: "minhas-tarefas" | "transcricoes" | "agenda";
-  onTabChange: (tab: "minhas-tarefas" | "transcricoes" | "agenda") => void;
-  canEdit: boolean;
-  onOpenTask: (task: Task) => void;
-  onUpdateTask: (task: Task) => void;
-}
-
-// ——— Transcrições de reuniões (upload/colar + resumo GPT) ———
 function TranscriptionsTab({ theme }: { theme: Theme }) {
   const [items, setItems] = useState<Transcription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2954,9 +2926,9 @@ function TranscriptionsTab({ theme }: { theme: Theme }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try { setItems(await api.getTranscriptions()); } catch { /* noop */ } finally { setLoading(false); }
+    try { setItems(await api.getTranscriptions()); } catch(error) {reportError(error);} finally { setLoading(false); }
   }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- The loader applies asynchronous API results; no render-derived state is computed here.
   useEffect(() => { load(); }, [load]);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3088,6 +3060,7 @@ function AgendaTab({ theme, currentUser }: { theme: Theme; currentUser: User }) 
 
   useEffect(() => {
     const v = localStorage.getItem(storageKey) || "";
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize externally loaded data with the editable local view.
     setSaved(v); setDraft(v); setEditing(!v);
   }, [storageKey]);
 
@@ -3099,7 +3072,8 @@ function AgendaTab({ theme, currentUser }: { theme: Theme; currentUser: User }) 
   const src = srcFrom(saved);
 
   const save = () => {
-    const clean = draft.trim();
+    const clean = srcFrom(draft);
+    try { const url=new URL(clean); if(url.origin!=="https://calendar.google.com" || !url.pathname.startsWith("/calendar/embed")) throw new Error(); } catch {reportError(new Error("Use o link de incorporação do Google Calendar."));return;}
     localStorage.setItem(storageKey, clean);
     setSaved(clean); setEditing(false);
   };
@@ -3142,37 +3116,21 @@ function AgendaTab({ theme, currentUser }: { theme: Theme; currentUser: User }) 
   );
 }
 
-function PersonalArea({ theme, currentUser, tasks, projects, users, tags, personalTab, onTabChange, canEdit, onOpenTask, onUpdateTask }: PersonalAreaProps) {
-  const tabs: { key: PersonalAreaProps["personalTab"]; label: string }[] = [
-    { key: "minhas-tarefas", label: "Tarefas" },
-    { key: "transcricoes", label: "Transcrições" },
-  ];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${theme.border}` }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, margin: 0 }}>Minha Área</h1>
-        <p style={{ fontSize: 13, color: theme.textMuted, marginTop: 2 }}>{currentUser.name}</p>
-      </div>
-      <div style={{ display: "flex", gap: 0, padding: "0 24px", borderBottom: `1px solid ${theme.border}` }}>
-        {tabs.map((t) => (
-          <button key={t.key} onClick={() => onTabChange(t.key)}
-            style={{ padding: "12px 20px", border: "none", borderBottom: personalTab === t.key ? "2px solid var(--primary)" : "2px solid transparent", background: "transparent", color: personalTab === t.key ? "var(--primary)" : theme.textSecondary, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", marginBottom: -1 }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {personalTab === "minhas-tarefas" && <MyTasksTab theme={theme} currentUser={currentUser} tasks={tasks} projects={projects} users={users} tags={tags} canEdit={canEdit} onOpenTask={onOpenTask} onUpdateTask={onUpdateTask} />}
-        {personalTab === "transcricoes" && <TranscriptionsTab theme={theme} />}
-      </div>
-    </div>
-  );
-}
-
 // ——— Main App ———
-export default function TaskManager() {
+export default function TaskManager({ initialGroupId, initialProjectId }: { initialGroupId?: string; initialProjectId?: string } = {}) {
+  const { cache, mutate: mutateCache } = useSWRConfig();
+  const saveQueue = useRef(new TaskSaveQueue(api.updateTask));
+  const tasksRef = useRef<Task[]>([]);
+  const failedDrafts = useRef(new Map<string,Task>());
+  const [failedCount, setFailedCount] = useState(0);
+  const routeOpened=useRef(false);
+  const sessionGeneration=useRef(0);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(initialGroupId ?? null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
   // Sistema é light-only — sem mode toggle
-  const theme = useMemo(() => getTheme("light"), []);
+  const theme = useMemo(() => getTheme(), []);
   const isMobile = useIsMobile();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -3184,6 +3142,7 @@ export default function TaskManager() {
   const [activeWorkspace, setActiveWorkspace] = useState("all");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeProject, setActiveProject] = useState("all");
+  const selectProject=(id:string)=>{setActiveGroupId(null);setActiveProject(id);if(typeof window!=="undefined") window.history.replaceState(null,"","/");};
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
@@ -3197,12 +3156,13 @@ export default function TaskManager() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [activeView, setActiveView] = useState<"tasks" | "personal" | "my-tasks" | "content" | "notes" | "routine" | "assets" | "transcricoes">("personal");
-  const [personalTab, setPersonalTab] = useState<"minhas-tarefas" | "transcricoes" | "agenda">("minhas-tarefas");
+  const [activeView, setActiveView] = useState<"tasks" | "personal" | "my-tasks" | "content" | "notes" | "routine" | "assets" | "transcricoes" | "agenda">("personal");
   const [groupOrder, setGroupOrder] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("nexia-group-order");
-      return saved ? JSON.parse(saved) : [];
+      try {
+        const saved=JSON.parse(localStorage.getItem("nexia-group-order") || "[]");
+        return Array.isArray(saved) ? saved.filter(x=>typeof x === "string") : [];
+      } catch { return []; }
     }
     return [];
   });
@@ -3247,6 +3207,7 @@ export default function TaskManager() {
     if (!proj) return false;
     if (activeWorkspace !== "all" && proj.workspaceId !== activeWorkspace) return false;
     if (activeProject !== "all" && t.projectId !== activeProject) return false;
+    if (activeGroupId && t.groupId !== activeGroupId) return false;
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -3254,8 +3215,8 @@ export default function TaskManager() {
 
   /** Grupos do projeto aberto, na ordem salva. */
   const activeProjectGroups = useMemo(
-    () => taskGroups.filter((g) => g.projectId === activeProject).sort((a, b) => a.position - b.position),
-    [taskGroups, activeProject]
+    () => taskGroups.filter((g) => g.projectId === activeProject && (!activeGroupId || g.id===activeGroupId)).sort((a, b) => a.position - b.position),
+    [taskGroups, activeProject, activeGroupId]
   );
 
   const groups: Group[] = useMemo(() => {
@@ -3357,6 +3318,7 @@ export default function TaskManager() {
   };
 
   const loadData = useCallback(async () => {
+    const generation=sessionGeneration.current;
     try {
       const [u, p, t, tg, ws, grp] = await Promise.all([
         api.getUsers(),
@@ -3366,14 +3328,47 @@ export default function TaskManager() {
         api.getWorkspaces(),
         api.getTaskGroups(),
       ]);
+      if(generation!==sessionGeneration.current || saveQueue.current.busy) return;
       setUsers(u);
       setProjects(p.map((x) => ({ ...x, sharedWith: x.sharedWith || [] })));
-      setTasks(t);
+      const recovered=t.map(task=>{
+        try {const raw=localStorage.getItem(`clareza-task-draft:${currentUser?.id}:${task.id}`);if(raw){const draft={...task,...JSON.parse(raw),id:task.id,projectId:task.projectId};failedDrafts.current.set(task.id,draft);return draft;}}catch{ /* Optional draft may be malformed. */ }
+        return task;
+      });
+      setFailedCount(failedDrafts.current.size);
+      tasksRef.current=recovered;
+      setTasks(recovered);
+      setDataLoaded(true);
       setTags(tg);
       setWorkspaces(ws);
       setTaskGroups(grp);
     } catch { showToast("Erro ao carregar dados"); }
-  }, []);
+  }, [showToast,currentUser]);
+
+  useEffect(() => {
+    const onError = (event: Event) => showToast((event as CustomEvent<string>).detail);
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => { clearTimeout(timer); timer=setTimeout(()=>{
+      if (saveQueue.current.busy || failedDrafts.current.size) return;
+      if (currentUser) { void loadData(); void mutateCache(()=>true, undefined, {revalidate:true}); }
+    },700); };
+    window.addEventListener("clareza-error", onError);
+    window.addEventListener("clareza-data-changed", refresh);
+    return ()=>{clearTimeout(timer);window.removeEventListener("clareza-error",onError);window.removeEventListener("clareza-data-changed",refresh);};
+  },[currentUser,loadData,mutateCache,showToast]);
+
+  useEffect(() => {
+    if (routeOpened.current || !dataLoaded || (!initialGroupId && !initialProjectId)) return;
+    routeOpened.current=true;
+    const group=initialGroupId ? taskGroups.find(g=>g.id===initialGroupId) : null;
+    const project=projects.find(p=>p.id===(group?.projectId ?? initialProjectId));
+    const open=()=>{
+      if (!project || (initialGroupId && !group)) { setLinkError("Grupo ou projeto não encontrado, excluído ou sem permissão de acesso."); return; }
+      setActiveWorkspace(project.workspaceId ?? "all"); setActiveProject(project.id); setActiveView("tasks");
+      if(group) { setActiveGroupId(group.id); setCollapsedGroups(prev=>new Set([...prev].filter(id=>id!==group.id))); }
+    };
+    open();
+  },[dataLoaded,initialGroupId,initialProjectId,projects,taskGroups]);
 
   // Auto-login from saved token.
   // Só descarta a sessão se o servidor disser que o token não presta (401/403).
@@ -3387,11 +3382,11 @@ export default function TaskManager() {
 
     const tentar = () => {
       api.me()
-        .then((u) => { if (!cancelado) setCurrentUser(u); })
+        .then((u) => { if (!cancelado) {localStorage.removeItem("taskhub-token");localStorage.setItem("clareza-session-id",u.id);setCurrentUser(u);} })
         .catch((err) => {
           if (cancelado) return;
           const status = err instanceof ApiRequestError ? err.status : 0;
-          if (status === 401 || status === 403) { api.logout(); return; }
+          if (status === 401 || status === 403) { localStorage.removeItem("clareza-session-id");localStorage.removeItem("taskhub-token");return; }
           tentativa += 1;
           if (tentativa <= 6) setTimeout(tentar, Math.min(1000 * 2 ** tentativa, 15_000));
         });
@@ -3400,6 +3395,7 @@ export default function TaskManager() {
     return () => { cancelado = true; };
   }, [currentUser]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- The loader applies asynchronous API results; no render-derived state is computed here.
   useEffect(() => { if (currentUser) loadData(); }, [currentUser, loadData]);
 
   // URL por tarefa: /?tarefa=<id> abre o painel direto.
@@ -3415,9 +3411,10 @@ export default function TaskManager() {
     if (linkResolvidoRef.current || !alvoDoLink || !tasks.length) return;
     const t = tasks.find((x) => x.id === alvoDoLink);
     linkResolvidoRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Resolve the initial URL target once after authorized tasks arrive.
     if (t) setDetailTask(t);
     else showToast("Tarefa do link não encontrada (pode ter sido excluída)");
-  }, [tasks, alvoDoLink]);
+  }, [tasks, alvoDoLink, showToast]);
 
   // Mantém a barra de endereço em dia pra copiar/compartilhar. Só age depois
   // que o link inicial foi resolvido, senão apagaria o parâmetro antes da hora.
@@ -3432,32 +3429,46 @@ export default function TaskManager() {
 
   const updateTask = async (updated: Task) => {
     if (!canEdit) return;
-    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-    if (detailTask && detailTask.id === updated.id) setDetailTask(updated);
-    // Título vazio = usuário apagou pra reescrever. Mantém na tela e espera
-    // ele terminar; a API rejeitaria com 400 a cada tecla.
-    if (!updated.title.trim()) return;
+    const generation=sessionGeneration.current;
+    const before=tasksRef.current.find(t=>t.id===updated.id);
+    if (!before) { showToast("Atualize a lista antes de editar esta tarefa"); return; }
+    if (updated.status !== before.status) updated={...updated,checked:updated.status==="done"};
+    else if(updated.checked !== before.checked) updated={...updated,status:updated.checked?"done":"todo"};
+    if(updated.projectId!==before.projectId) updated={...updated,groupId:null};
+    tasksRef.current=tasksRef.current.map(t=>t.id===updated.id?updated:t);
+    setTasks(tasksRef.current);
+    setDetailTask(prev=>prev?.id===updated.id?updated:prev);
+    if(!updated.title.trim()) return;
+    const draftKey=`clareza-task-draft:${currentUser!.id}:${updated.id}`;
+    localStorage.setItem(draftKey,JSON.stringify(updated));
     try {
-      await api.updateTask(updated.id, {
-        title: updated.title,
-        description: updated.description,
-        status: updated.status,
-        priority: updated.priority,
-        deadline: updated.deadline,
-        startDate: updated.startDate,
-        estimateHours: updated.estimateHours,
-        tagIds: updated.tagIds,
-        projectId: updated.projectId,
-        groupId: updated.groupId,
-        assignedTo: updated.assignedTo,
-        link: updated.link,
-        checked: updated.checked,
-        checklist: updated.checklist,
-        subtasks: updated.subtasks,
-      });
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Erro ao salvar tarefa");
+      const saved=await saveQueue.current.enqueue(before,updated);
+      if(generation!==sessionGeneration.current) return;
+      if(JSON.stringify(tasksRef.current.find(t=>t.id===updated.id))===JSON.stringify(updated)) {
+        tasksRef.current=tasksRef.current.map(t=>t.id===saved.id?saved:t); setTasks(tasksRef.current);
+        setDetailTask(prev=>prev?.id===saved.id?saved:prev);
+        localStorage.removeItem(draftKey);
+      }
+    } catch(error) {
+      if(generation!==sessionGeneration.current) return;
+      failedDrafts.current.set(updated.id,tasksRef.current.find(t=>t.id===updated.id) ?? updated);
+      setFailedCount(failedDrafts.current.size);
+      showToast(error instanceof Error?error.message:"Falha ao salvar; seu rascunho foi preservado.");
     }
+  };
+  const retryDrafts = async () => {
+    const fresh=await api.getTasks();
+    for(const [id,draft] of failedDrafts.current) {
+      const remote=fresh.find(t=>t.id===id); if(!remote) continue;
+      saveQueue.current.reset(id);
+      try {
+        const saved=await saveQueue.current.enqueue(remote,draft);
+        failedDrafts.current.delete(id);localStorage.removeItem(`clareza-task-draft:${currentUser!.id}:${id}`);
+        tasksRef.current=tasksRef.current.map(t=>t.id===id?saved:t);setTasks(tasksRef.current);
+        setDetailTask(prev=>prev?.id===id?saved:prev);
+      } catch(error) {reportError(error);}
+    }
+    setFailedCount(failedDrafts.current.size);
   };
 
   const deleteTask = (task: Task) => {
@@ -3487,7 +3498,7 @@ export default function TaskManager() {
     if (!projectId) { showToast("Nenhum projeto disponível. Peça ao admin para compartilhar um projeto com você."); return; }
     try {
       const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
-      setTasks((prev) => [nt, ...prev]);
+      setTasks((prev) => { tasksRef.current=[nt,...prev]; return tasksRef.current; });
       setDetailTask(nt);
     } catch { showToast("Erro ao criar tarefa"); }
   };
@@ -3496,7 +3507,7 @@ export default function TaskManager() {
     if (!canEdit || !currentUser) return;
     try {
       const nt = await api.createTask({ title, status: "todo", priority: "medium", projectId, groupId, assignedTo: currentUser.id });
-      setTasks((prev) => [...prev, nt]);
+      setTasks((prev) => { tasksRef.current=[...prev,nt];return tasksRef.current; });
     } catch { showToast("Erro ao criar tarefa"); }
   };
 
@@ -3505,7 +3516,7 @@ export default function TaskManager() {
     if (!canEdit || !currentUser) return;
     try {
       const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, groupId, assignedTo: currentUser.id });
-      setTasks((prev) => [nt, ...prev]);
+      setTasks((prev) => { tasksRef.current=[nt,...prev]; return tasksRef.current; });
       // Garante que o grupo correspondente fica expandido
       setCollapsedGroups((prev) => {
         const next = new Set(prev);
@@ -3613,7 +3624,7 @@ export default function TaskManager() {
           await api.deleteProject(projId);
           setProjects((prev) => prev.filter((p) => p.id !== projId));
           setTasks((prev) => prev.filter((t) => t.projectId !== projId));
-          if (activeProject === projId) setActiveProject("all");
+          if (activeProject === projId) selectProject("all");
           showToast(`Projeto "${proj?.name}" apagado`, "success");
         } catch { showToast("Erro ao apagar projeto"); }
         setConfirm(null);
@@ -3624,12 +3635,12 @@ export default function TaskManager() {
   const counts: Record<string, number> = { all: filteredTasks.length };
   visibleProjects.forEach((p) => { counts[p.id] = tasks.filter((t) => t.projectId === p.id).length; });
   const activeProj = projects.find((p) => p.id === activeProject);
-  const activeWs = workspaces.find((w) => w.id === activeWorkspace);
 
   // Título da página exibido na barra superior (views simples; tasks/content têm header próprio)
   const pageTitle =
     activeView === "personal" ? "Minha Área" :
     activeView === "my-tasks" ? "Minhas tarefas" :
+    activeView === "agenda" ? "Agenda" :
     activeView === "notes" ? "Anotações" :
     activeView === "routine" ? "Rotina" :
     activeView === "transcricoes" ? "Transcrições" :
@@ -3640,20 +3651,22 @@ export default function TaskManager() {
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    api.logout();
-    setUsers([]);
-    setProjects([]);
-    setTasks([]);
+  const handleLogout = async () => {
+    try { await api.logout(); } catch(error) {reportError(error);return;}
+    saveQueue.current.cancel();sessionGeneration.current++;routeOpened.current=false;setLinkError(null);
+    for(const key of cache.keys()) cache.delete(key);
+    setCurrentUser(null); setDetailTask(null);setUsers([]);setProjects([]);setTasks([]);tasksRef.current=[];
+    setTags([]);setTaskGroups([]);setWorkspaces([]);setActiveWorkspace("all");selectProject("all");setActiveView("personal");
+    setProfileOpen(false);setShowAdmin(false);setDataLoaded(false);failedDrafts.current.clear();setFailedCount(0);
+    saveQueue.current=new TaskSaveQueue(api.updateTask);
   };
 
-  const shortcuts: Shortcut[] = useMemo(() => [
-    { combo: "n", description: "Nova tarefa", handler: (e) => { e.preventDefault(); if (canEdit) addTask(); } },
-    { combo: "/", description: "Focar busca", handler: (e) => { e.preventDefault(); searchRef.current?.focus(); } },
-    { combo: "shift+/", description: "Mostrar atalhos", handler: (e) => { e.preventDefault(); setShortcutsOpen(true); } },
-    { combo: "Escape", description: "Fechar modais", handler: () => { setShortcutsOpen(false); setSidebarOpen(false); setDetailTask(null); }, allowInInputs: true },
-  ], [canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shortcuts: Shortcut[] = [
+    { combo: "n", description: "Nova tarefa", handler: (e) => { if(activeView!=="tasks" && activeView!=="my-tasks") return; e.preventDefault(); if(canEdit) void addTask(); } },
+    { combo: "/", description: "Focar busca", handler: (e) => { if(activeView!=="content") {e.preventDefault();searchRef.current?.focus();} } },
+    { combo: "shift+?", description: "Mostrar atalhos", handler: (e) => {e.preventDefault();setShortcutsOpen(true);} },
+    { combo: "Escape", description: "Fechar modais", handler: ()=>{setShortcutsOpen(false);setSidebarOpen(false);setDetailTask(null);},allowInInputs:true },
+  ];
 
   useKeyboardShortcuts(shortcuts, !!currentUser);
 
@@ -3729,7 +3742,7 @@ export default function TaskManager() {
             <button onClick={() => setActiveView("assets")} title="Assets" aria-label="Assets" style={railBtnStyle(activeView === "assets")}><Link2 size={18} /></button>
             {workspaces.length > 0 && <div style={{ width: 24, height: 1, background: "var(--sidebar-border)", margin: "6px 0" }} />}
             {workspaces.map((ws) => (
-              <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject("all"); }} title={ws.name} aria-label={ws.name} style={railBtnStyle(activeWorkspace === ws.id)}>
+              <button key={ws.id} onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); selectProject("all"); }} title={ws.name} aria-label={ws.name} style={railBtnStyle(activeWorkspace === ws.id)}>
                 <span style={{ width: 12, height: 12, borderRadius: "50%", background: ws.color }} />
               </button>
             ))}
@@ -3784,6 +3797,7 @@ export default function TaskManager() {
             </button>
           )}
 
+          <button className="sidebar-item" onClick={() => setActiveView("agenda")} style={{padding:"10px 12px",background:"transparent",border:0,color:"var(--sidebar-text-secondary)",cursor:"pointer",textAlign:"left"}}>Agenda</button>
           <button className="sidebar-item" onClick={() => { setActiveView("assets"); }}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 6, fontSize: 14, fontWeight: 600, background: activeView === "assets" ? "var(--sidebar-active-bg)" : "transparent", color: activeView === "assets" ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", width: "100%", border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
             <Link2 size={16} aria-hidden /><span style={{ flex: 1 }}>Assets</span>
@@ -3798,7 +3812,7 @@ export default function TaskManager() {
                 const isOpen = expandedWs.has(ws.id);
                 return (
                   <div key={ws.id}>
-                    <button onClick={() => setExpandedWs((prev) => { const n = new Set(prev); n.has(ws.id) ? n.delete(ws.id) : n.add(ws.id); return n; })}
+                    <button onClick={() => setExpandedWs((prev) => { const n = new Set(prev); if(n.has(ws.id)) n.delete(ws.id); else n.add(ws.id); return n; })}
                       className="sidebar-item"
                       style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", textAlign: "left", padding: "9px 10px", borderRadius: 8, marginBottom: 2, fontSize: 14, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", background: "transparent", color: "var(--sidebar-text-secondary)" }}>
                       <ChevronRight size={14} aria-hidden style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0, color: "var(--sidebar-text-muted)" }} />
@@ -3810,7 +3824,7 @@ export default function TaskManager() {
                       <div style={{ marginLeft: 9, paddingLeft: 8, borderLeft: `1px solid var(--sidebar-border)`, marginBottom: 4 }}>
                         {wsProjects.map((proj) => (
                           <div key={proj.id} className="sidebar-item" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, marginBottom: 2, fontSize: 13, fontWeight: 500, background: (activeView === "tasks" && activeProject === proj.id) ? "var(--sidebar-active-bg)" : "transparent", color: (activeView === "tasks" && activeProject === proj.id) ? "var(--sidebar-active-text)" : "var(--sidebar-text-secondary)", cursor: "pointer", position: "relative" }}
-                            onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); setActiveProject(proj.id); }}>
+                            onClick={() => { setActiveWorkspace(ws.id); setActiveView("tasks"); selectProject(proj.id); }}>
                             <span style={{ width: 8, height: 8, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
                             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.name}</span>
                             <span className="proj-count" style={{ fontSize: 11, color: "var(--sidebar-text-muted)", background: "var(--sidebar-input-bg)", padding: "1px 7px", borderRadius: 10, transition: "opacity 0.15s" }}>{counts[proj.id] || 0}</span>
@@ -3851,7 +3865,7 @@ export default function TaskManager() {
           <div style={{ padding: "6px 12px", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--sidebar-text-muted)" }}>
             <span>Total: <b style={{ color: "var(--sidebar-text)" }}>{filteredTasks.length}</b></span>
             <span style={{ color: "#7CFFB4" }}>✓ {tasks.filter((t) => t.status === "done").length}</span>
-            <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done").length}</span>
+            <span style={{ color: "#E2445C" }}>⚠ {tasks.filter((t) => t.deadline && isOverdueDate(t.deadline, t.status) && t.status !== "done").length}</span>
           </div>
         </div>
         </>
@@ -3860,6 +3874,9 @@ export default function TaskManager() {
 
       {/* Main */}
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--surface)" }}>
+        {linkError && <div role="alert" style={{padding:16}}>{linkError} <Link href="/">Voltar ao início</Link></div>}
+        {activeGroupId && <div style={{padding:"8px 24px"}}>Grupo aberto por link · <a href={`/projetos/${encodeURIComponent(activeProject)}`}>Ver todo o projeto</a></div>}
+        {failedCount>0 && <div role="alert" style={{padding:12,background:"#fff0d0",color:"#603b00"}}>Há {failedCount} tarefa(s) com alterações não salvas. <button onClick={()=>{if(window.confirm("Aplicar seus rascunhos sobre a versão atual do servidor?")) void retryDrafts().catch(reportError);}}>Revisar e tentar novamente</button></div>}
         {/* Top bar — dados do usuário no canto superior direito (todas as views) */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 24px", borderBottom: `1px solid ${theme.border}`, background: "var(--surface)", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -4022,7 +4039,7 @@ export default function TaskManager() {
             onQuickAdd={(projectId, status) => {
               if (!currentUser) return;
               api.createTask({ title: "Nova tarefa", status, priority: "medium", projectId, assignedTo: currentUser.id })
-                .then((nt) => { setTasks((prev) => [nt, ...prev]); setDetailTask(nt); })
+                .then((nt) => { setTasks((prev) => { tasksRef.current=[nt,...prev]; return tasksRef.current; }); setDetailTask(nt); })
                 .catch(() => showToast("Erro ao criar tarefa"));
             }}
           />
@@ -4134,6 +4151,7 @@ export default function TaskManager() {
               projects={visibleProjects}
             />
           </div>
+        ) : activeView === "agenda" ? (<AgendaTab theme={theme} currentUser={currentUser} />
         ) : activeView === "assets" ? (
           <div key="view-assets" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <AssetsView theme={theme} />
@@ -4170,8 +4188,8 @@ export default function TaskManager() {
                 isAdmin={isAdmin}
                 defaultProjectId={visibleProjects[0]?.id ?? null}
                 onOpenTask={(t) => setDetailTask(t)}
-                onOpenProject={(projId) => { setActiveView("tasks"); setActiveProject(projId); }}
-                onSeeAllProjects={() => { setActiveView("tasks"); setActiveProject("all"); }}
+                onOpenProject={(projId) => { setActiveView("tasks"); selectProject(projId); }}
+                onSeeAllProjects={() => { setActiveView("tasks"); selectProject("all"); }}
                 onNewProject={isAdmin ? () => { setActiveView("tasks"); setShowNewProject(true); } : undefined}
               />
             </div>
@@ -4180,8 +4198,8 @@ export default function TaskManager() {
       </div>
 
       {detailTask && (
-        <TaskDetail task={detailTask} projects={visibleProjects} users={users} tags={tags}
-          onUpdate={(u: Task) => { updateTask(u); setDetailTask(u); }}
+        <TaskDetail key={detailTask.id} task={detailTask} projects={visibleProjects} users={users} tags={tags}
+          onUpdate={(u: Task) => { void updateTask(u); }}
           onClose={() => setDetailTask(null)} theme={theme} canEdit={canEdit} />
       )}
 
@@ -4235,7 +4253,7 @@ export default function TaskManager() {
       <VoiceCapture
         projects={visibleProjects}
         currentUser={currentUser}
-        onCreated={() => { api.getTasks().then(setTasks).catch(() => {}); }}
+        onCreated={() => { loadData().catch(reportError); }}
         onToast={showToast}
       />
     </div>

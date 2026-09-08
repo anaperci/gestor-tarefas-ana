@@ -1,0 +1,13 @@
+{
+  "scope": "Production UI with fake API; no real data",
+  "findings": [
+    "B01: stored HTML event handler executes in actual task editor",
+    "B02: microphone denied by effective document policy",
+    "B03: leaving notes before 1500ms cancels save and loses edit",
+    "B04: N opens quick task but also falsely reports no projects (stale global handler)",
+    "B05: malformed saved group order crashes app during render"
+  ],
+  "errors": [
+    "Expected property name or '}' in JSON at position 1 (line 1 column 2)"
+  ]
+}

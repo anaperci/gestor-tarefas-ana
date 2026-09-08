@@ -1,6 +1,8 @@
+import { allRows } from "./collections";
 import { supabase } from "./supabase";
 
 export interface TaskRow {
+  completed_at?: string | null;
   id: string;
   title: string;
   description: string;
@@ -123,20 +125,16 @@ export async function enrichTask(task: TaskRow): Promise<EnrichedTask> {
 export async function enrichTasksBatch(tasks: TaskRow[]): Promise<EnrichedTask[]> {
   if (tasks.length === 0) return [];
 
-  const taskIds = tasks.map((t) => t.id);
-
-  const [{ data: allChecklist }, { data: allSubtasks }] = await Promise.all([
-    supabase
-      .from("checklist_items")
-      .select("id, text, done, task_id, sort_order")
-      .in("task_id", taskIds)
-      .order("sort_order"),
-    supabase
-      .from("subtasks")
-      .select("id, title, status, checked, task_id, sort_order")
-      .in("task_id", taskIds)
-      .order("sort_order"),
-  ]);
+  const allChecklist:ChecklistItemRow[]=[];
+  const allSubtasks:SubtaskRow[]=[];
+  for(let start=0;start<tasks.length;start+=150) {
+    const ids=tasks.slice(start,start+150).map(t=>t.id);
+    const [checklist,subtasks]=await Promise.all([
+      allRows<ChecklistItemRow>((a,b)=>supabase.from("checklist_items").select("id,text,done,task_id,sort_order").in("task_id",ids).order("sort_order").order("id").range(a,b)),
+      allRows<SubtaskRow>((a,b)=>supabase.from("subtasks").select("id,title,status,checked,task_id,sort_order").in("task_id",ids).order("sort_order").order("id").range(a,b)),
+    ]);
+    allChecklist.push(...checklist);allSubtasks.push(...subtasks);
+  }
 
   const checklistByTask = new Map<string, { id: string; text: string; done: boolean }[]>();
   for (const c of (allChecklist ?? []) as ChecklistItemRow[]) {

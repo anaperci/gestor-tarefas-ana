@@ -6,16 +6,16 @@ export const usernameSchema = z
   .min(2)
   .max(40)
   .regex(/^[a-z0-9_.-]+$/i, "Username só pode conter letras, números, _ . -");
-export const nameSchema = z.string().min(1).max(100);
+export const nameSchema = z.string().trim().min(1).max(100);
 export const emojiSchema = z.string().max(8);
 export const colorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Cor deve estar em hex (#RRGGBB)");
-export const titleSchema = z.string().min(1).max(255);
+export const titleSchema = z.string().trim().min(1).max(255);
 export const longTextSchema = z.string().max(20_000);
-export const linkSchema = z.string().max(500).url().or(z.literal(""));
+export const linkSchema = z.string().max(500).url().refine(v => /^https?:\/\//i.test(v), "Use um link http ou https").or(z.literal(""));
 export const deadlineSchema = z
   .string()
   .max(20)
-  .refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Deadline deve estar em YYYY-MM-DD ou vazia");
+  .refine((v) => v === "" || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v), "Deadline deve estar em YYYY-MM-DD ou vazia");
 
 export const roleSchema = z.enum(["admin", "editor", "viewer"]);
 export const taskStatusSchema = z.enum(["backlog", "todo", "doing", "review", "done"]);
@@ -30,7 +30,7 @@ export const checklistItemSchema = z.object({
 
 export const subtaskSchema = z.object({
   id: z.string().optional(),
-  title: z.string().min(1).max(255),
+  title: z.string().trim().min(1).max(255),
   status: subtaskStatusSchema.optional(),
   checked: z.boolean().optional(),
 });

@@ -1,3 +1,4 @@
+import { assertSlideAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertContentAccess } from "@/lib/auth";
@@ -9,6 +10,7 @@ export const PUT = withErrorHandling(
     const { slideId } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertSlideAccess(user, slideId);
 
     const body = await parseJson(request, slideSchema);
     const updates: Record<string, unknown> = {};
@@ -30,6 +32,7 @@ export const DELETE = withErrorHandling(
     const { slideId } = await params;
     const user = await requireAuth(request);
     assertContentAccess(user);
+    await assertSlideAccess(user, slideId);
 
     const { error } = await supabase.from("content_slides").delete().eq("id", slideId);
     if (error) {

@@ -1,3 +1,4 @@
+import { assertWorkspaceAccess } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -48,15 +49,17 @@ export const GET = withErrorHandling(async (request) => {
   // Isolamento: não-admin só enxerga conteúdo dos workspaces de que é membro
   const accessibleWs = await getAccessibleWorkspaceIds(user);
   if (accessibleWs !== null) {
-    if (accessibleWs.length === 0) return NextResponse.json([]);
-    query = query.in("workspace_id", accessibleWs);
+    const workspaceClause = accessibleWs.length ? `workspace_id.in.(${accessibleWs.join(",")}),` : "";
+    query = query.or(`${workspaceClause}and(workspace_id.is.null,created_by.eq.${user.id})`);
   }
+  if (accessibleWs === null) query = query.or(`workspace_id.not.is.null,created_by.eq.${user.id}`);
   if (params.search) {
-    query = query.or(`title.ilike.%${params.search}%,body.ilike.%${params.search}%,hook.ilike.%${params.search}%`);
+    const term = params.search.replace(/[^\p{L}\p{N} _-]/gu, " ").trim();
+    query = query.or(`title.ilike.%${term}%,body.ilike.%${term}%,hook.ilike.%${term}%`);
   }
 
   const { data, error } = await query
-    .order("updated_at", { ascending: false })
+    .order("updated_at", { ascending: false }).order("id")
     .range(params.offset, params.offset + params.limit - 1);
 
   if (error) {
@@ -72,6 +75,7 @@ export const POST = withErrorHandling(async (request) => {
   assertContentAccess(user);
 
   const body = await parseJson(request, createContentSchema);
+  if (body.workspaceId) await assertWorkspaceAccess(user, body.workspaceId);
   const id = "content-" + genId();
 
   const { error } = await supabase.from("content_items").insert({

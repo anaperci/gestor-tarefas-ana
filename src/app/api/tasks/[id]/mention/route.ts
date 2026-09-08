@@ -29,12 +29,13 @@ export const POST = withErrorHandling(
     // Destinatário precisa existir e estar ativo
     const { data: target } = await supabase
       .from("users")
-      .select("id")
+      .select("id, role")
       .eq("id", userId)
       .is("deleted_at", null)
       .maybeSingle();
     if (!target) throw new ApiError("VALIDATION_ERROR", "Usuário mencionado inválido");
 
+    await assertTaskAccess({ ...actor, id: target.id, role: target.role }, id);
     const actorName = actor.name || actor.username || "Alguém";
     const taskTitle = task.title || "uma tarefa";
 

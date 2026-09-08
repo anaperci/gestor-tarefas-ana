@@ -1,10 +1,10 @@
+import { safeHtml } from "@/lib/html";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertEditorOrAdmin, AuthUser } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { audit } from "@/lib/audit";
-import { genId } from "@/lib/utils";
 import {
   checklistItemSchema,
   deadlineSchema,
@@ -22,6 +22,7 @@ import { enrichTask, TaskRow } from "@/lib/tasks";
 import { userCanAccessProject } from "@/lib/access";
 
 const updateTaskSchema = z.object({
+  expectedUpdatedAt: z.string().datetime({offset:true}).optional(),
   title: titleSchema.optional(),
   description: longTextSchema.optional(),
   status: taskStatusSchema.optional(),
@@ -88,11 +89,12 @@ export const PUT = withErrorHandling(
       }
     }
 
-    if (body.assignedTo !== undefined && body.assignedTo !== null && body.assignedTo !== task.assigned_to) {
+    const targetAssignee = body.assignedTo !== undefined ? body.assignedTo : task.assigned_to;
+    if (targetAssignee && (targetAssignee !== task.assigned_to || targetProjectId !== task.project_id)) {
       const { data: assignee } = await supabase
         .from("users")
         .select("id, username, name, role, avatar")
-        .eq("id", body.assignedTo)
+        .eq("id", targetAssignee)
         .is("deleted_at", null)
         .maybeSingle();
       if (!assignee) throw new ApiError("VALIDATION_ERROR", "Responsável inválido");
@@ -102,67 +104,17 @@ export const PUT = withErrorHandling(
       }
     }
 
-    const { error: updErr } = await supabase
-      .from("tasks")
-      .update({
-        title: body.title ?? task.title,
-        description: body.description ?? task.description,
-        status: body.status ?? task.status,
-        priority: body.priority ?? task.priority,
-        deadline: body.deadline ?? task.deadline,
-        start_date: body.startDate ?? task.start_date,
-        estimate_hours: body.estimateHours !== undefined ? body.estimateHours : task.estimate_hours,
-        tag_ids: body.tagIds ?? task.tag_ids,
-        project_id: targetProjectId,
-        group_id: targetGroupId,
-        assigned_to: body.assignedTo ?? task.assigned_to,
-        link: body.link ?? task.link,
-        checked: body.checked ?? task.checked,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (updErr) {
-      console.error("[tasks.PUT] update failed:", updErr);
-      throw new ApiError("INTERNAL_ERROR", "Falha ao atualizar tarefa");
-    }
-
-    if (Array.isArray(body.checklist)) {
-      await supabase.from("checklist_items").delete().eq("task_id", id);
-      if (body.checklist.length > 0) {
-        await supabase.from("checklist_items").insert(
-          body.checklist.map((item, i) => ({
-            id: item.id || "cl-" + genId(),
-            task_id: id,
-            text: item.text,
-            done: item.done ?? false,
-            sort_order: i,
-          }))
-        );
-      }
-    }
-
-    if (Array.isArray(body.subtasks)) {
-      await supabase.from("subtasks").delete().eq("task_id", id);
-      if (body.subtasks.length > 0) {
-        await supabase.from("subtasks").insert(
-          body.subtasks.map((st, i) => ({
-            id: st.id || "st-" + genId(),
-            task_id: id,
-            title: st.title,
-            status: st.status ?? "todo",
-            checked: st.checked ?? false,
-            sort_order: i,
-          }))
-        );
-      }
-    }
-
-    const { data: updated } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const columns: Record<string, string> = { title:"title", description:"description", status:"status", priority:"priority", deadline:"deadline", startDate:"start_date", estimateHours:"estimate_hours", tagIds:"tag_ids", projectId:"project_id", groupId:"group_id", assignedTo:"assigned_to", link:"link", checked:"checked" };
+    const patch: Record<string, unknown> = {};
+    for (const [key,value] of Object.entries(body)) if (columns[key]) patch[columns[key]]=value;
+    if (body.description !== undefined) patch.description=safeHtml(body.description);
+    if (targetGroupId !== task.group_id) patch.group_id=targetGroupId;
+    if (body.status !== undefined) patch.checked=body.status === "done";
+    else if (body.checked !== undefined) patch.status=body.checked ? "done" : "todo";
+    const { data: updated } = await supabase.rpc("save_task", {
+      p_id: id, p_patch: patch, p_expected: body.expectedUpdatedAt ?? null,
+      p_checklist: body.checklist ?? null, p_subtasks: body.subtasks ?? null,
+    });
 
     const enriched = await enrichTask(updated as TaskRow);
     return NextResponse.json(enriched);

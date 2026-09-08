@@ -1,0 +1,18 @@
+{
+  "scope": "Actual handlers; fake database and identity; confirms defects, not fixes",
+  "reproduced": [
+    "A01: export exposes a task to an unrelated editor",
+    "A02: task comments expose unrelated private conversation",
+    "A03: all task groups exposed without project filtering",
+    "A04: content slides editable outside actor workspace",
+    "A05: content transformation creates task in inaccessible project",
+    "A06: checklist lost and HTTP 200 returned after insert failure",
+    "A07: clearing assignee with null leaves old assignee",
+    "A08: failed task query returns successful empty list",
+    "A09: attachments access helper ignores project share restrictions",
+    "A10: dashboard exposes another user personal project",
+    "A11: weekly editor statistics include years-old tasks",
+    "A12: content created without workspace becomes inaccessible to its creator",
+    "A13: content list silently truncates at 50 items"
+  ]
+}

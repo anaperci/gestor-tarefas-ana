@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { FloatingCards } from "./floating-cards";
 
@@ -53,8 +54,8 @@ export function LoginHeroPanel() {
 
       {/* Logo top-left */}
       <div style={{ position: "relative", zIndex: 2 }}>
-        <img
-          src="/logos/clareza-lockup-cream.svg"
+        <Image unoptimized
+          src="/logos/clareza-lockup-cream.svg" width={220} height={44}
           alt="Clareza"
           style={{ height: 44, width: "auto", display: "block" }}
         />

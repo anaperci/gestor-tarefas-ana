@@ -1,4 +1,3 @@
-import { supabase } from "./supabase";
 import type { ContentComment, ContentItem, ContentSlide, ContentStatusEvent } from "./types";
 
 interface ContentRow {

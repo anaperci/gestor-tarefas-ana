@@ -1,3 +1,4 @@
+import { visibleProjectRows, allRows } from "@/lib/collections";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -24,13 +25,13 @@ interface GroupRow {
 
 /** Lista os grupos de todos os projetos — o filtro por projeto é feito no cliente. */
 export const GET = withErrorHandling(async (request) => {
-  await requireAuth(request);
+  const user = await requireAuth(request);
+  const projects = await visibleProjectRows(user.id);
+  if (!projects.length) return NextResponse.json([]);
 
-  const { data } = await supabase
-    .from("task_groups")
-    .select("id, project_id, name, color, position")
-    .is("deleted_at", null)
-    .order("position");
+  const data = await allRows<GroupRow>((a,b) => supabase.from("task_groups")
+    .select("id, project_id, name, color, position").in("project_id", projects.map(p=>p.id))
+    .is("deleted_at", null).order("position").order("id").range(a,b));
 
   const result = ((data ?? []) as GroupRow[]).map((g) => ({
     id: g.id,
@@ -108,15 +109,7 @@ export const PATCH = withErrorHandling(async (request) => {
   const hasAccess = await userCanAccessProject(user, projectId);
   if (!hasAccess) throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
 
-  await Promise.all(
-    ids.map((id, index) =>
-      supabase
-        .from("task_groups")
-        .update({ position: index, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("project_id", projectId)
-    )
-  );
+  await supabase.rpc("reorder_task_groups", { p_project_id: projectId, p_ids: ids });
 
   return NextResponse.json({ success: true });
 });

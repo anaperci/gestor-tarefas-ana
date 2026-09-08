@@ -1,14 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Mic, Square, Upload, X, Loader2, Trash2, Check, FileText, ListChecks } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Project, User } from "@/lib/types";
 
 type Stage = "idle" | "recording" | "processing" | "review";
 
-interface VTask { title: string; projectId: string; dueDate: string; priority: "low" | "medium" | "high" }
-interface VNote { title: string; body: string }
+interface VTask { key:string; title: string; projectId: string; dueDate: string; priority: "low" | "medium" | "high" }
+interface VNote { key:string; title: string; body: string }
 
 export function VoiceCapture({ projects, currentUser, onCreated, onToast }: {
   projects: Project[];
@@ -27,27 +27,41 @@ export function VoiceCapture({ projects, currentUser, onCreated, onToast }: {
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef=useRef<MediaStream|null>(null);
+  const generationRef=useRef(0);
+  const creatingRef=useRef(false);
+  const createdKeys=useRef(new Set<string>());
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const release = () => {
+    if(timerRef.current) clearInterval(timerRef.current);
+    const recorder=mediaRef.current;
+    if(recorder) {recorder.onstop=null;if(recorder.state!=="inactive") recorder.stop();}
+    streamRef.current?.getTracks().forEach(track=>track.stop());streamRef.current=null;mediaRef.current=null;
+  };
+  useEffect(()=>()=>{generationRef.current++;release();},[]);
   const reset = () => {
+    generationRef.current++;release();createdKeys.current.clear();
     setStage("idle"); setSeconds(0); setTasks([]); setNotes([]); setTranscription("");
     if (timerRef.current) clearInterval(timerRef.current);
   };
-  const close = () => { reset(); setOpen(false); };
+  const close = () => { if(creatingRef.current)return; reset(); setOpen(false); };
 
   const process = async (file: File) => {
+    const generation=++generationRef.current;
     setStage("processing");
     try {
       const r = await api.processVoiceNote(file);
+      if(generation!==generationRef.current)return;
       if (!r.transcription) { onToast("Não consegui entender o áudio", "error"); reset(); return; }
       setTranscription(r.transcription);
       setTasks(r.tasks.map((t) => ({
-        title: t.title,
+        key:crypto.randomUUID(),title: t.title,
         projectId: t.projectId || projects[0]?.id || "",
         dueDate: t.dueDate || "",
         priority: (t.priority || "medium") as VTask["priority"],
       })));
-      setNotes(r.notes.map((n) => ({ title: n.title, body: n.body })));
+      setNotes(r.notes.map((n) => ({ key:crypto.randomUUID(),title: n.title, body: n.body })));
       setStage("review");
     } catch (e) {
       onToast(e instanceof Error ? e.message : "Falha ao processar", "error");
@@ -57,14 +71,17 @@ export function VoiceCapture({ projects, currentUser, onCreated, onToast }: {
 
   const startRec = async () => {
     try {
+      const generation=++generationRef.current;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if(generation!==generationRef.current){stream.getTracks().forEach(t=>t.stop());return;}
+      streamRef.current=stream;
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        process(new File([blob], "nota.webm", { type: "audio/webm" }));
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        process(new File([blob], mr.mimeType.includes("mp4") ? "nota.m4a" : "nota.webm", { type: blob.type }));
       };
       mediaRef.current = mr;
       mr.start();
@@ -86,10 +103,13 @@ export function VoiceCapture({ projects, currentUser, onCreated, onToast }: {
   };
 
   const createAll = async () => {
+    if(creatingRef.current)return;
+    creatingRef.current=true;
     setSaving(true);
     let created = 0;
     try {
       for (const t of tasks) {
+        const key=`task:${t.key}`;if(createdKeys.current.has(key))continue;
         if (!t.title.trim() || !t.projectId) continue;
         await api.createTask({
           title: t.title.trim(),
@@ -99,19 +119,24 @@ export function VoiceCapture({ projects, currentUser, onCreated, onToast }: {
           assignedTo: currentUser.id,
           deadline: t.dueDate || undefined,
         });
+        createdKeys.current.add(key);
         created++;
       }
       for (const n of notes) {
+        const key=`note:${n.key}`;if(createdKeys.current.has(key))continue;
         if (!n.title.trim() && !n.body.trim()) continue;
         await api.createNote({ title: n.title.trim() || "Nota de voz", content: n.body });
+        createdKeys.current.add(key);
         created++;
       }
       onToast(`${created} ${created === 1 ? "item criado" : "itens criados"}`, "success");
       onCreated();
+      creatingRef.current=false;
       close();
     } catch (e) {
-      onToast(e instanceof Error ? e.message : "Falha ao criar", "error");
-    } finally { setSaving(false); }
+      onCreated();
+      onToast(`${e instanceof Error ? e.message : "Falha ao criar"}. ${createdKeys.current.size} item(ns) já salvo(s); tente novamente para concluir.`, "error");
+    } finally { creatingRef.current=false;setSaving(false); }
   };
 
   const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;

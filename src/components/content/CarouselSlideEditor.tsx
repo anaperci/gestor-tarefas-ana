@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, Trash2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { reportError } from "@/lib/ui-error";
+import { api, sessionKey } from "@/lib/api";
 import type { ContentSlide } from "@/lib/types";
 
 interface Props {
@@ -19,6 +20,7 @@ export function CarouselSlideEditor({ contentItemId, slides, onChange }: Props) 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize externally loaded data with the editable local view.
   useEffect(() => { setOrder(slides); }, [slides]);
 
   const onDragEnd = async (e: DragEndEvent) => {
@@ -29,8 +31,7 @@ export function CarouselSlideEditor({ contentItemId, slides, onChange }: Props) 
     if (oldIdx === -1 || newIdx === -1) return;
     const next = arrayMove(order, oldIdx, newIdx);
     setOrder(next);
-    await api.reorderContentSlides(next.map((s) => s.id));
-    onChange();
+    try { await api.reorderContentSlides(next.map((s) => s.id)); await onChange(); } catch(error){setOrder(order);reportError(error);}
   };
 
   const updateSlide = async (slideId: string, patch: Partial<Pick<ContentSlide, "title" | "body" | "notes">>) => {
@@ -39,14 +40,11 @@ export function CarouselSlideEditor({ contentItemId, slides, onChange }: Props) 
   };
 
   const addSlide = async () => {
-    await api.createContentSlide(contentItemId);
-    onChange();
+    try {await api.createContentSlide(contentItemId);await onChange();}catch(error){reportError(error);}
   };
 
   const removeSlide = async (slideId: string) => {
-    await api.deleteContentSlide(slideId);
-    setConfirmDeleteId(null);
-    onChange();
+    try {await api.deleteContentSlide(slideId);setConfirmDeleteId(null);await onChange();}catch(error){reportError(error);}
   };
 
   return (
@@ -117,16 +115,23 @@ function SortableSlide({
 }: {
   slide: ContentSlide;
   index: number;
-  onUpdate: (patch: Partial<Pick<ContentSlide, "title" | "body" | "notes">>) => void;
+  onUpdate: (patch: Partial<Pick<ContentSlide, "title" | "body" | "notes">>) => Promise<void>;
   onRemove: () => void;
 }) {
   // Campos controlados com auto-save. Antes eram `defaultValue` salvos só no
   // blur: trocar de ideia, arrastar o slide ou fechar a aba sem tirar o foco
   // jogava fora o que tinha sido escrito.
-  const [campos, setCampos] = useState({ title: slide.title, body: slide.body, notes: slide.notes });
+  const [owner] = useState(sessionKey);
+  const draftKey=`clareza-slide-draft:${owner}:${slide.id}`;
+  const [initial] = useState(()=>{
+    const fields={title:slide.title,body:slide.body,notes:slide.notes};
+    try {const raw=localStorage.getItem(draftKey);if(raw){const value=JSON.parse(raw);if(typeof value.title==="string"&&typeof value.body==="string"&&typeof value.notes==="string")return {fields:value as typeof fields,dirty:true};}}catch{/* Optional recovery. */}
+    return {fields,dirty:false};
+  });
+  const [campos, setCampos] = useState(initial.fields);
   const camposRef = useRef(campos);
-  camposRef.current = campos;
-  const sujoRef = useRef(false);
+  useLayoutEffect(()=>{camposRef.current=campos;});
+  const sujoRef = useRef(initial.dirty);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Só aceita a versão do servidor quando não há nada digitado pendente.
@@ -135,19 +140,25 @@ function SortableSlide({
     setCampos({ title: slide.title, body: slide.body, notes: slide.notes });
   }, [slide.title, slide.body, slide.notes]);
 
-  const salvar = useCallback(() => {
+  const savingRef=useRef(false);
+  const [saveError,setSaveError]=useState(false);
+  const salvarRef = useRef<()=>Promise<void>>(async()=>{});
+  const salvar = useCallback(async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
-    if (!sujoRef.current) return;
-    sujoRef.current = false;
-    onUpdate({ ...camposRef.current });
-  }, [onUpdate]);
+    if (!sujoRef.current || savingRef.current || owner!==sessionKey()) return;
+    const snapshot=camposRef.current;savingRef.current=true;
+    try {await onUpdate({...snapshot});sujoRef.current=camposRef.current!==snapshot;if(!sujoRef.current)localStorage.removeItem(draftKey);setSaveError(false);}
+    catch(error) {sujoRef.current=true;setSaveError(true);reportError(error);}
+    finally {savingRef.current=false;}
+    if(sujoRef.current && camposRef.current!==snapshot) timer.current=setTimeout(()=>void salvarRef.current(),800);
+  }, [onUpdate,owner,draftKey]);
 
-  const salvarRef = useRef(salvar);
-  salvarRef.current = salvar;
+  useLayoutEffect(()=>{salvarRef.current=salvar;});
 
   const setCampo = (campo: "title" | "body" | "notes", valor: string) => {
     sujoRef.current = true;
-    setCampos((prev) => ({ ...prev, [campo]: valor }));
+    const next={...camposRef.current,[campo]:valor};camposRef.current=next;setCampos(next);
+    localStorage.setItem(draftKey,JSON.stringify(next));
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => salvarRef.current(), 800);
   };
@@ -155,7 +166,7 @@ function SortableSlide({
   const salvarAgora = () => salvarRef.current();
 
   // Desmontar (trocar de ideia, excluir slide) não pode engolir o rascunho.
-  useEffect(() => () => salvarRef.current(), []);
+  useEffect(() => () => {void salvarRef.current();}, []);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
   const style: React.CSSProperties = {
@@ -173,6 +184,7 @@ function SortableSlide({
         <span {...attributes} {...listeners}
           style={{ cursor: "grab", color: "var(--text-muted)", padding: "4px 8px", fontSize: 18 }}
           title="Arrastar pra reordenar">⠿</span>
+        {saveError && <span role="alert">Salvamento pendente</span>}
         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>Slide {index + 1}</span>
         <button onClick={onRemove} aria-label="Excluir slide"
           style={{ marginLeft: "auto", background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, display: "flex" }}>

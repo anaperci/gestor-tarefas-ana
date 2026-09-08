@@ -16,6 +16,8 @@ export const PUT = withErrorHandling(
     const user = await requireAuth(request);
     assertAdmin(user);
 
+    if (id.startsWith("personal-")) throw new ApiError("FORBIDDEN", "Projetos pessoais não podem ser compartilhados.");
+
     const { sharedWith } = await parseJson(request, shareSchema);
 
     // Garante que projeto existe (e não está soft-deleted)
@@ -41,17 +43,7 @@ export const PUT = withErrorHandling(
       }
     }
 
-    await supabase.from("project_shares").delete().eq("project_id", id);
-
-    if (sharedWith.length > 0) {
-      const { error } = await supabase
-        .from("project_shares")
-        .insert(sharedWith.map((userId) => ({ project_id: id, user_id: userId })));
-      if (error) {
-        console.error("[projects.share.PUT] insert failed:", error);
-        throw new ApiError("INTERNAL_ERROR", "Falha ao salvar compartilhamentos");
-      }
-    }
+    await supabase.rpc("replace_project_shares", { p_id: id, p_ids: [...new Set(sharedWith)] });
 
     await audit({
       action: "project.share",

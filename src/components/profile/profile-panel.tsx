@@ -30,6 +30,7 @@ export function ProfilePanel({ open, user, onClose, onUserUpdated }: ProfilePane
   const [nameError, setNameError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize externally loaded data with the editable local view.
   useEffect(() => { if (open) { setName(user.name); setEditingName(false); setShowPasswordForm(false); setNameError(null); } }, [open, user.name]);
 
   useEffect(() => {

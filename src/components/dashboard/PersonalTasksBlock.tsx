@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, ListTodo, Pencil, Plus, Trash2 } from "lucide-react";
+import {reportError} from "@/lib/ui-error";
 import { api } from "@/lib/api";
 import type { PersonalTask } from "@/lib/types";
 import { BlockCard } from "./BlockCard";
@@ -31,7 +32,7 @@ export function PersonalTasksBlock({ delay }: PersonalTasksBlockProps) {
       const created = await api.addPersonalTask({ title });
       setTasks((prev) => [created, ...prev]);
       setDraft("");
-    } catch { /* silencioso — input mantém o texto */ }
+    } catch(error) {reportError(error);}
     finally { setAdding(false); }
   };
 

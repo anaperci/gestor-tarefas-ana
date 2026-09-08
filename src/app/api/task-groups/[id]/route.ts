@@ -74,16 +74,7 @@ export const DELETE = withErrorHandling(
       throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
     }
 
-    await supabase.from("tasks").update({ group_id: null }).eq("group_id", id);
-
-    const { error } = await supabase
-      .from("task_groups")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) {
-      console.error("[task-groups.DELETE] failed:", error);
-      throw new ApiError("INTERNAL_ERROR", "Falha ao excluir grupo");
-    }
+    await supabase.rpc("delete_task_group", { p_id: id });
 
     await audit({
       action: "task_group.delete",

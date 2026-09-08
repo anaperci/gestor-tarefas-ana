@@ -43,17 +43,7 @@ export const PUT = withErrorHandling(
       }
     }
 
-    await supabase.from("workspace_members").delete().eq("workspace_id", id);
-
-    if (finalMembers.length > 0) {
-      const { error } = await supabase
-        .from("workspace_members")
-        .insert(finalMembers.map((userId) => ({ workspace_id: id, user_id: userId })));
-      if (error) {
-        console.error("[workspaces.members.PUT] insert failed:", error);
-        throw new ApiError("INTERNAL_ERROR", "Falha ao salvar membros");
-      }
-    }
+    await supabase.rpc("replace_workspace_members", { p_id: id, p_ids: [...new Set(finalMembers)] });
 
     await audit({
       action: "workspace.members",

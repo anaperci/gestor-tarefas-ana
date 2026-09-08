@@ -1,3 +1,4 @@
+import { visibleProjectRows } from "@/lib/collections";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -14,35 +15,10 @@ const createProjectSchema = z.object({
   workspaceId: z.string().min(1).max(64).optional(),
 });
 
-interface ProjectRow {
-  id: string;
-  name: string;
-  color: string;
-  icon: string;
-  owner_id: string;
-  workspace_id: string | null;
-}
-
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
 
-  let projects: ProjectRow[];
-  if (user.role === "admin") {
-    const { data } = await supabase
-      .from("projects")
-      .select("id, name, color, icon, owner_id, workspace_id")
-      .is("deleted_at", null)
-      .order("created_at");
-    // Privacidade: o projeto "Pessoal" de cada um só aparece pro próprio dono,
-    // mesmo pra admin.
-    projects = ((data ?? []) as ProjectRow[]).filter(
-      (p) => !p.id.startsWith("personal-") || p.owner_id === user.id
-    );
-  } else {
-    // RPC já filtra deleted_at desde a sprint-1 SQL migration
-    const { data } = await supabase.rpc("get_user_projects", { p_user_id: user.id });
-    projects = (data ?? []) as ProjectRow[];
-  }
+  const projects = await visibleProjectRows(user.id);
 
   // FASE2.3a — eliminar N+1: 1 query agrega todos os shares, depois Map em memória
   const projectIds = projects.map((p) => p.id);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertEditorOrAdmin } from "@/lib/auth";
-import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
+import { parseJson, withErrorHandling } from "@/lib/api-error";
 import { audit } from "@/lib/audit";
 import { genId } from "@/lib/utils";
 import { colorSchema, emojiSchema, titleSchema } from "@/lib/validation";
@@ -86,20 +86,7 @@ export const POST = withErrorHandling(async (request) => {
   const finalColor = color || "#15708C";
   const finalIcon = icon || "🗂️";
 
-  const { error } = await supabase.from("workspaces").insert({
-    id,
-    name,
-    color: finalColor,
-    icon: finalIcon,
-    owner_id: user.id,
-  });
-  if (error) {
-    console.error("[workspaces.POST] failed:", error);
-    throw new ApiError("INTERNAL_ERROR", "Falha ao criar workspace");
-  }
-
-  // O criador (gestor) já entra como membro
-  await supabase.from("workspace_members").insert({ workspace_id: id, user_id: user.id });
+  await supabase.rpc("create_workspace",{p_id:id,p_name:name,p_color:finalColor,p_icon:finalIcon,p_owner:user.id});
 
   await audit({
     action: "workspace.create",

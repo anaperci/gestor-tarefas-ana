@@ -80,7 +80,7 @@ export const DELETE = withErrorHandling(
     // Soft delete preserva histórico de check
     const { error } = await supabase
       .from("routine_items")
-      .update({ active: false })
+      .update({ active: false, deleted_at: new Date().toISOString() })
       .eq("id", id);
 
     if (error) {

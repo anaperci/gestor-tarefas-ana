@@ -1,4 +1,5 @@
 "use client";
+import { civilDate, isOverdueDate } from "@/lib/dates";
 
 import { CSSProperties, useMemo } from "react";
 import {
@@ -81,7 +82,7 @@ export function KanbanBoard({
     }
 
     if (targetStatus && targetStatus !== task.status) {
-      onUpdate({ ...task, status: targetStatus });
+      if(canEdit) onUpdate({ ...task, status: targetStatus, checked: targetStatus==="done" });
     }
   };
 
@@ -254,7 +255,7 @@ function CardBody({
   dragging?: boolean;
 }) {
   const taskTags = (task.tagIds || []).map((id) => tagsById.get(id)).filter((t): t is Tag => !!t);
-  const overdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "done";
+  const overdue = task.deadline && isOverdueDate(task.deadline, task.status) && task.status !== "done";
   const priority = PRIORITY_LABELS[task.priority];
 
   return (
@@ -363,7 +364,7 @@ function CardBody({
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
+  const d = civilDate(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }

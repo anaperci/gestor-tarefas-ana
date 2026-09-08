@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo } from "react";
 import { createAvatar, type Style } from "@dicebear/core";
 import { adventurer, notionists, personas, avataaars } from "@dicebear/collection";
@@ -102,7 +103,7 @@ export function UserAvatar({ avatar, name, size = 32, background, className }: U
   }
 
   return (
-    <img
+    <Image unoptimized
       src={dataUri ?? ""}
       alt={name}
       title={name}

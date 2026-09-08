@@ -1,3 +1,5 @@
+import { visibleTaskRows } from "@/lib/collections";
+import { safeHtml } from "@/lib/html";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -36,23 +38,7 @@ const createTaskSchema = z.object({
 export const GET = withErrorHandling(async (request) => {
   const user = await requireAuth(request);
 
-  let tasks: TaskRow[];
-  if (user.role === "admin") {
-    const { data } = await supabase
-      .from("tasks")
-      .select("*")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
-    // Privacidade: tarefas em projetos "Pessoal" de OUTROS usuários não
-    // aparecem pra admin (o dono é derivado do id `personal-<userId>`).
-    tasks = ((data ?? []) as TaskRow[]).filter(
-      (t) => !t.project_id?.startsWith("personal-") || t.project_id === `personal-${user.id}`
-    );
-  } else {
-    // RPC já filtra deleted_at desde a sprint-1 SQL migration
-    const { data } = await supabase.rpc("get_user_tasks", { p_user_id: user.id });
-    tasks = (data ?? []) as TaskRow[];
-  }
+  const tasks = await visibleTaskRows(user.id);
 
   // FASE2.3b — eliminar N+1: 2 queries em batch (checklist + subtasks)
   // mesmo com 200 tasks, são apenas 3 queries totais
@@ -102,7 +88,7 @@ export const POST = withErrorHandling(async (request) => {
   const { error } = await supabase.from("tasks").insert({
     id,
     title: body.title,
-    description: body.description ?? "",
+    description: safeHtml(body.description ?? ""),
     status: body.status ?? "todo",
     priority: body.priority ?? "medium",
     deadline: body.deadline ?? "",
@@ -114,7 +100,7 @@ export const POST = withErrorHandling(async (request) => {
     assigned_to: finalAssignee,
     created_by: user.id,
     link: body.link ?? "",
-    checked: false,
+    checked: body.status === "done",
   });
 
   if (error) {

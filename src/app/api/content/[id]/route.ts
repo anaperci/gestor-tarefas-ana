@@ -1,24 +1,11 @@
+import { assertContentItemAccess, assertWorkspaceAccess, userCanAccessProject } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { requireAuth, assertContentAccess, getAccessibleWorkspaceIds, type AuthUser } from "@/lib/auth";
+import { requireAuth, assertContentAccess } from "@/lib/auth";
 import { ApiError, parseJson, withErrorHandling } from "@/lib/api-error";
 import { genId } from "@/lib/utils";
 import { updateContentSchema } from "@/lib/content-schemas";
 import { rowToItem, payloadToDbColumns, type ContentRow } from "@/lib/content";
-
-/** Não-admin só acessa item de workspace de que é membro. */
-async function assertContentItemAccess(user: AuthUser, itemId: string) {
-  const accessibleWs = await getAccessibleWorkspaceIds(user);
-  if (accessibleWs === null) return; // admin
-  const { data: it } = await supabase
-    .from("content_items")
-    .select("workspace_id")
-    .eq("id", itemId)
-    .maybeSingle();
-  if (!it || !it.workspace_id || !accessibleWs.includes(it.workspace_id)) {
-    throw new ApiError("FORBIDDEN", "Sem acesso a este conteúdo.");
-  }
-}
 
 export const GET = withErrorHandling(
   async (request, { params }: { params: Promise<{ id: string }> }) => {
@@ -55,6 +42,9 @@ export const PUT = withErrorHandling(
     if (!current) throw new ApiError("NOT_FOUND", "Conteúdo não encontrado");
 
     const body = await parseJson(request, updateContentSchema);
+    if (body.workspaceId) await assertWorkspaceAccess(user, body.workspaceId);
+    if (body.linkedProjectId && !(await userCanAccessProject(user, body.linkedProjectId))) throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
+    if (body.linkedTaskId) throw new ApiError("VALIDATION_ERROR", "Use a ação de vincular tarefa");
     const updates = payloadToDbColumns(body as Record<string, unknown>);
     updates.updated_at = new Date().toISOString();
     updates.last_edited_by = user.id;

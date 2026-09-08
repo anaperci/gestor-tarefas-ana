@@ -26,7 +26,7 @@ export function DashboardHeader({ data, onNewTask, canEdit }: DashboardHeaderPro
 
   let metricLabel: string | null = null;
   if (data.meta.role === "admin") metricLabel = "tarefas concluídas esta semana";
-  else if (data.meta.role === "editor") metricLabel = "minhas tarefas concluídas";
+  else if (data.meta.role === "editor") metricLabel = "minhas tarefas concluídas esta semana";
 
   return (
     <motion.section

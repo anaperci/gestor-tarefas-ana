@@ -20,7 +20,7 @@ export default function SetupPage() {
 
   useEffect(() => {
     fetch("/api/setup")
-      .then((r) => r.json() as Promise<SetupCheckResponse>)
+      .then((r) => { if (!r.ok) throw new Error("Falha ao verificar configuração"); return r.json() as Promise<SetupCheckResponse>; })
       .then((data) => {
         setSetupRequired(data.setupRequired);
         setChecking(false);
@@ -46,7 +46,8 @@ export default function SetupPage() {
       if (!res.ok) {
         throw new Error(data.error ?? "Falha ao criar administrador");
       }
-      localStorage.setItem("taskhub-token", data.token);
+      localStorage.removeItem("taskhub-token");
+      localStorage.setItem("clareza-session-id", data.user.id);
       router.replace("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro desconhecido");
