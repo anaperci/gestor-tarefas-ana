@@ -50,3 +50,11 @@ Grupos têm URLs próprias `/grupos/<id>`, com botão para copiar o link. Projet
 ## Limites
 
 Não há como recuperar datas de conclusão e alterações antigas de agenda que nunca foram registradas; as novas colunas e versões preservam eventos futuros. Mensagens Slack, processamento pago de áudio/IA e envio real de anexos não são disparados pela suíte. O projeto Supabase é compartilhado com outros sistemas; os avisos globais e objetos desses sistemas ficam fora desta alteração. Rascunhos ficam no navegador onde a edição foi feita; não substituem backup do banco.
+
+## Publicação
+
+Publicado em `https://tarefas.anapaulaperci.com.br` com a revisão funcional `7a4bc32`. Migração aplicada e registrada no Supabase. Código sincronizado no GitHub e na VPS; imagem anterior preservada para rollback.
+
+A checagem autenticada no container confirmou HTTP 200 em dez endpoints: sessão, projetos, tarefas, grupos, dashboard, workspaces, notas, rotina, histórico da rotina e conteúdo. A consulta anônima às tarefas respondeu 401; os projetos pessoais de terceiros não apareceram. A chamada de logout com a origem pública foi aceita. O banco confirmou zero divergências entre status e checked e ausência de privilégio de execução anônima no RPC de tarefas.
+
+A URL pública de saúde respondeu 200, e o Chrome abriu a tela de login pelo caminho de grupo sem erros de JavaScript. Exemplo de grupo existente: `/grupos/tg-rotina-criacao`.

@@ -129,10 +129,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   id            TEXT PRIMARY KEY,
   actor_id      TEXT REFERENCES users(id) ON DELETE SET NULL,
   actor_role    TEXT,
-  action        TEXT NOT NULL,            
-  resource      TEXT NOT NULL,            
+  action        TEXT NOT NULL,
+  resource      TEXT NOT NULL,
   resource_id   TEXT,
-  metadata      JSONB,                    
+  metadata      JSONB,
   ip            TEXT,
   user_agent    TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -270,11 +270,11 @@ CREATE INDEX IF NOT EXISTS asset_links_workspace_idx
 ALTER TABLE asset_links ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS notifications (
   id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES users(id),          
-  actor_id    TEXT REFERENCES users(id),                    
+  user_id     TEXT NOT NULL REFERENCES users(id),
+  actor_id    TEXT REFERENCES users(id),
   type        TEXT NOT NULL DEFAULT 'mention',
   task_id     TEXT REFERENCES tasks(id) ON DELETE CASCADE,
-  title       TEXT NOT NULL,                                
+  title       TEXT NOT NULL,
   read        BOOLEAN NOT NULL DEFAULT false,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -296,8 +296,8 @@ CREATE TABLE IF NOT EXISTS task_attachments (
   id            TEXT PRIMARY KEY,
   task_id       TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   uploaded_by   TEXT NOT NULL REFERENCES users(id),
-  file_name     TEXT NOT NULL,            
-  storage_path  TEXT NOT NULL,            
+  file_name     TEXT NOT NULL,
+  storage_path  TEXT NOT NULL,
   mime_type     TEXT,
   size_bytes    BIGINT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -309,8 +309,8 @@ CREATE TABLE IF NOT EXISTS meeting_transcriptions (
   id          TEXT PRIMARY KEY,
   user_id     TEXT NOT NULL REFERENCES users(id),
   title       TEXT NOT NULL,
-  content     TEXT NOT NULL,            
-  summary     TEXT,                     
+  content     TEXT NOT NULL,
+  summary     TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS meeting_transcriptions_user_idx

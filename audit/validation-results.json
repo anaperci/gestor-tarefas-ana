@@ -1,0 +1,70 @@
+{
+  "date": "2026-09-08",
+  "functionalCommit": "7a4bc32",
+  "lint": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "unitAndRoutes": {
+    "passed": 8
+  },
+  "browser": {
+    "passed": 8
+  },
+  "postgres": "migration/reapply/permissions/rollback/concurrency/atomic operations passed",
+  "build": "passed locally and Docker Node22",
+  "npmVulnerabilities": 0,
+  "production": {
+    "results": [
+      {
+        "path": "/api/auth/me",
+        "status": 200
+      },
+      {
+        "path": "/api/projects",
+        "status": 200,
+        "count": 8
+      },
+      {
+        "path": "/api/tasks",
+        "status": 200,
+        "count": 29
+      },
+      {
+        "path": "/api/task-groups",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "path": "/api/dashboard",
+        "status": 200
+      },
+      {
+        "path": "/api/workspaces",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "path": "/api/notes",
+        "status": 200,
+        "count": 0
+      },
+      {
+        "path": "/api/routines",
+        "status": 200
+      },
+      {
+        "path": "/api/routines/history",
+        "status": 200
+      },
+      {
+        "path": "/api/content?limit=1",
+        "status": 200,
+        "count": 1
+      }
+    ],
+    "anonymousStatus": 401,
+    "personalPrivacy": "passed",
+    "exampleGroup": "https://tarefas.anapaulaperci.com.br/grupos/tg-rotina-criacao"
+  }
+}

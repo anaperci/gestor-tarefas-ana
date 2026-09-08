@@ -10,9 +10,9 @@
   Running TypeScript ...
   Collecting page data using 10 workers ...
   Generating static pages using 10 workers (0/29) ...
-  Generating static pages using 10 workers (7/29) 
-  Generating static pages using 10 workers (14/29) 
-  Generating static pages using 10 workers (21/29) 
+  Generating static pages using 10 workers (7/29)
+  Generating static pages using 10 workers (14/29)
+  Generating static pages using 10 workers (21/29)
 ✓ Generating static pages using 10 workers (29/29) in 102.9ms
   Finalizing page optimization ...
 
@@ -80,4 +80,3 @@ Route (app)
 
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
-
