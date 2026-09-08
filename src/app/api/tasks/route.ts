@@ -120,6 +120,7 @@ export const POST = withErrorHandling(async (request) => {
     projectId: body.projectId,
     assignedTo: finalAssignee,
     autorNome: user.name || user.username,
+    groupId: body.groupId??null,
   });
 
   return NextResponse.json(enriched, { status: 201 });

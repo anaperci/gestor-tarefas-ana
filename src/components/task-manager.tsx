@@ -1,4 +1,5 @@
 "use client";
+import {SlackCreationSettings} from "./slack-creation-settings";
 import Link from "next/link";
 import Image from "next/image";
 import { safeClientHtml } from "@/lib/safe-html-client";
@@ -718,7 +719,7 @@ function AdminPanel({ users, projects, tags, workspaces, onUpdateUsers, onUpdate
           )}
 
           {tab === "slack" && (
-            <SlackChannels projects={projects} workspaces={workspaces} theme={theme} />
+            <><SlackCreationSettings /><SlackChannels projects={projects} workspaces={workspaces} theme={theme} /></>
           )}
         </div>
       </div>
@@ -1896,7 +1897,7 @@ function SlackChannels({ projects, workspaces, theme }: { projects: Project[]; w
   return (
     <div>
       <div style={{ fontSize: 12, color: theme.textMuted, marginBottom: 16, lineHeight: 1.6 }}>
-        Cada grupo avisa no seu canal quando uma tarefa é criada — manualmente ou por outro sistema, como o de copy.
+        Configurações adicionais por projeto. Os grupos Criação usam a conexão global acima.
         Pegue a URL em <strong>Slack → Apps → Incoming Webhooks → Add to Slack</strong>, escolhendo o canal.
         A URL fica só no servidor e não volta pra esta tela depois de salva.
       </div>
@@ -3497,7 +3498,7 @@ export default function TaskManager({ initialGroupId, initialProjectId }: { init
     const projectId = activeProject === "all" ? visibleProjects[0]?.id : activeProject;
     if (!projectId) { showToast("Nenhum projeto disponível. Peça ao admin para compartilhar um projeto com você."); return; }
     try {
-      const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, assignedTo: currentUser.id });
+      const nt = await api.createTask({ title: "Nova tarefa", status: "todo", priority: "medium", projectId, groupId:activeGroupId, assignedTo: currentUser.id });
       setTasks((prev) => { tasksRef.current=[nt,...prev]; return tasksRef.current; });
       setDetailTask(nt);
     } catch { showToast("Erro ao criar tarefa"); }

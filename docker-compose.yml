@@ -1,5 +1,6 @@
 services:
   app:
+    image: clareza-app
     build: .
     container_name: clareza-app
     restart: unless-stopped
@@ -7,3 +8,14 @@ services:
       - "127.0.0.1:3000:3000"
     env_file:
       - .env.production
+
+  slack-worker:
+    image: clareza-app
+    container_name: clareza-slack-worker
+    restart: unless-stopped
+    command: ["node", "scripts/slack-worker.mjs"]
+    environment:
+      SLACK_WORKER_SECRET: ${SLACK_WORKER_SECRET:-}
+      SLACK_INTERNAL_URL: http://app:3000
+    depends_on:
+      - app

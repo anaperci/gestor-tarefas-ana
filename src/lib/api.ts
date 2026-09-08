@@ -430,6 +430,10 @@ export interface SlackChannelConfig {
 }
 
 export const slackApi = {
+  creationConfig:()=>request<{configurado:boolean;canalNome:string;pending:number;failed:number;lastDeliveredAt:string|null}>("/slack-group-channels"),
+  saveCreation:(webhookUrl:string,canalNome:string)=>request("/slack-group-channels",{method:"PUT",body:JSON.stringify({webhookUrl,canalNome})}),
+  removeCreation:()=>request("/slack-group-channels",{method:"DELETE"}),
+  testCreation:()=>request("/slack-group-channels",{method:"POST"}),
   list: () => request<SlackChannelConfig[]>("/slack-channels"),
   save: (projectId: string, webhookUrl: string, canalNome?: string) =>
     request<{ success: boolean; configurado: boolean }>("/slack-channels", {

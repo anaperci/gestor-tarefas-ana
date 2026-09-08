@@ -78,3 +78,27 @@ test('corrupt optional preferences do not crash and mobile group links work',asy
  await page.setViewportSize({width:390,height:844});await fixture(page);await page.addInitScript(()=>localStorage.setItem('nexia-group-order','{broken'));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/grupos/test-group');await expect(page.getByText('Tarefa do grupo',{exact:true}).first()).toBeVisible();expect(errors).toEqual([]);
 });
+test('new task from a group URL preserves its group',async({page})=>{
+ const writes=await fixture(page);await page.goto('/grupos/test-group');
+ await page.getByRole('button',{name:'Nova Tarefa',exact:true}).click();
+ await expect.poll(()=>writes.find(w=>w.path==='/api/tasks')?.body.groupId).toBe('test-group');
+});
+test('Slack Creation has one global connection with an explicit test action',async({page})=>{
+ await fixture(page);let configured=false;let testsSent=0;let saved:Record<string,unknown>={};
+ await page.route('**/api/slack-group-channels',async route=>{
+  const method=route.request().method();
+  if(method==='PUT'){saved=route.request().postDataJSON();configured=true;}
+  if(method==='POST')testsSent++;
+  await route.fulfill({json:method==='GET'?{configurado:configured,canalNome:'criacao',pending:0,failed:0,lastDeliveredAt:null}:{success:true}});
+ });
+ await page.goto('/');await page.getByRole('button',{name:'Painel Admin',exact:true}).click();await page.getByRole('button',{name:'💬 Slack',exact:true}).click();
+ const section=page.getByRole('region',{name:'Slack do grupo Criação'});
+ await expect(section.getByText('Criação · todos os projetos',{exact:true})).toBeVisible();
+ await expect(section.getByRole('button',{name:'Enviar mensagem de teste'})).toBeDisabled();
+ await section.getByLabel('Webhook de Criação',{exact:true}).fill('https://hooks.slack.com/services/T_TEST/B_TEST/not-real');
+ await section.getByRole('button',{name:'Salvar conexão'}).click();
+ await expect.poll(()=>saved.webhookUrl).toBe('https://hooks.slack.com/services/T_TEST/B_TEST/not-real');
+ await expect(section.getByLabel('Webhook de Criação',{exact:true})).toHaveValue('');expect(testsSent).toBe(0);
+ await section.getByRole('button',{name:'Enviar mensagem de teste'}).click();await expect.poll(()=>testsSent).toBe(1);
+ await expect(section.getByRole('alert')).toHaveText('Mensagem de teste aceita pelo Slack.');
+});

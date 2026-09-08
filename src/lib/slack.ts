@@ -1,11 +1,7 @@
+import {isCreationGroup,sendSlack} from "./slack-delivery";
 import { supabase } from "./supabase";
 
-/**
- * Webhook do canal certo para o grupo. Incoming Webhook do Slack é por
- * canal, então cada grupo aponta pro seu (Criação, Edição, Tráfego,
- * Suporte...). Sem configuração para o grupo, cai no webhook geral do
- * ambiente; sem nenhum dos dois, nada é enviado.
- */
+/** Legacy project connections; Creation groups use the global durable outbox. */
 async function webhookDoProjeto(projectId: string): Promise<{ url: string; canal: string } | null> {
   const { data } = await supabase
     .from("slack_channels")
@@ -47,6 +43,7 @@ interface TarefaCriada {
   projectId: string;
   assignedTo: string | null;
   autorNome: string;
+  groupId?: string | null;
 }
 
 /**
@@ -60,6 +57,8 @@ export async function notificarTarefaCriada(t: TarefaCriada): Promise<void> {
   if (t.title.trim().toLowerCase() === "nova tarefa") return;
 
   try {
+    // Creation groups are delivered by the durable database outbox, never twice here.
+    if(t.groupId){const {data:g}=await supabase.from("task_groups").select("name").eq("id",t.groupId).maybeSingle();if(g&&isCreationGroup(g.name))return;}
     const webhook = await webhookDoProjeto(t.projectId);
     if (!webhook) return;
 
@@ -105,14 +104,8 @@ export async function notificarTarefaCriada(t: TarefaCriada): Promise<void> {
       ],
     };
 
-    const res = await fetch(webhook.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      console.error("[slack] webhook respondeu", res.status, await res.text().catch(() => ""));
-    }
+    const result=await sendSlack(webhook.url,payload);
+    if(!result.ok) console.error("[slack]",result.error);
   } catch (err) {
     console.error("[slack] falha ao notificar:", err);
   }

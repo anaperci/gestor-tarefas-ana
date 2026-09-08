@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/unit/*.test.ts",
-    "test:db": "tsx tests/database.ts",
+    "test:db": "tsx tests/database.ts && tsx tests/slack-database.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

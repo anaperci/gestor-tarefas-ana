@@ -1,3 +1,4 @@
+import {isCreationGroup} from "@/lib/slack-delivery";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth, assertEditorOrAdmin } from "@/lib/auth";
@@ -17,7 +18,7 @@ export const POST = withErrorHandling(
 
     const { data: task } = await supabase
       .from("tasks")
-      .select("id, title, priority, deadline, project_id, assigned_to")
+      .select("id, title, priority, deadline, project_id, group_id, assigned_to")
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -27,6 +28,15 @@ export const POST = withErrorHandling(
       throw new ApiError("FORBIDDEN", "Sem acesso ao projeto");
     }
 
+    if(task.group_id){
+      const {data:group}=await supabase.from("task_groups").select("name").eq("id",task.group_id).is("deleted_at",null).maybeSingle();
+      if(group&&isCreationGroup(group.name)){
+        const {data:config}=await supabase.from("slack_group_channels").select("group_key").eq("group_key","criacao").maybeSingle();
+        if(!config)throw new ApiError("VALIDATION_ERROR","Conecte o canal de Criação em Painel Admin → Slack.");
+        await supabase.rpc("queue_creation_slack",{p_task_id:id,p_force:true});
+        return NextResponse.json({success:true,queued:true});
+      }
+    }
     await notificarTarefaCriada({
       id: task.id,
       title: task.title,
